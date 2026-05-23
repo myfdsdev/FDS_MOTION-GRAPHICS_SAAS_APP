@@ -45,7 +45,7 @@ export function createApp() {
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
   // Serve rendered MP4s. helmet defaults CORP to same-origin, which would block
-  // the frontend (different port) from loading the <video>; relax it here.
+  // the frontend (different port) from loading the <video>, relax it here.
   app.use(
     "/videos",
     (_req, res, next) => {
