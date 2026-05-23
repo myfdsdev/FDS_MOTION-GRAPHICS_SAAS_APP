@@ -23,7 +23,7 @@ export function ProjectCard({ project }: { project: Project }) {
         <div className="absolute inset-0 flex items-center justify-center">
           {project.status === "DONE" ? (
             <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Play size={20} fill="white" className="text-white ml-0.5" />
+              <Play size={20} fill="white" className="text-fg ml-0.5" />
             </div>
           ) : (
             <div className="text-xs text-muted bg-black/40 backdrop-blur px-3 py-1.5 rounded-full">
@@ -34,7 +34,7 @@ export function ProjectCard({ project }: { project: Project }) {
         <div className="absolute top-2 right-2">
           <StatusBadge status={project.status} />
         </div>
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 text-xs text-white/80 bg-black/40 backdrop-blur px-2 py-1 rounded">
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 text-xs text-fg/80 bg-black/40 backdrop-blur px-2 py-1 rounded">
           <Clock size={10} />
           {project.durationSec}s
         </div>
@@ -42,7 +42,7 @@ export function ProjectCard({ project }: { project: Project }) {
 
       {/* Body */}
       <div className="p-4">
-        <div className="text-sm font-medium text-white line-clamp-2 leading-snug mb-2">
+        <div className="text-sm font-medium text-fg line-clamp-2 leading-snug mb-2">
           {project.prompt}
         </div>
         <div className="flex items-center justify-between text-xs text-muted">

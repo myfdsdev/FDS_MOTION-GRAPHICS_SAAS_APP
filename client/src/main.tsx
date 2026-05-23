@@ -5,7 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { router } from "./router";
 import { USE_MOCKS } from "./lib/api";
+import { applyTheme, getInitialTheme } from "./lib/theme";
 import "./styles/globals.css";
+
+// Apply the saved/preferred theme before first paint to avoid a flash.
+applyTheme(getInitialTheme());
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,13 +33,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <Toaster
-        theme="dark"
         position="bottom-right"
         toastOptions={{
           style: {
-            background: "#141414",
-            border: "1px solid #262626",
-            color: "white",
+            background: "rgb(var(--c-surface))",
+            border: "1px solid rgb(var(--c-border))",
+            color: "rgb(var(--c-fg))",
           },
         }}
       />

@@ -1,35 +1,41 @@
 import type { Config } from "tailwindcss";
 
+const ch = (v: string) => `rgb(var(${v}) / <alpha-value>)`;
+
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   darkMode: "class",
   theme: {
     extend: {
       colors: {
-        bg: "#0a0a0a",
-        surface: "#141414",
-        "surface-2": "#1f1f1f",
-        "surface-3": "#2a2a2a",
-        border: "#262626",
-        "border-soft": "#1d1d1d",
-        muted: "#9ca3af",
-        faint: "#6b7280",
+        bg: ch("--c-bg"),
+        "bg-deep": ch("--c-bg-deep"),
+        surface: ch("--c-surface"),
+        "surface-2": ch("--c-surface-2"),
+        "surface-3": ch("--c-surface-3"),
+        border: ch("--c-border"),
+        "border-soft": ch("--c-border-soft"),
+        fg: ch("--c-fg"),
+        muted: ch("--c-muted"),
+        faint: ch("--c-faint"),
         accent: {
-          DEFAULT: "#8b5cf6",
-          hover: "#7c3aed",
-          soft: "#a78bfa",
+          DEFAULT: ch("--c-accent"),
+          hover: ch("--c-accent-hover"),
+          soft: ch("--c-accent-soft"),
+          ink: ch("--c-accent-ink"),
         },
-        star: "#fbbf24",
-        success: "#10b981",
-        danger: "#ef4444",
-        warning: "#f59e0b",
+        star: ch("--c-star"),
+        success: ch("--c-success"),
+        danger: ch("--c-danger"),
+        warning: ch("--c-warning"),
       },
       fontFamily: {
         sans: ["Geist", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["Geist Mono", "ui-monospace", "monospace"],
+        serif: ['"Instrument Serif"', "ui-serif", "Georgia", "serif"],
+        mono: ['"Geist Mono"', "ui-monospace", "monospace"],
       },
       boxShadow: {
-        accent: "0 6px 22px -4px rgba(139, 92, 246, 0.35)",
+        accent: "0 6px 22px -4px rgb(var(--c-accent) / 0.4)",
         card: "0 24px 48px -20px rgba(0, 0, 0, 0.5)",
       },
       animation: {

@@ -67,7 +67,7 @@ export default function LoginPage() {
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent-soft">
                 Creator workspace
               </p>
-              <h1 className="text-3xl font-bold tracking-normal text-white">
+              <h1 className="text-3xl font-bold tracking-normal text-fg">
                 Welcome back
               </h1>
               <p className="mt-2 text-sm leading-6 text-muted">

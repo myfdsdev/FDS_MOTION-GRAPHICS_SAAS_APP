@@ -9,13 +9,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-accent text-white hover:bg-accent-hover shadow-accent",
+          "bg-accent text-accent-ink hover:bg-accent-hover shadow-accent",
         secondary:
-          "bg-surface-2 text-white border border-border hover:bg-surface-3 hover:border-neutral-700",
+          "bg-surface-2 text-fg border border-border hover:bg-surface-3",
         ghost:
-          "text-white hover:bg-surface-2",
+          "text-fg hover:bg-surface-2",
         outline:
-          "border border-border bg-transparent hover:bg-surface-2",
+          "border border-border bg-transparent text-fg hover:bg-surface-2",
         danger:
           "bg-danger text-white hover:bg-red-600",
         link:

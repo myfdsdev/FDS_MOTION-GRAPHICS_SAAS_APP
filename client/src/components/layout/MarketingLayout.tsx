@@ -25,7 +25,7 @@ export default function MarketingLayout() {
                   asChild
                   variant="outline"
                   size="sm"
-                  className="border-border bg-surface text-white hover:bg-surface-2"
+                  className="border-border bg-surface text-fg hover:bg-surface-2"
                 >
                   <Link to="/login">Login</Link>
                 </Button>

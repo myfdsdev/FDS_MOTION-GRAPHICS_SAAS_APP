@@ -87,7 +87,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       {greeting && (
         <div className="flex items-center justify-center gap-3 mb-7">
           <Sparkles size={26} className="text-accent shrink-0" />
-          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-white/90">
+          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-fg/90">
             {greeting}
           </h1>
         </div>
@@ -102,7 +102,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
           minRows={2}
           maxRows={12}
           autoFocus
-          className="w-full bg-transparent border-0 outline-none text-white placeholder:text-faint px-1.5 py-2 text-[15px] resize-none scrollbar-thin"
+          className="w-full bg-transparent border-0 outline-none text-fg placeholder:text-faint px-1.5 py-2 text-[15px] resize-none scrollbar-thin"
         />
 
         {/* Bottom toolbar */}
@@ -128,7 +128,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
                   ? fileInput.current?.click()
                   : toast("Attachments are available on the Create page")
               }
-              className="w-9 h-9 rounded-full flex items-center justify-center text-muted hover:text-white hover:bg-surface-2 transition-colors"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
               aria-label="Add attachment"
               title="Add image"
             >
@@ -142,7 +142,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
               type="button"
               onClick={handleEnhance}
               disabled={enhance.isPending}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-white hover:bg-surface-2 transition-colors disabled:opacity-50"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors disabled:opacity-50"
               aria-label="Enhance prompt"
               title="Enhance prompt"
             >
@@ -153,7 +153,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted hover:text-white hover:bg-surface-2 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted hover:text-fg hover:bg-surface-2 transition-colors"
                 >
                   {model.name}
                   {model.beta && (
@@ -191,7 +191,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
 
             <button
               type="button"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-white hover:bg-surface-2 transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
               aria-label="Voice input"
               title="Voice input"
             >
@@ -203,7 +203,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
                 type="button"
                 onClick={handleCreate}
                 disabled={!canSubmit}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-accent hover:bg-accent-hover text-white transition-colors shadow-accent active:translate-y-px"
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-accent hover:bg-accent-hover text-accent-ink transition-colors shadow-accent active:translate-y-px"
                 aria-label="Create video"
                 title="Create video"
               >

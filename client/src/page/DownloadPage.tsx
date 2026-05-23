@@ -59,7 +59,7 @@ export default function DownloadPage() {
     <div className="p-8 max-w-3xl mx-auto">
       <Link
         to={`/projects/${id}`}
-        className="inline-flex items-center gap-2 text-sm text-muted hover:text-white mb-6 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg mb-6 transition-colors"
       >
         <ArrowLeft size={14} />
         Back to project

@@ -66,8 +66,8 @@ export default function ProjectListPage() {
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                 filter === f.value
-                  ? "bg-surface-3 text-white"
-                  : "text-muted hover:text-white"
+                  ? "bg-surface-3 text-fg"
+                  : "text-muted hover:text-fg"
               )}
             >
               {f.label}

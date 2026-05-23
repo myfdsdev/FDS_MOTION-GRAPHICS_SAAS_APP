@@ -3,28 +3,134 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─────────────────────────────────────────────────────────────
+     THEME TOKENS — RE-MOTION palette (dark blue-gray + lime accent)
+     Tailwind colors read the channel triples via rgb(var()/<alpha>),
+     and the landing reads the oklch/hex vars directly. Both flip on
+     `html.light`.
+     ───────────────────────────────────────────────────────────── */
   :root {
-    /* shadcn variables (mapped to our dark palette) */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 100%;
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 64%;
-    --accent: 262 83% 58%;
-    --accent-foreground: 0 0% 100%;
+    /* Tailwind channel tokens (R G B) */
+    --c-bg: 20 22 28;
+    --c-bg-deep: 13 15 19;
+    --c-surface: 28 31 39;
+    --c-surface-2: 36 40 49;
+    --c-surface-3: 45 49 60;
+    --c-border: 42 47 57;
+    --c-border-soft: 31 35 43;
+    --c-fg: 242 243 239;
+    --c-muted: 164 171 182;
+    --c-faint: 110 118 130;
+    --c-accent: 214 245 74;
+    --c-accent-hover: 196 230 53;
+    --c-accent-soft: 200 232 90;
+    --c-accent-ink: 34 43 14;
+    --c-star: 251 191 36;
+    --c-success: 16 185 129;
+    --c-danger: 239 68 68;
+    --c-warning: 245 158 11;
+
+    /* Landing tokens (used directly by the marketing page) */
+    --bg:        oklch(0.155 0.012 260);
+    --bg-2:      oklch(0.185 0.012 260);
+    --bg-deep:   oklch(0.115 0.012 260);
+    --surface:   oklch(0.205 0.012 260 / 0.62);
+    --surface-2: oklch(0.235 0.013 260 / 0.78);
+    --surface-3: oklch(0.265 0.013 260 / 0.9);
+    --line:      oklch(1 0 0 / 0.07);
+    --line-2:    oklch(1 0 0 / 0.12);
+    --line-3:    oklch(1 0 0 / 0.18);
+    --text:      oklch(0.97 0.005 90);
+    --muted:     oklch(0.72 0.012 260);
+    --dim:       oklch(0.55 0.012 260);
+    --faint:     oklch(0.40 0.012 260);
+    --accent:    #d6f54a;
+    --accent-ink: oklch(0.22 0.05 130);
+    --accent-04: #d6f54a0a;
+    --accent-12: #d6f54a1f;
+    --accent-15: #d6f54a26;
+    --accent-35: #d6f54a59;
+    --accent-40: #d6f54a66;
+    --accent-50: #d6f54a80;
+    --accent-55: #d6f54a8c;
+    --info:      oklch(0.78 0.15 230);
+    --warn:      oklch(0.82 0.16 70);
+    --plum:      oklch(0.65 0.18 320);
+    --teal:      oklch(0.78 0.12 195);
+
+    /* shadcn/ui (HSL) — dark */
+    --background: 222 16% 9%;
+    --foreground: 80 8% 95%;
+    --card: 222 14% 12%;
+    --card-foreground: 80 8% 95%;
+    --popover: 222 14% 12%;
+    --popover-foreground: 80 8% 95%;
+    --primary: 74 89% 63%;
+    --primary-foreground: 90 60% 11%;
+    --secondary: 222 12% 18%;
+    --secondary-foreground: 80 8% 95%;
+    --muted: 222 12% 18%;
+    --muted-foreground: 220 9% 64%;
+    --accent-ui: 222 12% 18%;
+    --accent-foreground: 80 8% 95%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 15%;
-    --input: 0 0% 12%;
-    --ring: 262 83% 58%;
+    --border: 222 12% 22%;
+    --input: 222 12% 18%;
+    --ring: 74 89% 63%;
     --radius: 0.5rem;
+  }
+
+  html.light {
+    --c-bg: 247 248 243;
+    --c-bg-deep: 236 238 230;
+    --c-surface: 255 255 255;
+    --c-surface-2: 240 242 234;
+    --c-surface-3: 230 232 223;
+    --c-border: 221 224 212;
+    --c-border-soft: 231 233 224;
+    --c-fg: 24 27 20;
+    --c-muted: 86 92 77;
+    --c-faint: 136 143 124;
+    --c-accent: 214 245 74;
+    --c-accent-hover: 196 230 53;
+    --c-accent-soft: 95 125 12;
+    --c-accent-ink: 34 43 14;
+
+    --bg:        oklch(0.97 0.008 110);
+    --bg-2:      oklch(0.95 0.008 110);
+    --bg-deep:   oklch(0.93 0.008 110);
+    --surface:   oklch(1 0 0 / 0.85);
+    --surface-2: oklch(0.96 0.008 110 / 0.9);
+    --surface-3: oklch(0.93 0.01 110);
+    --line:      oklch(0.2 0.02 110 / 0.1);
+    --line-2:    oklch(0.2 0.02 110 / 0.16);
+    --line-3:    oklch(0.2 0.02 110 / 0.24);
+    --text:      oklch(0.22 0.02 120);
+    --muted:     oklch(0.42 0.02 120);
+    --dim:       oklch(0.55 0.02 120);
+    --faint:     oklch(0.66 0.02 120);
+    --accent-ink: oklch(0.22 0.05 130);
+
+    --background: 80 25% 96%;
+    --foreground: 90 18% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 90 18% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 90 18% 10%;
+    --primary: 74 89% 63%;
+    --primary-foreground: 90 60% 11%;
+    --secondary: 80 15% 92%;
+    --secondary-foreground: 90 18% 12%;
+    --muted: 80 15% 92%;
+    --muted-foreground: 95 10% 33%;
+    --accent-ui: 80 15% 90%;
+    --accent-foreground: 90 18% 12%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 80 12% 84%;
+    --input: 80 12% 84%;
+    --ring: 74 89% 63%;
   }
 
   * {
@@ -34,21 +140,10 @@
 
   html,
   body {
-    @apply bg-bg text-white;
-    font-family: "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
+    @apply bg-bg text-fg;
+    font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background:
-      radial-gradient(800px circle at 50% 30%, rgba(139, 92, 246, 0.06), transparent 60%),
-      radial-gradient(600px circle at 80% 80%, rgba(139, 92, 246, 0.03), transparent 60%);
-    pointer-events: none;
-    z-index: 0;
   }
 
   #root {
@@ -59,8 +154,47 @@
 }
 
 @layer utilities {
+  /* Hero glow + film grain — applied only inside the landing wrapper. */
+  .remotion-landing {
+    position: relative;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .remotion-landing::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 100vh;
+    background:
+      radial-gradient(60% 55% at 50% 35%, var(--accent-15), transparent 70%),
+      radial-gradient(40% 40% at 80% 10%, oklch(0.78 0.15 230 / 0.08), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .remotion-landing > * {
+    position: relative;
+    z-index: 2;
+  }
+  .remotion-landing ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .marquee-track {
+    animation: marquee 60s linear infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-55); }
+    50% { box-shadow: 0 0 0 6px transparent; }
+  }
+
   .text-gradient {
-    background: linear-gradient(180deg, #ffffff 0%, #b3b3b3 100%);
+    background: linear-gradient(180deg, rgb(var(--c-fg)) 0%, rgb(var(--c-muted)) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -74,10 +208,10 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #2a2a2a;
+    background: rgb(var(--c-surface-3));
     border-radius: 3px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #3a3a3a;
+    background: rgb(var(--c-faint));
   }
 }

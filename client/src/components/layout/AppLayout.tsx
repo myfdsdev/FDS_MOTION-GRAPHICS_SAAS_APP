@@ -67,8 +67,8 @@ export default function AppLayout() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   active
-                    ? "bg-surface-2 text-white"
-                    : "text-muted hover:text-white hover:bg-surface-2/60"
+                    ? "bg-surface-2 text-fg"
+                    : "text-muted hover:text-fg hover:bg-surface-2/60"
                 )}
               >
                 <Icon size={16} />
@@ -100,7 +100,7 @@ export default function AppLayout() {
             </div>
             <button
               onClick={handleLogout}
-              className="text-muted hover:text-white transition-colors"
+              className="text-muted hover:text-fg transition-colors"
               aria-label="Logout"
             >
               <LogOut size={15} />

@@ -228,7 +228,7 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
               Narration
             </button>
             <div className="w-px h-4 bg-border" />
-            <button className="px-2 py-2 text-muted hover:text-white">
+            <button className="px-2 py-2 text-muted hover:text-fg">
               <ChevronDown size={12} />
             </button>
           </div>
@@ -257,7 +257,7 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
           placeholder="A logo reveal for a SaaS launch, energetic music, modern motion graphics…"
           minRows={3}
           maxRows={10}
-          className="w-full bg-transparent border-0 outline-none text-white placeholder:text-faint px-1.5 py-3.5 text-sm resize-none scrollbar-thin"
+          className="w-full bg-transparent border-0 outline-none text-fg placeholder:text-faint px-1.5 py-3.5 text-sm resize-none scrollbar-thin"
         />
 
         {/* Action row */}
@@ -303,7 +303,7 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
           <button
             onClick={handleEnhance}
             disabled={enhance.isPending}
-            className="w-9 h-9 bg-surface-2 border border-border rounded-full flex items-center justify-center text-muted hover:text-white hover:bg-surface-3 transition-colors disabled:opacity-50"
+            className="w-9 h-9 bg-surface-2 border border-border rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-3 transition-colors disabled:opacity-50"
             aria-label="Enhance prompt"
             title="Enhance prompt"
           >
@@ -313,7 +313,7 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
           <button
             onClick={handleCreate}
             disabled={prompt.trim().length < 10 || isSubmitting}
-            className="bg-accent hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-lg text-xs font-bold tracking-widest uppercase transition-all shadow-accent active:translate-y-px"
+            className="bg-accent hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg px-5 py-2.5 rounded-lg text-xs font-bold tracking-widest uppercase transition-all shadow-accent active:translate-y-px"
           >
             {isSubmitting ? "Creating…" : "Create New Video"}
           </button>

@@ -67,7 +67,7 @@ export default function ProjectDetailPage() {
     <div className="p-8 max-w-5xl mx-auto">
       <Link
         to="/projects"
-        className="inline-flex items-center gap-2 text-sm text-muted hover:text-white mb-6 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg mb-6 transition-colors"
       >
         <ArrowLeft size={14} />
         All projects
@@ -131,7 +131,7 @@ export default function ProjectDetailPage() {
         ) : isDone ? (
           <div className="absolute inset-0 flex items-center justify-center group cursor-pointer">
             <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center group-hover:bg-white/15 transition-all">
-              <Play size={28} fill="white" className="text-white ml-1" />
+              <Play size={28} fill="white" className="text-fg ml-1" />
             </div>
           </div>
         ) : isFailed ? (
