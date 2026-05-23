@@ -13,6 +13,7 @@ import {
 import { useMe, useLogout } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -98,6 +99,7 @@ export default function AppLayout() {
               <div className="text-sm font-medium truncate">{me.name ?? "User"}</div>
               <div className="text-xs text-muted truncate">{me.email}</div>
             </div>
+            <ThemeToggle className="w-7 h-7" />
             <button
               onClick={handleLogout}
               className="text-muted hover:text-fg transition-colors"
