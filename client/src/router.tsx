@@ -1,5 +1,4 @@
 import { createBrowserRouter } from "react-router-dom";
-import MarketingLayout from "@/components/layout/MarketingLayout";
 import AppLayout from "@/components/layout/AppLayout";
 import LandingPage from "@/page/LandingPage";
 import LoginPage from "@/page/LoginPage";
@@ -16,8 +15,8 @@ import NotFoundPage from "@/page/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
-    element: <MarketingLayout />,
-    children: [{ path: "/", element: <LandingPage /> }],
+    path: "/",
+    element: <LandingPage />,
   },
   {
     path: "/login",
