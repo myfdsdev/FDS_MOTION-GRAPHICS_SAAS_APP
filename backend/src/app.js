@@ -18,9 +18,15 @@ import { stripeRouter, stripeWebhookHandler } from "./routes/stripe.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIDEOS_DIR = path.join(__dirname, "..", "public", "videos");
+const CLIENT_DIST = path.join(__dirname, "..", "..", "client", "dist");
+const IS_PROD = process.env.NODE_ENV === "production";
 
 export function createApp() {
   const app = express();
+
+  // Behind a PaaS/reverse-proxy TLS terminator — needed so secure cookies are
+  // set and req.protocol reflects https.
+  app.set("trust proxy", 1);
 
   // Stripe webhook needs the raw body, so mount it BEFORE express.json().
   app.post(
@@ -63,6 +69,24 @@ export function createApp() {
   app.use("/api/billing", billingRouter);
   app.use("/api/stripe", stripeRouter);
   app.use("/api/assets", assetsRouter);
+
+  // In production, serve the built frontend from the same origin so the session
+  // cookie works without cross-site config. In dev, Vite serves the frontend.
+  if (IS_PROD) {
+    app.use(express.static(CLIENT_DIST));
+    // SPA fallback for client-side routes (anything that isn't an API/asset).
+    app.get("*", (req, res, next) => {
+      if (
+        req.method !== "GET" ||
+        req.path.startsWith("/api") ||
+        req.path.startsWith("/videos") ||
+        req.path === "/health"
+      ) {
+        return next();
+      }
+      res.sendFile(path.join(CLIENT_DIST, "index.html"));
+    });
+  }
 
   app.use(errorHandler);
 

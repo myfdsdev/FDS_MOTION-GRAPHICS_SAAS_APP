@@ -1,0 +1,67 @@
+# Render blueprint — one web service (API + built frontend, same origin) and
+# one worker service (Remotion rendering). Deploy: push to GitHub, then
+# "New > Blueprint" in Render and point it at this file.
+#
+# After first deploy, set the secret env vars in each service's dashboard:
+#   MONGODB_URI, SESSION_SECRET, API_KEY_ENCRYPTION_SECRET, GEMINI_API_KEY
+#   (and OPENAI_API_KEY / STRIPE_* if used). Then set WEB_ORIGIN + PUBLIC_BASE_URL
+#   to the web service's https URL.
+#
+# NOTE: rendered MP4s are written to local disk and are EPHEMERAL on Render.
+# For durable storage, move them to S3/R2 (see DEPLOY.md). A paid persistent
+# disk is an alternative for the worker.
+
+services:
+  - type: web
+    name: remotion-web
+    runtime: node
+    plan: starter
+    buildCommand: "cd client && npm ci && npm run build && cd ../backend && npm ci"
+    startCommand: "cd backend && node server.js"
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: USE_MEMORY_DB
+        value: "false"
+      - key: SESSION_COOKIE_NAME
+        value: avs_session
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      # Set these in the dashboard (mark as secret):
+      - key: MONGODB_URI
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: API_KEY_ENCRYPTION_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false        # https://remotion-web.onrender.com
+      - key: PUBLIC_BASE_URL
+        sync: false        # same https URL
+
+  - type: worker
+    name: remotion-worker
+    runtime: docker
+    plan: standard          # rendering is CPU/RAM heavy
+    dockerfilePath: ./backend/Dockerfile.worker
+    dockerContext: ./backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_MEMORY_DB
+        value: "false"
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: MONGODB_URI
+        sync: false
+      - key: API_KEY_ENCRYPTION_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false

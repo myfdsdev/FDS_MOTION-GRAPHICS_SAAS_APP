@@ -1,0 +1,51 @@
+# ───────────────────────── Dependencies ─────────────────────────
+node_modules/
+.pnp
+.pnp.js
+.pnp.cjs
+
+# ───────────────────────── Env / secrets ────────────────────────
+# Never commit real secrets (Mongo URI, API keys). Commit .env.example only.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ───────────────────────── Build output ─────────────────────────
+dist/
+dist-ssr/
+build/
+out/
+.vite/
+.turbo/
+*.tsbuildinfo
+
+# ───────────────────────── Backend artifacts ────────────────────
+# Rendered MP4s (worker output) and any local upload cache.
+backend/public/videos/*.mp4
+backend/public/videos/*.webm
+backend/uploads/
+# In-memory MongoDB binary cache (mongodb-memory-server)
+.cache/
+.mongo-memory/
+
+# ───────────────────────── Logs ─────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# ───────────────────────── Editor / OS ──────────────────────────
+.DS_Store
+Thumbs.db
+*.local
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ───────────────────────── Misc ─────────────────────────────────
+coverage/
+*.tmp
