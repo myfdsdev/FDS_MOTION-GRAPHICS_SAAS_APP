@@ -1,14 +1,22 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Play, Clock } from "lucide-react";
 import type { Project } from "@/types";
 import { StatusBadge } from "./StatusBadge";
 import { formatRelativeTime } from "@/lib/utils";
 
+const MotionLink = motion(Link);
+
 export function ProjectCard({ project }: { project: Project }) {
   return (
-    <Link
+    <MotionLink
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.4 }}
+      whileHover={{ y: -4 }}
       to={`/projects/${project.id}`}
-      className="group block rounded-xl border border-border bg-surface overflow-hidden hover:border-neutral-700 transition-colors"
+      className="group block rounded-xl border border-border bg-surface overflow-hidden hover:border-accent/40 transition-colors"
     >
       {/* Thumbnail */}
       <div
@@ -16,7 +24,7 @@ export function ProjectCard({ project }: { project: Project }) {
         style={{
           backgroundImage: project.thumbnailUrl
             ? `url(${project.thumbnailUrl})`
-            : `linear-gradient(135deg, #1f1f1f 0%, #2a1f3d 100%)`,
+            : `linear-gradient(135deg, oklch(0.30 0.08 290) 0%, oklch(0.15 0.06 290) 100%)`,
           backgroundSize: "cover",
         }}
       >
@@ -50,6 +58,6 @@ export function ProjectCard({ project }: { project: Project }) {
           <span>{formatRelativeTime(project.createdAt)}</span>
         </div>
       </div>
-    </Link>
+    </MotionLink>
   );
 }

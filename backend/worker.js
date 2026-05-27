@@ -7,6 +7,7 @@ import { ensureBrowser, renderMedia, selectComposition } from "@remotion/rendere
 import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";
+import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIDEOS_DIR = path.join(__dirname, "public", "videos");
@@ -72,14 +73,18 @@ async function renderProject(serveUrl, project) {
       },
     });
 
+    // Prefer object storage (works across split services + survives restarts).
+    // Falls back to the local /videos URL when storage isn't configured (dev).
+    let outputUrl = `${PUBLIC_BASE}/videos/${id}.mp4`;
+    if (isStorageConfigured()) {
+      outputUrl = await uploadFile(outPath, `videos/${id}.mp4`, "video/mp4");
+      await fs.promises.rm(outPath, { force: true }).catch(() => {});
+      console.log(`[worker] uploaded ${id} → ${outputUrl}`);
+    }
+
     await Project.updateOne(
       { _id: id },
-      {
-        status: "DONE",
-        progress: 100,
-        outputUrl: `${PUBLIC_BASE}/videos/${id}.mp4`,
-        errorMessage: null,
-      }
+      { status: "DONE", progress: 100, outputUrl, errorMessage: null }
     );
     console.log(`[worker] ✓ done ${id}`);
   } catch (err) {

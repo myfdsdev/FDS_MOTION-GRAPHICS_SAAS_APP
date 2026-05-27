@@ -38,10 +38,42 @@ The worker needs `MONGODB_URI`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `API_KEY_ENCRY
 - **web:** build `cd client && npm ci && npm run build && cd ../backend && npm ci`; start `node backend/server.js`. Health check `/health`.
 - **worker:** deploy `backend/Dockerfile.worker` (Fly: `fly launch` in `backend/` with that Dockerfile; Railway: set the service's Dockerfile path).
 
-## ⚠️ Video storage — required for playback in prod
-The worker writes MP4s to **its own local disk** and `outputUrl` points at the **web** service. With separate web/worker services these are **different disks**, so the web service returns **404** for `/videos/<id>.mp4`. Also, PaaS disks are **ephemeral** (wiped on redeploy).
+## Video storage — Cloudflare R2 (required for playback in prod)
+The worker uploads each rendered MP4 to object storage and sets `outputUrl` to
+the public object URL (the frontend `<video>` loads it directly). Without
+storage configured it falls back to a local `/videos/...` URL that won't be
+reachable across split services — so **configure R2 for production**.
 
-**Fix before launch:** store renders in **S3 / Cloudflare R2** and have the worker upload there, setting `outputUrl` to the object URL (this also makes `/api/assets/presign` real). The single-VM alternative (run web+worker on one box with a shared/persistent disk, e.g. a Fly volume) avoids this but doesn't scale. Ask and I'll wire S3/R2.
+**Create the bucket + keys (Cloudflare dashboard):**
+1. **R2 → Create bucket**, e.g. `remotion-videos`.
+2. Bucket **Settings → Public access → enable the r2.dev Public Development
+   URL** (gives `https://pub-<hash>.r2.dev`), or attach a custom domain →
+   this is `S3_PUBLIC_URL`.
+3. **R2 → Manage API Tokens → Create API token**, permission **Object Read &
+   Write** → copy the **Access Key ID**, **Secret Access Key**, and the
+   **S3 API endpoint** `https://<accountid>.r2.cloudflarestorage.com`.
+
+**Set on the worker service:**
+```
+S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_BUCKET=remotion-videos
+S3_ACCESS_KEY=<access key id>
+S3_SECRET_KEY=<secret access key>
+S3_PUBLIC_URL=https://pub-<hash>.r2.dev
+```
+If the browser logs a CORS error on the `<video>`, add a bucket CORS rule
+allowing `GET` from the client origin (plain playback usually needs none).
+
+## Deploy the render worker (second service)
+Render → **New → Background Worker** (or the `render.yaml` blueprint's `worker`):
+- Runtime **Docker**, dockerfile `backend/Dockerfile.worker`, context `backend`.
+- Plan **Standard** (rendering is CPU/RAM heavy).
+- Env: `NODE_ENV=production`, `USE_MEMORY_DB=false`, `MONGODB_URI`,
+  `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-2.5-flash`,
+  `API_KEY_ENCRYPTION_SECRET`, and the six `S3_*` vars above.
+
+Without the worker, projects stay at `QUEUED` (no MP4 is produced).
 
 ## Still simulated / not production-grade
 - **Stripe checkout is faked** (`/api/stripe/checkout` just grants credits). Wire real Stripe + verify the webhook before charging.
@@ -51,4 +83,5 @@ The worker writes MP4s to **its own local disk** and `outputUrl` points at the *
 ## Smoke test after deploy
 1. `GET https://<web>/health` → `{"ok":true}`
 2. Open the site, register, reload — you stay logged in (cookie over HTTPS).
-3. Create a video → status reaches DONE. If the `<video>` 404s, that's the storage caveat above.
+3. Create a video → status reaches DONE and the `<video>` plays from the R2
+   URL (`outputUrl` should be `https://pub-<hash>.r2.dev/videos/<id>.mp4`).
