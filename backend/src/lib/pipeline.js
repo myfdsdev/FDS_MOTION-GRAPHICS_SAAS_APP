@@ -1,5 +1,10 @@
 import { Project, User } from "../models.js";
 import { VideoPlanSchema } from "../schemas.js";
+import {
+  recordApiUsage,
+  usageFromGemini,
+  usageFromOpenAI,
+} from "./apiUsage.js";
 import { costForDuration, refundCredits } from "./credits.js";
 import { decryptSecret } from "./secrets.js";
 
@@ -121,6 +126,7 @@ async function resolveAiConfig(userId) {
     return {
       provider: "openai",
       apiKey: userOpenAI || process.env.OPENAI_API_KEY,
+      keySource: userOpenAI ? "user" : "environment",
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     };
   }
@@ -129,6 +135,7 @@ async function resolveAiConfig(userId) {
     return {
       provider: "gemini",
       apiKey: userGemini || process.env.GEMINI_API_KEY,
+      keySource: userGemini ? "user" : "environment",
       model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
     };
   }
@@ -193,7 +200,7 @@ async function withRetry(fn, attempts = 3, baseDelay = 700) {
   throw lastErr;
 }
 
-async function generateWithOpenAI(prompt, durationSec, config) {
+async function generateWithOpenAI(prompt, durationSec, config, userId, purpose) {
   const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
@@ -223,10 +230,16 @@ async function generateWithOpenAI(prompt, durationSec, config) {
   }
 
   const data = await res.json();
+  await recordApiUsage({
+    userId,
+    config,
+    purpose,
+    usage: usageFromOpenAI(data.usage),
+  });
   return parseModelJson(data.choices?.[0]?.message?.content);
 }
 
-async function generateWithGemini(prompt, durationSec, config) {
+async function generateWithGemini(prompt, durationSec, config, userId, purpose) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
   const res = await fetch(url, {
     method: "POST",
@@ -255,6 +268,12 @@ async function generateWithGemini(prompt, durationSec, config) {
   }
 
   const data = await res.json();
+  await recordApiUsage({
+    userId,
+    config,
+    purpose,
+    usage: usageFromGemini(data.usageMetadata),
+  });
   return parseModelJson(data.candidates?.[0]?.content?.parts?.[0]?.text);
 }
 
@@ -289,6 +308,12 @@ export async function enhancePromptWithAi(prompt, userId) {
     }
 
     const data = await res.json();
+    await recordApiUsage({
+      userId,
+      config,
+      purpose: "prompt_enhancement",
+      usage: usageFromOpenAI(data.usage),
+    });
     const enhanced = data.choices?.[0]?.message?.content?.trim();
     if (!enhanced) throw new Error("AI returned an empty enhanced prompt");
     return enhanced;
@@ -318,6 +343,12 @@ export async function enhancePromptWithAi(prompt, userId) {
   }
 
   const data = await res.json();
+  await recordApiUsage({
+    userId,
+    config,
+    purpose: "prompt_enhancement",
+    usage: usageFromGemini(data.usageMetadata),
+  });
   const enhanced = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
   if (!enhanced) throw new Error("AI returned an empty enhanced prompt");
   return enhanced;
@@ -352,8 +383,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
 
   const payload = await withRetry(() =>
     config.provider === "openai"
-      ? generateWithOpenAI(prompt, durationSec, config)
-      : generateWithGemini(prompt, durationSec, config)
+      ? generateWithOpenAI(prompt, durationSec, config, userId, "video_generation")
+      : generateWithGemini(prompt, durationSec, config, userId, "video_generation")
   );
 
   if (!payload || typeof payload.script !== "string") {

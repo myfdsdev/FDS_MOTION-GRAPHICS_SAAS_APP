@@ -180,6 +180,31 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         creditsIssued: user?.credits ?? 0,
         creditsSpent: 0,
       },
+      apiUsage: {
+        periodStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+        periodEnd: new Date().toISOString(),
+        monthlyTokenLimit: 1_000_000,
+        percentOfLimit: 12,
+        totalRequests: 18,
+        inputTokens: 84_200,
+        outputTokens: 38_600,
+        totalTokens: 122_800,
+        lastUsedAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+        byProvider: [
+          {
+            provider: "openai",
+            keySource: "user",
+            requests: 12,
+            totalTokens: 91_400,
+          },
+          {
+            provider: "gemini",
+            keySource: "environment",
+            requests: 6,
+            totalTokens: 31_400,
+          },
+        ],
+      },
       recentUsers: user ? [user] : [],
       recentProjects: projects,
     };

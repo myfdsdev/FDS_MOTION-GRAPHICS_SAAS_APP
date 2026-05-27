@@ -115,6 +115,23 @@ export interface AdminOverview {
     creditsIssued: number;
     creditsSpent: number;
   };
+  apiUsage: {
+    periodStart: string;
+    periodEnd: string;
+    monthlyTokenLimit: number;
+    percentOfLimit: number;
+    totalRequests: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    lastUsedAt: string | null;
+    byProvider: Array<{
+      provider: "openai" | "gemini";
+      keySource: "user" | "environment";
+      requests: number;
+      totalTokens: number;
+    }>;
+  };
   recentUsers: User[];
   recentProjects: Project[];
 }

@@ -76,9 +76,30 @@ const creditTxSchema = new Schema(
 );
 creditTxSchema.index({ userId: 1, createdAt: -1 });
 
+const apiUsageSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    provider: { type: String, enum: ["openai", "gemini"], required: true, index: true },
+    keySource: { type: String, enum: ["user", "environment"], required: true },
+    purpose: {
+      type: String,
+      enum: ["video_generation", "prompt_enhancement"],
+      required: true,
+    },
+    model: { type: String, default: null },
+    requestCount: { type: Number, default: 1 },
+    inputTokens: { type: Number, default: 0 },
+    outputTokens: { type: Number, default: 0 },
+    totalTokens: { type: Number, default: 0 },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+apiUsageSchema.index({ createdAt: -1 });
+
 // Guard against model re-compilation under `node --watch` reloads.
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
 export const Project = mongoose.models.Project || mongoose.model("Project", projectSchema);
 export const Asset = mongoose.models.Asset || mongoose.model("Asset", assetSchema);
 export const CreditTx = mongoose.models.CreditTx || mongoose.model("CreditTx", creditTxSchema);
+export const ApiUsage = mongoose.models.ApiUsage || mongoose.model("ApiUsage", apiUsageSchema);
