@@ -15,7 +15,8 @@ const LightPillar = ({
   noiseIntensity = 0.5,
   mixBlendMode = 'screen',
   pillarRotation = 0,
-  quality = 'high'
+  quality = 'high',
+  onError = null
 }) => {
   const containerRef = useRef(null);
   const rafRef = useRef(null);
@@ -36,6 +37,14 @@ const LightPillar = ({
       setWebGLSupported(false);
     }
   }, []);
+
+  // Surface failures (no WebGL / renderer init error) to the parent.
+  useEffect(() => {
+    if (!webGLSupported && typeof onError === 'function') {
+      onError('WebGL is unavailable — falling back without the animated backdrop.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [webGLSupported]);
 
   useEffect(() => {
     if (!containerRef.current || !webGLSupported) return;

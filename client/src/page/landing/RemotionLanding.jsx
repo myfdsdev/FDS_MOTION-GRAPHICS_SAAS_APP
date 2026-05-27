@@ -1,6 +1,7 @@
 import React, { useRef, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
+import { toast } from "sonner";
 import { useTheme } from "@/lib/theme";
 
 // Lazy so three.js ships in its own chunk — only the landing loads it.
@@ -102,13 +103,15 @@ function Hero({ go }) {
           <LightPillar
             topColor="#5227FF"
             bottomColor="#FF9FFC"
-            intensity={1.0}
-            rotationSpeed={0.3}
+            intensity={0.9}
+            rotationSpeed={0.25}
             glowAmount={0.006}
             pillarWidth={3.0}
             pillarHeight={0.4}
             noiseIntensity={0.4}
             mixBlendMode="screen"
+            quality="low"
+            onError={(msg) => toast.error(msg)}
           />
         </Suspense>
       </div>
