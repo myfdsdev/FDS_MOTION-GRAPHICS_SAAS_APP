@@ -179,6 +179,20 @@ async function readErrorBody(res) {
   }
 }
 
+// Retry transient AI failures (5xx, brief network/parse hiccups) with backoff.
+async function withRetry(fn, attempts = 3, baseDelay = 700) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, baseDelay * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 async function generateWithOpenAI(prompt, durationSec, config) {
   const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
@@ -336,10 +350,11 @@ async function generateVideoPlan(prompt, durationSec, userId) {
   const config = await resolveAiConfig(userId);
   if (!config) throw new Error(await generationConfigError(userId));
 
-  const payload =
+  const payload = await withRetry(() =>
     config.provider === "openai"
-      ? await generateWithOpenAI(prompt, durationSec, config)
-      : await generateWithGemini(prompt, durationSec, config);
+      ? generateWithOpenAI(prompt, durationSec, config)
+      : generateWithGemini(prompt, durationSec, config)
+  );
 
   if (!payload || typeof payload.script !== "string") {
     throw new Error("AI response did not include a script");
