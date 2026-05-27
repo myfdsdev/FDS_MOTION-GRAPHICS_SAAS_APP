@@ -1,6 +1,6 @@
 import React, { useRef, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring, useMotionValueEvent } from "framer-motion";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme";
 
@@ -190,12 +190,13 @@ function Hero({ go }) {
 function PinnedReveal() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  const scale = useTransform(scrollYProgress, [0, 0.6], [0.7, 1.25]);
-  const wordOpacity = useTransform(scrollYProgress, [0, 0.15], [0, 1]);
-  const subOpacity = useTransform(scrollYProgress, [0.45, 0.7], [0, 1]);
-  const subY = useTransform(scrollYProgress, [0.45, 0.7], [30, 0]);
+  const sp = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
+  const scale = useTransform(sp, [0, 0.85], [0.78, 1.12]);
+  const wordOpacity = useTransform(sp, [0, 0.12], [0, 1]);
+  const subOpacity = useTransform(sp, [0.5, 0.8], [0, 1]);
+  const subY = useTransform(sp, [0.5, 0.8], [30, 0]);
   return (
-    <section ref={ref} style={{ position: "relative", height: "260vh" }}>
+    <section ref={ref} style={{ position: "relative", height: "180vh" }}>
       <div style={{ position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "linear-gradient(to bottom, var(--bg) 0%, var(--bg-deep) 100%)" }}>
         <div style={{ position: "absolute", top: "18%", fontSize: 12, letterSpacing: "0.4em", textTransform: "uppercase", color: "var(--accent)", fontFamily: '"Geist Mono", monospace' }}>— Frame 001 / 1,840 —</div>
         <motion.div style={{ scale, opacity: wordOpacity, textAlign: "center" }}>
@@ -217,8 +218,9 @@ function PinnedReveal() {
 function ScrubSequence() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
+  const sp = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
   const [p, setP] = useState(0);
-  useMotionValueEvent(scrollYProgress, "change", setP);
+  useMotionValueEvent(sp, "change", setP);
   const steps = [
     { t: "Scene assembly", d: "Storyboard frames generated from your prompt." },
     { t: "Camera & motion", d: "Lens, easing, parallax — driven by shot grammar." },
@@ -227,7 +229,7 @@ function ScrubSequence() {
   ];
   const active = Math.min(steps.length - 1, Math.floor(p * steps.length));
   return (
-    <section ref={ref} style={{ position: "relative", height: "300vh" }}>
+    <section ref={ref} style={{ position: "relative", height: "240vh" }}>
       <div style={{ position: "sticky", top: 0, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         <div style={{ width: "100%", maxWidth: 1400, padding: "0 40px", display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 56, alignItems: "center" }}>
           <div>
@@ -279,7 +281,8 @@ function ScrubSequence() {
 function CardDeck() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const rotate = useTransform(scrollYProgress, [0, 1], [0, -300]);
+  const sp = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
+  const rotate = useTransform(sp, [0, 1], [-40, 220]);
   const templates = ["Title Reveal", "Bullet Story", "Brand Teaser", "Product Reveal", "Quote Card", "Lower Third", "Recipe Reel", "Stats Counter"];
   const durs = ["0:15", "0:30", "0:10", "0:30", "0:15", "0:08", "0:60", "0:20"];
   return (
@@ -327,7 +330,8 @@ function CardDeck() {
 function HorizontalShowcase({ go }) {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  const x = useTransform(scrollYProgress, [0, 1], ["2%", "-72%"]);
+  const sp = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
+  const x = useTransform(sp, [0, 1], ["2%", "-70%"]);
   const items = [
     { tag: "16:9", title: "Product reveal — ceramic kettle, dawn light" },
     { tag: "9:16", title: "Onboarding explainer — budgeting app" },
@@ -337,7 +341,7 @@ function HorizontalShowcase({ go }) {
     { tag: "16:9", title: "Real estate walk-thru, golden hour" },
   ];
   return (
-    <section ref={ref} style={{ position: "relative", height: "420vh" }}>
+    <section ref={ref} style={{ position: "relative", height: "300vh" }}>
       <div style={{ position: "sticky", top: 0, height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <div style={{ padding: "0 40px", marginBottom: 30 }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap", maxWidth: 1400, margin: "0 auto" }}>
