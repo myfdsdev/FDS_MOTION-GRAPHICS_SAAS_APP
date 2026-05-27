@@ -5,7 +5,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import * as api from "@/lib/api";
-import type { Project, User } from "@/types";
+import type { AdminSettings, Project, User } from "@/types";
 
 // ---------- Auth ----------
 
@@ -172,5 +172,19 @@ export function useAdminOverview(enabled = true) {
     queryKey: ["admin-overview"],
     queryFn: api.getAdminOverview,
     enabled,
+  });
+}
+
+export function useUpdateAdminSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Partial<AdminSettings>) => api.updateAdminSettings(input),
+    onSuccess: (settings) => {
+      qc.setQueryData(["admin-overview"], (current: unknown) => {
+        if (!current || typeof current !== "object") return current;
+        return { ...current, settings };
+      });
+      qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
   });
 }

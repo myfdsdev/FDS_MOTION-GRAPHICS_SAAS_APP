@@ -105,6 +105,10 @@ export interface ProfileSettings {
   };
 }
 
+export interface AdminSettings {
+  allowUserApiKeys: boolean;
+}
+
 export interface AdminOverview {
   stats: {
     users: number;
@@ -132,6 +136,7 @@ export interface AdminOverview {
       totalTokens: number;
     }>;
   };
+  settings: AdminSettings;
   recentUsers: User[];
   recentProjects: Project[];
 }

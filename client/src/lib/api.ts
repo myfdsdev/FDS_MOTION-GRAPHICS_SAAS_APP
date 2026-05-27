@@ -1,5 +1,6 @@
 import type {
   AdminOverview,
+  AdminSettings,
   CreditPack,
   CreditTx,
   ProfileSettings,
@@ -205,11 +206,27 @@ export async function getAdminOverview(): Promise<AdminOverview> {
           },
         ],
       },
+      settings: {
+        allowUserApiKeys: true,
+      },
       recentUsers: user ? [user] : [],
       recentProjects: projects,
     };
   }
   return realFetch<AdminOverview>("/api/admin/overview");
+}
+
+export async function updateAdminSettings(input: Partial<AdminSettings>): Promise<AdminSettings> {
+  if (USE_MOCKS) {
+    return {
+      allowUserApiKeys: input.allowUserApiKeys ?? true,
+    };
+  }
+
+  return realFetch<AdminSettings>("/api/admin/settings", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export { USE_MOCKS };

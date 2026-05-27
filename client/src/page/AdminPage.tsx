@@ -1,7 +1,8 @@
 import { Activity, AlertTriangle, CheckCircle2, Gauge, KeyRound, Users } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { useAdminOverview, useMe } from "@/lib/queries";
+import { useAdminOverview, useMe, useUpdateAdminSettings } from "@/lib/queries";
 import { formatRelativeTime } from "@/lib/utils";
 
 const statCards = [
@@ -41,6 +42,7 @@ export default function AdminPage() {
   const { data: me, isLoading: meLoading } = useMe();
   const isAdmin = Boolean(me?.isAdmin);
   const { data, isLoading } = useAdminOverview(isAdmin);
+  const updateSettings = useUpdateAdminSettings();
 
   if (!meLoading && !isAdmin) return <Navigate to="/dashboard" replace />;
 
@@ -57,6 +59,18 @@ export default function AdminPage() {
   const usageBarWidth = usagePercent === 0 ? "0%" : `${Math.max(2, usagePercent)}%`;
   const usageBadgeVariant =
     usagePercent >= 90 ? "danger" : usagePercent >= 75 ? "warning" : "accent";
+  const userKeysEnabled = data.settings.allowUserApiKeys;
+
+  const toggleUserApiKeys = async () => {
+    const nextValue = !userKeysEnabled;
+
+    try {
+      await updateSettings.mutateAsync({ allowUserApiKeys: nextValue });
+      toast.success(`User API keys ${nextValue ? "enabled" : "disabled"}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Setting update failed");
+    }
+  };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-8">
@@ -76,6 +90,35 @@ export default function AdminPage() {
           </section>
         ))}
       </div>
+
+      <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
+              <KeyRound size={17} />
+            </div>
+            <h2 className="text-lg font-semibold">User API keys</h2>
+            <p className="mt-1 text-sm text-muted">
+              {userKeysEnabled ? "Profile keys enabled" : "Server keys only"}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={userKeysEnabled}
+            aria-label="Toggle user API keys"
+            disabled={updateSettings.isPending}
+            onClick={toggleUserApiKeys}
+            className="relative h-7 w-12 shrink-0 rounded-full border border-border bg-surface-2 p-0.5 transition-colors aria-checked:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span
+              className={`block h-5 w-5 rounded-full bg-fg shadow transition-transform ${
+                userKeysEnabled ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
+      </section>
 
       <section className="mt-6 rounded-lg border border-border bg-surface p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">

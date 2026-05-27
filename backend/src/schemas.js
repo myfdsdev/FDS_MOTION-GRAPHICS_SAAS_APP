@@ -89,6 +89,10 @@ export const UpdateProfileInput = z.object({
     .optional(),
 });
 
+export const UpdateAdminSettingsInput = z.object({
+  allowUserApiKeys: z.boolean().optional(),
+});
+
 // ---- Static data ----
 
 export const CREDIT_PACKS = [

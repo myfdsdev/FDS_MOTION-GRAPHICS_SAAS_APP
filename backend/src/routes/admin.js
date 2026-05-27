@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { ApiUsage, CreditTx, Project, User } from "../models.js";
 import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
+import { getAppSettings, updateAppSettings } from "../lib/settings.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+import { UpdateAdminSettingsInput } from "../schemas.js";
 import { toProjectDTO, toUserDTO } from "../serialize.js";
 
 export const adminRouter = Router();
@@ -26,6 +29,7 @@ adminRouter.get("/overview", async (_req, res, next) => {
       apiUsageTotals,
       apiUsageByProvider,
       lastApiUsage,
+      settings,
     ] = await Promise.all([
       User.countDocuments(),
       Project.countDocuments({ deletedAt: null }),
@@ -62,6 +66,7 @@ adminRouter.get("/overview", async (_req, res, next) => {
         { $sort: { totalTokens: -1 } },
       ]),
       ApiUsage.findOne().sort({ createdAt: -1 }).lean(),
+      getAppSettings(),
     ]);
 
     const creditsIssued = creditTxs
@@ -104,9 +109,19 @@ adminRouter.get("/overview", async (_req, res, next) => {
           totalTokens: row.totalTokens,
         })),
       },
+      settings,
       recentUsers: recentUsers.map(toUserDTO),
       recentProjects: recentProjects.map(toProjectDTO),
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch("/settings", validate(UpdateAdminSettingsInput), async (req, res, next) => {
+  try {
+    const settings = await updateAppSettings(req.body);
+    res.json(settings);
   } catch (err) {
     next(err);
   }

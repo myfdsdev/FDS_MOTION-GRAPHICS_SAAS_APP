@@ -96,6 +96,14 @@ const apiUsageSchema = new Schema(
 );
 apiUsageSchema.index({ createdAt: -1 });
 
+const appSettingSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    value: { type: Schema.Types.Mixed, required: true },
+  },
+  { timestamps: true }
+);
+
 // Guard against model re-compilation under `node --watch` reloads.
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
@@ -103,3 +111,5 @@ export const Project = mongoose.models.Project || mongoose.model("Project", proj
 export const Asset = mongoose.models.Asset || mongoose.model("Asset", assetSchema);
 export const CreditTx = mongoose.models.CreditTx || mongoose.model("CreditTx", creditTxSchema);
 export const ApiUsage = mongoose.models.ApiUsage || mongoose.model("ApiUsage", apiUsageSchema);
+export const AppSetting =
+  mongoose.models.AppSetting || mongoose.model("AppSetting", appSettingSchema);

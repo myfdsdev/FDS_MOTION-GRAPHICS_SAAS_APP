@@ -7,6 +7,7 @@ import {
 } from "./apiUsage.js";
 import { costForDuration, refundCredits } from "./credits.js";
 import { decryptSecret } from "./secrets.js";
+import { getAppSettings } from "./settings.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -118,7 +119,8 @@ const geminiResponseSchema = {
 };
 
 async function resolveAiConfig(userId) {
-  const user = userId ? await User.findById(userId).lean() : null;
+  const settings = await getAppSettings();
+  const user = settings.allowUserApiKeys && userId ? await User.findById(userId).lean() : null;
   const userOpenAI = decryptSecret(user?.apiKeys?.openai);
   const userGemini = decryptSecret(user?.apiKeys?.gemini);
 
