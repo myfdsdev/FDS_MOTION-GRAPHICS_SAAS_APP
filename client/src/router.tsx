@@ -7,6 +7,7 @@ import DashboardPage from "@/page/DashboardPage";
 import CreatePage from "@/page/CreatePage";
 import ProjectListPage from "@/page/ProjectListPage";
 import ProjectDetailPage from "@/page/ProjectDetailPage";
+import EditorPage from "@/page/EditorPage";
 import DownloadPage from "@/page/DownloadPage";
 import BillingPage from "@/page/BillingPage";
 import ProfilePage from "@/page/ProfilePage";
@@ -25,6 +26,11 @@ export const router = createBrowserRouter([
   {
     path: "/register",
     element: <RegisterPage />,
+  },
+  {
+    // Full-screen editor — intentionally outside AppLayout (no app sidebar).
+    path: "/projects/:id/edit",
+    element: <EditorPage />,
   },
   {
     element: <AppLayout />,

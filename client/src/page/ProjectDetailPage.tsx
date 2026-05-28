@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Download,
@@ -7,10 +8,12 @@ import {
   ArrowLeft,
   Play,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 import { useProject, useDeleteProject, useRerender } from "@/lib/queries";
 import { StatusBadge } from "@/components/project/StatusBadge";
 import { ProgressRing } from "@/components/project/ProgressRing";
+import { Timeline } from "@/components/project/Timeline";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/utils";
@@ -21,6 +24,28 @@ export default function ProjectDetailPage() {
   const { data: project, isLoading } = useProject(id);
   const del = useDeleteProject();
   const rerender = useRerender();
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [selectedScene, setSelectedScene] = useState<number | null>(null);
+
+  // Keep the timeline playhead in sync with the preview <video>.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const onTime = () => setCurrentTime(el.currentTime);
+    el.addEventListener("timeupdate", onTime);
+    el.addEventListener("seeked", onTime);
+    return () => {
+      el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("seeked", onTime);
+    };
+  }, [project?.outputUrl]);
+
+  const handleSeek = (time: number) => {
+    setCurrentTime(time);
+    if (videoRef.current) videoRef.current.currentTime = time;
+  };
 
   if (isLoading) {
     return (
@@ -87,6 +112,12 @@ export default function ProjectDetailPage() {
           </h1>
         </div>
         <div className="flex gap-2 shrink-0">
+          <Button asChild variant="secondary" size="sm">
+            <Link to={`/projects/${project.id}/edit`}>
+              <Pencil size={14} />
+              Edit
+            </Link>
+          </Button>
           {isDone && (
             <>
               <Button variant="secondary" size="sm" onClick={handleShare}>
@@ -123,6 +154,7 @@ export default function ProjectDetailPage() {
       >
         {isDone && project.outputUrl ? (
           <video
+            ref={videoRef}
             src={project.outputUrl}
             controls
             playsInline
@@ -157,6 +189,19 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
+      {/* Timeline */}
+      {project.sceneJson && project.sceneJson.scenes.length > 0 && (
+        <div className="mb-8">
+          <Timeline
+            scenes={project.sceneJson.scenes}
+            currentTime={currentTime}
+            selectedIndex={selectedScene}
+            onSeek={handleSeek}
+            onSelectScene={setSelectedScene}
+          />
+        </div>
+      )}
+
       {/* Scene plan */}
       {project.sceneJson && (
         <div>
@@ -164,10 +209,13 @@ export default function ProjectDetailPage() {
             Scene plan
           </h2>
           <div className="space-y-3">
-            {project.sceneJson.scenes.map((s) => (
+            {project.sceneJson.scenes.map((s, i) => (
               <div
                 key={s.scene}
-                className="bg-surface border border-border rounded-lg p-4 flex items-start gap-4"
+                onClick={() => setSelectedScene(i)}
+                className={`bg-surface border rounded-lg p-4 flex items-start gap-4 cursor-pointer transition ${
+                  selectedScene === i ? "border-accent" : "border-border hover:border-accent/40"
+                }`}
               >
                 <div className="w-10 h-10 rounded-lg bg-accent/15 flex items-center justify-center font-bold text-accent-soft shrink-0">
                   {s.scene}
