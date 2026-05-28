@@ -85,6 +85,7 @@ export default function AdminPage() {
   const uploadLottie = useUploadLottieAsset();
   const [lottieLabel, setLottieLabel] = useState("");
   const [lottieCategory, setLottieCategory] = useState<string>("business");
+  const [customCategory, setCustomCategory] = useState(false);
   const [lottieTags, setLottieTags] = useState("");
   const [lottieFileName, setLottieFileName] = useState("");
   const [lottieJson, setLottieJson] = useState<Record<string, unknown> | null>(null);
@@ -393,19 +394,56 @@ export default function AdminPage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-muted">Category</label>
-              <input
-                list="lottie-categories"
-                value={lottieCategory}
-                onChange={(event) => setLottieCategory(event.target.value)}
-                placeholder="business, healthcare, education…"
-                className="h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-fg outline-none transition focus:border-accent/50"
-              />
-              <datalist id="lottie-categories">
-                {knownCategories.map((category) => (
-                  <option key={category} value={category} />
-                ))}
-              </datalist>
-              <p className="mt-1 text-xs text-faint">Pick one or type a new category to create it.</p>
+              <div className="flex flex-wrap gap-2">
+                {knownCategories.map((category) => {
+                  const active = !customCategory && lottieCategory === category;
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => {
+                        setCustomCategory(false);
+                        setLottieCategory(category);
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition ${
+                        active
+                          ? "border-accent bg-accent text-accent-ink"
+                          : "border-border bg-surface-2 text-fg hover:border-accent/50"
+                      }`}
+                    >
+                      {formatCategory(category)}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomCategory(true);
+                    setLottieCategory("");
+                  }}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    customCategory
+                      ? "border-accent bg-accent text-accent-ink"
+                      : "border-border bg-surface-2 text-fg hover:border-accent/50"
+                  }`}
+                >
+                  + Custom
+                </button>
+              </div>
+              {customCategory && (
+                <input
+                  autoFocus
+                  value={lottieCategory}
+                  onChange={(event) => setLottieCategory(event.target.value)}
+                  placeholder="Type a new category, e.g. healthcare"
+                  className="mt-2 h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-fg outline-none transition focus:border-accent/50"
+                />
+              )}
+              <p className="mt-1 text-xs text-faint">
+                {customCategory
+                  ? "Type a new category to create it."
+                  : "Pick a category, or choose Custom to add a new one."}
+              </p>
             </div>
 
             <button
