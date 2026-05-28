@@ -115,10 +115,13 @@ const lottieAssetSchema = new Schema(
       match: /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/,
     },
     label: { type: String, required: true, trim: true, maxlength: 80 },
+    // Free-form so admins can add their own categories (e.g. "healthcare").
     category: {
       type: String,
-      enum: ["business", "personal", "saas", "marketing", "local-business"],
       required: true,
+      lowercase: true,
+      trim: true,
+      maxlength: 40,
     },
     tags: { type: [String], default: [] },
     animationData: { type: Schema.Types.Mixed, required: true },

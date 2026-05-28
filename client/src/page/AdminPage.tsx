@@ -84,7 +84,7 @@ export default function AdminPage() {
   const updateSettings = useUpdateAdminSettings();
   const uploadLottie = useUploadLottieAsset();
   const [lottieLabel, setLottieLabel] = useState("");
-  const [lottieCategory, setLottieCategory] = useState<VideoCategory>("business");
+  const [lottieCategory, setLottieCategory] = useState<string>("business");
   const [lottieTags, setLottieTags] = useState("");
   const [lottieFileName, setLottieFileName] = useState("");
   const [lottieJson, setLottieJson] = useState<Record<string, unknown> | null>(null);
@@ -135,6 +135,11 @@ export default function AdminPage() {
     usagePercent >= 90 ? "danger" : usagePercent >= 75 ? "warning" : "accent";
   const userKeysEnabled = data.settings.allowUserApiKeys;
 
+  // Existing categories (base + already-used) to suggest in the combobox.
+  const knownCategories = Array.from(
+    new Set([...lottieCategories, ...lottieAssets.map((asset) => asset.category)])
+  ).sort();
+
   const toggleUserApiKeys = async () => {
     const nextValue = !userKeysEnabled;
 
@@ -168,7 +173,7 @@ export default function AdminPage() {
     try {
       await uploadLottie.mutateAsync({
         label,
-        category: lottieCategory,
+        category: lottieCategory.trim() || "business",
         tags,
         animationData: lottieJson,
       });
@@ -388,17 +393,19 @@ export default function AdminPage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-muted">Category</label>
-              <select
+              <input
+                list="lottie-categories"
                 value={lottieCategory}
-                onChange={(event) => setLottieCategory(event.target.value as VideoCategory)}
-                className="h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-fg outline-none transition focus:border-accent/50 capitalize"
-              >
-                {lottieCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {formatCategory(category)}
-                  </option>
+                onChange={(event) => setLottieCategory(event.target.value)}
+                placeholder="business, healthcare, education…"
+                className="h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-fg outline-none transition focus:border-accent/50"
+              />
+              <datalist id="lottie-categories">
+                {knownCategories.map((category) => (
+                  <option key={category} value={category} />
                 ))}
-              </select>
+              </datalist>
+              <p className="mt-1 text-xs text-faint">Pick one or type a new category to create it.</p>
             </div>
 
             <button

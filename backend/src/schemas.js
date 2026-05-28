@@ -27,6 +27,23 @@ export const AspectRatio = z.enum(["16:9", "9:16", "1:1"]);
 
 export const VideoCategory = z.enum(VIDEO_CATEGORIES);
 
+// Lottie library categories are admin-defined, so accept any short slug
+// (lowercased, spaces → hyphens). Unlike VideoCategory this is not a fixed enum.
+export const LottieCategory = z
+  .string()
+  .trim()
+  .min(2)
+  .max(40)
+  .transform((s) =>
+    s
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+  )
+  .refine((s) => s.length >= 2, "Category must be at least 2 characters");
+
 export const SceneTemplate = z.enum(SCENE_TEMPLATES);
 
 export const LottieAssetId = z
@@ -123,7 +140,7 @@ export const LottieAnimationDataInput = z
 export const CreateLottieAssetInput = z.object({
   id: LottieAssetId.optional(),
   label: z.string().trim().min(2).max(80),
-  category: VideoCategory.default("business"),
+  category: LottieCategory.default("business"),
   tags: z.array(z.string().trim().min(1).max(32)).max(10).optional().default([]),
   animationData: LottieAnimationDataInput,
 });

@@ -164,7 +164,8 @@ export interface AdminOverview {
 export interface LottieAssetSummary {
   id: string;
   label: string;
-  category: VideoCategory;
+  // Admin-defined free-form category (not limited to VideoCategory).
+  category: string;
   tags: string[];
   source: "starter" | "uploaded";
   createdAt: string | null;
@@ -173,7 +174,7 @@ export interface LottieAssetSummary {
 export interface UploadLottieAssetInput {
   id?: string;
   label: string;
-  category: VideoCategory;
+  category: string;
   tags?: string[];
   animationData: Record<string, unknown>;
 }
