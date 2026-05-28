@@ -1,3 +1,4 @@
+import { getLottieAsset } from "../../remotion/lottieCatalog.js";
 import { LottieAsset } from "../models.js";
 import { LOTTIE_ASSETS, LOTTIE_ASSET_IDS } from "./videoAssets.js";
 
@@ -79,6 +80,15 @@ async function nextAvailableAssetId(base) {
 export async function listLottieAssetSummaries() {
   const uploaded = await LottieAsset.find().sort({ createdAt: -1 }).lean();
   return [...uploaded.map(uploadedSummary), ...LOTTIE_ASSETS.map(starterSummary)];
+}
+
+// Returns the raw Lottie animation JSON for one asset (uploaded → DB, otherwise
+// the bundled starter catalog). Used to preview animations in the library UI.
+export async function getLottieAnimationData(id) {
+  const uploaded = await LottieAsset.findOne({ assetId: id }).lean();
+  if (uploaded?.animationData) return uploaded.animationData;
+  if (LOTTIE_ASSET_IDS.includes(id)) return getLottieAsset(id).animationData;
+  return null;
 }
 
 export function lottieAssetPromptListFromSummaries(assets) {

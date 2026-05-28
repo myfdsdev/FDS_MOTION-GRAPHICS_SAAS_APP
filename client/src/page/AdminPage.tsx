@@ -1,8 +1,12 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { useDropzone } from "react-dropzone";
+import Lottie from "lottie-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  FileJson,
   Gauge,
   KeyRound,
   Library,
@@ -20,8 +24,9 @@ import {
   useUpdateAdminSettings,
   useUploadLottieAsset,
 } from "@/lib/queries";
+import { getLottieAnimation } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/utils";
-import type { VideoCategory } from "@/types";
+import type { LottieAssetSummary, VideoCategory } from "@/types";
 
 const statCards = [
   { key: "users", label: "Users", icon: Users },
@@ -84,6 +89,35 @@ export default function AdminPage() {
   const [lottieFileName, setLottieFileName] = useState("");
   const [lottieJson, setLottieJson] = useState<Record<string, unknown> | null>(null);
 
+  const loadLottieFile = async (file: File) => {
+    setLottieFileName(file.name);
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      if (!isJsonObject(parsed) || !Array.isArray(parsed.layers)) {
+        throw new Error("That's not a Lottie JSON export (no layers array).");
+      }
+      setLottieJson(parsed);
+      // Auto-name from the file name.
+      setLottieLabel(
+        file.name.replace(/\.(json|lottie)$/i, "").replace(/[-_]+/g, " ").trim()
+      );
+      toast.success("Lottie ready — pick a category and add it");
+    } catch (err) {
+      setLottieJson(null);
+      setLottieFileName("");
+      toast.error(err instanceof Error ? err.message : "Could not read that file");
+    }
+  };
+
+  const dropzone = useDropzone({
+    accept: { "application/json": [".json"], "text/plain": [".json"] },
+    maxFiles: 1,
+    multiple: false,
+    onDrop: (accepted) => {
+      if (accepted[0]) loadLottieFile(accepted[0]);
+    },
+  });
+
   if (!meLoading && !isAdmin) return <Navigate to="/dashboard" replace />;
 
   if (meLoading || isLoading || !data) {
@@ -109,31 +143,6 @@ export default function AdminPage() {
       toast.success(`User API keys ${nextValue ? "enabled" : "disabled"}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Setting update failed");
-    }
-  };
-
-  const handleLottieFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    if (!file) return;
-
-    setLottieFileName(file.name);
-
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text) as unknown;
-
-      if (!isJsonObject(parsed) || !Array.isArray(parsed.layers)) {
-        throw new Error("Upload a Lottie JSON export with a layers array.");
-      }
-
-      setLottieJson(parsed);
-      if (!lottieLabel.trim()) {
-        setLottieLabel(file.name.replace(/\.(json|lottie)$/i, "").replace(/[-_]+/g, " "));
-      }
-      toast.success("Lottie JSON ready");
-    } catch (err) {
-      setLottieJson(null);
-      toast.error(err instanceof Error ? err.message : "Could not read that Lottie file");
     }
   };
 
@@ -312,139 +321,115 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <section className="mt-6 rounded-lg border border-white bg-white p-5 text-slate-950 shadow-card">
+      <section className="mt-6 rounded-xl border border-border bg-surface p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
               <Library size={17} />
             </div>
             <h2 className="text-lg font-semibold">Lottie library</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Upload animation JSON and categorize it for video scenes.
+            <p className="mt-1 text-sm text-muted">
+              Drop a Lottie JSON — the name fills in automatically. Just pick a category.
             </p>
           </div>
-          <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="inline-flex w-fit items-center rounded-full border border-border bg-surface-2 px-3 py-1 text-xs font-medium text-muted">
             {lottieAssets.length} assets
           </span>
         </div>
 
         <div className="mt-5 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <form className="space-y-4" onSubmit={handleUploadLottie}>
+            {/* Drag & drop zone */}
+            <div
+              {...dropzone.getRootProps()}
+              className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                dropzone.isDragActive
+                  ? "border-accent bg-accent/10"
+                  : lottieJson
+                    ? "border-accent/50 bg-accent/5"
+                    : "border-border bg-surface-2 hover:border-accent/40 hover:bg-surface-3"
+              }`}
+            >
+              <input {...dropzone.getInputProps()} />
+              {lottieJson ? (
+                <>
+                  <Lottie
+                    animationData={lottieJson}
+                    loop
+                    className="h-28 w-28"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span className="mt-1 flex items-center gap-1.5 text-sm font-medium text-fg">
+                    <FileJson size={14} className="text-accent" />
+                    {lottieFileName}
+                  </span>
+                  <span className="mt-0.5 text-xs text-accent-soft">Preview above · choose a category below</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud size={26} className="mb-2 text-muted" />
+                  <span className="text-sm font-medium text-fg">
+                    {dropzone.isDragActive ? "Drop it here" : "Drag & drop a Lottie JSON"}
+                  </span>
+                  <span className="mt-1 text-xs text-faint">or click to browse · .json from LottieFiles</span>
+                </>
+              )}
+            </div>
+
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Animation name
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-muted">Name</label>
               <input
                 value={lottieLabel}
                 onChange={(event) => setLottieLabel(event.target.value)}
-                placeholder="Business intro"
-                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                placeholder="Auto-filled from the file"
+                className="h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-fg outline-none transition focus:border-accent/50"
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Category
-                </label>
-                <select
-                  value={lottieCategory}
-                  onChange={(event) => setLottieCategory(event.target.value as VideoCategory)}
-                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                >
-                  {lottieCategories.map((category) => (
-                    <option key={category} value={category}>
-                      {formatCategory(category)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Tags
-                </label>
-                <input
-                  value={lottieTags}
-                  onChange={(event) => setLottieTags(event.target.value)}
-                  placeholder="growth, chart"
-                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-muted">Category</label>
+              <select
+                value={lottieCategory}
+                onChange={(event) => setLottieCategory(event.target.value as VideoCategory)}
+                className="h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-fg outline-none transition focus:border-accent/50 capitalize"
+              >
+                {lottieCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {formatCategory(category)}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-600 transition hover:border-slate-500 hover:bg-slate-100">
-              <UploadCloud size={22} className="mb-2 text-slate-500" />
-              <span className="font-medium text-slate-950">
-                {lottieFileName || "Choose Lottie JSON"}
-              </span>
-              <span className="mt-1 text-xs text-slate-500">
-                {lottieJson ? "Ready to upload" : "Exported JSON from LottieFiles"}
-              </span>
-              <input
-                type="file"
-                accept=".json,application/json"
-                className="sr-only"
-                onChange={handleLottieFile}
-              />
-            </label>
 
             <button
               type="submit"
-              disabled={uploadLottie.isPending}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={uploadLottie.isPending || !lottieJson}
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {uploadLottie.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
               Add animation
             </button>
           </form>
 
-          <div className="min-w-0 lg:border-l lg:border-slate-200 lg:pl-6">
+          <div className="min-w-0 lg:border-l lg:border-border lg:pl-6">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
                 Available animations
               </h3>
               {lottieLoading ? (
-                <Loader2 size={16} className="animate-spin text-slate-400" />
+                <Loader2 size={16} className="animate-spin text-faint" />
               ) : null}
             </div>
 
-            <div className="mt-4 divide-y divide-slate-200">
-              {lottieAssets.length ? (
-                lottieAssets.map((asset) => (
-                  <div key={asset.id} className="flex items-start justify-between gap-4 py-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-slate-950">
-                          {asset.label}
-                        </p>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                          {asset.source}
-                        </span>
-                      </div>
-                      <p className="mt-1 truncate font-mono text-xs text-slate-500">{asset.id}</p>
-                      {asset.tags.length ? (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {asset.tags.slice(0, 5).map((tag) => (
-                            <span
-                              key={`${asset.id}-${tag}`}
-                              className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                    <span className="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium capitalize text-slate-600">
-                      {formatCategory(asset.category)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="py-4 text-sm text-slate-500">No Lottie assets yet.</p>
-              )}
-            </div>
+            {lottieAssets.length ? (
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 max-h-[520px] overflow-y-auto scrollbar-thin pr-1">
+                {lottieAssets.map((asset) => (
+                  <LottieTile key={asset.id} asset={asset} />
+                ))}
+              </div>
+            ) : (
+              <p className="py-4 text-sm text-muted">No Lottie assets yet.</p>
+            )}
           </div>
         </div>
       </section>
@@ -500,6 +485,39 @@ export default function AdminPage() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+// Gallery tile — lazily fetches the asset's animation JSON and plays it (LottieFiles-style).
+function LottieTile({ asset }: { asset: LottieAssetSummary }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["lottie-animation", asset.id],
+    queryFn: () => getLottieAnimation(asset.id),
+    staleTime: Infinity,
+  });
+
+  return (
+    <div
+      title={`${asset.label} · ${formatCategory(asset.category)}`}
+      className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-surface-2"
+    >
+      <div className="absolute inset-0 grid place-items-center p-3">
+        {data ? (
+          <Lottie animationData={data} loop className="h-full w-full" />
+        ) : isLoading ? (
+          <Loader2 size={18} className="animate-spin text-faint" />
+        ) : (
+          <span className="text-[10px] text-faint">no preview</span>
+        )}
+      </div>
+      <span className="absolute right-1.5 top-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white/80 backdrop-blur">
+        {asset.source}
+      </span>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <p className="truncate text-xs font-medium text-white">{asset.label}</p>
+        <p className="truncate text-[10px] capitalize text-white/60">{formatCategory(asset.category)}</p>
+      </div>
     </div>
   );
 }

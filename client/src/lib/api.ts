@@ -292,6 +292,18 @@ export async function listLottieAssets(): Promise<LottieAssetSummary[]> {
   return realFetch<LottieAssetSummary[]>("/api/admin/lottie-assets");
 }
 
+export async function getLottieAnimation(id: string): Promise<Record<string, unknown> | null> {
+  if (USE_MOCKS) return null;
+  try {
+    const res = await realFetch<{ animationData: Record<string, unknown> }>(
+      `/api/admin/lottie-assets/${id}/animation`
+    );
+    return res.animationData;
+  } catch {
+    return null;
+  }
+}
+
 export async function uploadLottieAsset(
   input: UploadLottieAssetInput
 ): Promise<LottieAssetSummary> {

@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { ApiUsage, CreditTx, Project, User } from "../models.js";
 import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
-import { createLottieAsset, listLottieAssetSummaries } from "../lib/lottieLibrary.js";
+import {
+  createLottieAsset,
+  getLottieAnimationData,
+  listLottieAssetSummaries,
+} from "../lib/lottieLibrary.js";
 import { getAppSettings, updateAppSettings } from "../lib/settings.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
@@ -140,6 +144,17 @@ adminRouter.post("/lottie-assets", validate(CreateLottieAssetInput), async (req,
   try {
     const asset = await createLottieAsset(req.body);
     res.status(201).json(asset);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Raw animation JSON for one asset — used to play previews in the library UI.
+adminRouter.get("/lottie-assets/:id/animation", async (req, res, next) => {
+  try {
+    const animationData = await getLottieAnimationData(req.params.id);
+    if (!animationData) return res.status(404).json({ error: "Lottie asset not found" });
+    res.json({ animationData });
   } catch (err) {
     next(err);
   }
