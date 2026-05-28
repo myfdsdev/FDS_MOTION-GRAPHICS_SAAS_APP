@@ -43,7 +43,7 @@ export function createApp() {
     })
   );
   app.use(cookieParser());
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "10mb" }));
   app.use(morgan("dev"));
 
   app.use(loadUser);

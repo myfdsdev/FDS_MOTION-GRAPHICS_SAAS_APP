@@ -31,11 +31,30 @@ export type AnimationType =
 
 export type TransitionType = "cut" | "quick-slide" | "zoom-cut" | "fade" | "blur";
 
+export type VideoCategory =
+  | "business"
+  | "personal"
+  | "saas"
+  | "marketing"
+  | "local-business";
+
+export type SceneTemplate =
+  | "hero-title"
+  | "split-lottie-text"
+  | "dashboard-metrics"
+  | "feature-cards"
+  | "cta-end-screen";
+
 export interface Scene {
   scene: number;
   duration: number;
   text: string;
+  headline?: string;
+  subtext?: string;
   visual: string;
+  sceneTemplate?: SceneTemplate;
+  lottieAsset?: string;
+  lottieAnimationData?: unknown;
   visualAssetId?: string;
   animation: AnimationType;
   transition: TransitionType;
@@ -45,6 +64,7 @@ export interface VideoPlan {
   duration: number;
   aspectRatio: AspectRatio;
   template: TemplateName;
+  category?: VideoCategory;
   brandColors?: string[];
   scenes: Scene[];
 }
@@ -139,4 +159,21 @@ export interface AdminOverview {
   settings: AdminSettings;
   recentUsers: User[];
   recentProjects: Project[];
+}
+
+export interface LottieAssetSummary {
+  id: string;
+  label: string;
+  category: VideoCategory;
+  tags: string[];
+  source: "starter" | "uploaded";
+  createdAt: string | null;
+}
+
+export interface UploadLottieAssetInput {
+  id?: string;
+  label: string;
+  category: VideoCategory;
+  tags?: string[];
+  animationData: Record<string, unknown>;
 }

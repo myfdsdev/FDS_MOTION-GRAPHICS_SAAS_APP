@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { ApiUsage, CreditTx, Project, User } from "../models.js";
 import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
+import { createLottieAsset, listLottieAssetSummaries } from "../lib/lottieLibrary.js";
 import { getAppSettings, updateAppSettings } from "../lib/settings.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { UpdateAdminSettingsInput } from "../schemas.js";
+import { CreateLottieAssetInput, UpdateAdminSettingsInput } from "../schemas.js";
 import { toProjectDTO, toUserDTO } from "../serialize.js";
 
 export const adminRouter = Router();
@@ -122,6 +123,23 @@ adminRouter.patch("/settings", validate(UpdateAdminSettingsInput), async (req, r
   try {
     const settings = await updateAppSettings(req.body);
     res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get("/lottie-assets", async (_req, res, next) => {
+  try {
+    res.json(await listLottieAssetSummaries());
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post("/lottie-assets", validate(CreateLottieAssetInput), async (req, res, next) => {
+  try {
+    const asset = await createLottieAsset(req.body);
+    res.status(201).json(asset);
   } catch (err) {
     next(err);
   }

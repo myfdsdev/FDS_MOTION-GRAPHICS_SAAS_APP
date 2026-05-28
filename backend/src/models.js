@@ -104,6 +104,29 @@ const appSettingSchema = new Schema(
   { timestamps: true }
 );
 
+const lottieAssetSchema = new Schema(
+  {
+    assetId: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/,
+    },
+    label: { type: String, required: true, trim: true, maxlength: 80 },
+    category: {
+      type: String,
+      enum: ["business", "personal", "saas", "marketing", "local-business"],
+      required: true,
+    },
+    tags: { type: [String], default: [] },
+    animationData: { type: Schema.Types.Mixed, required: true },
+  },
+  { timestamps: true }
+);
+lottieAssetSchema.index({ category: 1, createdAt: -1 });
+
 // Guard against model re-compilation under `node --watch` reloads.
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
@@ -113,3 +136,5 @@ export const CreditTx = mongoose.models.CreditTx || mongoose.model("CreditTx", c
 export const ApiUsage = mongoose.models.ApiUsage || mongoose.model("ApiUsage", apiUsageSchema);
 export const AppSetting =
   mongoose.models.AppSetting || mongoose.model("AppSetting", appSettingSchema);
+export const LottieAsset =
+  mongoose.models.LottieAsset || mongoose.model("LottieAsset", lottieAssetSchema);

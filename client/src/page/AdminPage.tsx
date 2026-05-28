@@ -1,9 +1,27 @@
-import { Activity, AlertTriangle, CheckCircle2, Gauge, KeyRound, Users } from "lucide-react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Gauge,
+  KeyRound,
+  Library,
+  Loader2,
+  UploadCloud,
+  Users,
+} from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { useAdminOverview, useMe, useUpdateAdminSettings } from "@/lib/queries";
+import {
+  useAdminOverview,
+  useLottieAssets,
+  useMe,
+  useUpdateAdminSettings,
+  useUploadLottieAsset,
+} from "@/lib/queries";
 import { formatRelativeTime } from "@/lib/utils";
+import type { VideoCategory } from "@/types";
 
 const statCards = [
   { key: "users", label: "Users", icon: Users },
@@ -13,6 +31,13 @@ const statCards = [
 ] as const;
 
 const numberFormat = new Intl.NumberFormat("en");
+const lottieCategories: VideoCategory[] = [
+  "business",
+  "personal",
+  "saas",
+  "marketing",
+  "local-business",
+];
 
 function formatNumber(value: number) {
   return numberFormat.format(value || 0);
@@ -24,6 +49,14 @@ function formatProvider(provider: string) {
 
 function formatKeySource(source: string) {
   return source === "user" ? "User key" : "Server key";
+}
+
+function formatCategory(category: string) {
+  return category.replace("-", " ");
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function formatUsagePeriod(start: string, end: string) {
@@ -42,7 +75,14 @@ export default function AdminPage() {
   const { data: me, isLoading: meLoading } = useMe();
   const isAdmin = Boolean(me?.isAdmin);
   const { data, isLoading } = useAdminOverview(isAdmin);
+  const { data: lottieAssets = [], isLoading: lottieLoading } = useLottieAssets(isAdmin);
   const updateSettings = useUpdateAdminSettings();
+  const uploadLottie = useUploadLottieAsset();
+  const [lottieLabel, setLottieLabel] = useState("");
+  const [lottieCategory, setLottieCategory] = useState<VideoCategory>("business");
+  const [lottieTags, setLottieTags] = useState("");
+  const [lottieFileName, setLottieFileName] = useState("");
+  const [lottieJson, setLottieJson] = useState<Record<string, unknown> | null>(null);
 
   if (!meLoading && !isAdmin) return <Navigate to="/dashboard" replace />;
 
@@ -69,6 +109,67 @@ export default function AdminPage() {
       toast.success(`User API keys ${nextValue ? "enabled" : "disabled"}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Setting update failed");
+    }
+  };
+
+  const handleLottieFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+
+    setLottieFileName(file.name);
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+
+      if (!isJsonObject(parsed) || !Array.isArray(parsed.layers)) {
+        throw new Error("Upload a Lottie JSON export with a layers array.");
+      }
+
+      setLottieJson(parsed);
+      if (!lottieLabel.trim()) {
+        setLottieLabel(file.name.replace(/\.(json|lottie)$/i, "").replace(/[-_]+/g, " "));
+      }
+      toast.success("Lottie JSON ready");
+    } catch (err) {
+      setLottieJson(null);
+      toast.error(err instanceof Error ? err.message : "Could not read that Lottie file");
+    }
+  };
+
+  const handleUploadLottie = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const label = lottieLabel.trim();
+    if (!label) {
+      toast.error("Add a name for this animation");
+      return;
+    }
+
+    if (!lottieJson) {
+      toast.error("Choose a Lottie JSON file first");
+      return;
+    }
+
+    const tags = lottieTags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    try {
+      await uploadLottie.mutateAsync({
+        label,
+        category: lottieCategory,
+        tags,
+        animationData: lottieJson,
+      });
+      toast.success("Lottie animation added");
+      setLottieLabel("");
+      setLottieTags("");
+      setLottieFileName("");
+      setLottieJson(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lottie upload failed");
     }
   };
 

@@ -1,12 +1,13 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { ensureBrowser, renderMedia, selectComposition } from "@remotion/renderer";
 import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";
+import { attachLottieAssetsToPlan } from "./src/lib/lottieLibrary.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,7 +18,7 @@ const POLL_MS = 2000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function main() {
+export async function startWorker() {
   fs.mkdirSync(VIDEOS_DIR, { recursive: true });
   await connectDB();
 
@@ -57,7 +58,7 @@ async function renderProject(serveUrl, project) {
   try {
     if (!project.sceneJson) throw new Error("Project has no scene plan to render");
 
-    const inputProps = project.sceneJson;
+    const inputProps = await attachLottieAssetsToPlan(project.sceneJson);
     const composition = await selectComposition({ serveUrl, id: "video", inputProps });
     const outPath = path.join(VIDEOS_DIR, `${id}.mp4`);
 
@@ -100,7 +101,12 @@ async function renderProject(serveUrl, project) {
   }
 }
 
-main().catch((err) => {
-  console.error("[worker] fatal:", err);
-  process.exit(1);
-});
+// Only auto-run when launched directly (`npm run worker`). When imported by the
+// backend (INLINE_WORKER mode) the server calls startWorker() itself.
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) {
+  startWorker().catch((err) => {
+    console.error("[worker] fatal:", err);
+    process.exit(1);
+  });
+}

@@ -6,8 +6,14 @@ import {
   usageFromOpenAI,
 } from "./apiUsage.js";
 import { costForDuration, refundCredits } from "./credits.js";
+import {
+  assertKnownLottieAssets,
+  listLottieAssetSummaries,
+  lottieAssetPromptListFromSummaries,
+} from "./lottieLibrary.js";
 import { decryptSecret } from "./secrets.js";
 import { getAppSettings } from "./settings.js";
+import { SCENE_TEMPLATES, VIDEO_CATEGORIES } from "./videoAssets.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -36,87 +42,123 @@ const templates = [
   "local-business",
 ];
 
-const generatedPayloadSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["script", "plan"],
-  properties: {
-    script: {
-      type: "string",
-      description: "Four to six short video script lines separated by newlines.",
-    },
-    plan: {
-      type: "object",
-      additionalProperties: false,
-      required: ["duration", "aspectRatio", "template", "brandColors", "scenes"],
-      properties: {
-        duration: { type: "number", minimum: 5, maximum: 60 },
-        aspectRatio: { type: "string", enum: ["16:9", "9:16", "1:1"] },
-        template: { type: "string", enum: templates },
-        brandColors: {
-          type: "array",
-          items: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
-          minItems: 1,
-          maxItems: 6,
-        },
-        scenes: {
-          type: "array",
-          minItems: 2,
-          maxItems: 6,
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["scene", "duration", "text", "visual", "animation", "transition"],
-            properties: {
-              scene: { type: "integer", minimum: 1 },
-              duration: { type: "number", minimum: 1, maximum: 15 },
-              text: { type: "string", maxLength: 140 },
-              visual: { type: "string" },
-              animation: { type: "string", enum: animations },
-              transition: { type: "string", enum: transitions },
+function createGeneratedPayloadSchema(lottieAssetIds) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["script", "plan"],
+    properties: {
+      script: {
+        type: "string",
+        description: "Four to six short video script lines separated by newlines.",
+      },
+      plan: {
+        type: "object",
+        additionalProperties: false,
+        required: ["duration", "aspectRatio", "template", "category", "brandColors", "scenes"],
+        properties: {
+          duration: { type: "number", minimum: 5, maximum: 60 },
+          aspectRatio: { type: "string", enum: ["16:9", "9:16", "1:1"] },
+          template: { type: "string", enum: templates },
+          category: { type: "string", enum: VIDEO_CATEGORIES },
+          brandColors: {
+            type: "array",
+            items: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+            minItems: 1,
+            maxItems: 6,
+          },
+          scenes: {
+            type: "array",
+            minItems: 2,
+            maxItems: 6,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: [
+                "scene",
+                "duration",
+                "text",
+                "headline",
+                "subtext",
+                "visual",
+                "sceneTemplate",
+                "lottieAsset",
+                "animation",
+                "transition",
+              ],
+              properties: {
+                scene: { type: "integer", minimum: 1 },
+                duration: { type: "number", minimum: 1, maximum: 15 },
+                text: { type: "string", maxLength: 140 },
+                headline: { type: "string", maxLength: 90 },
+                subtext: { type: "string", maxLength: 160 },
+                visual: { type: "string" },
+                sceneTemplate: { type: "string", enum: SCENE_TEMPLATES },
+                lottieAsset: { type: "string", enum: lottieAssetIds },
+                animation: { type: "string", enum: animations },
+                transition: { type: "string", enum: transitions },
+              },
             },
           },
         },
       },
     },
-  },
-};
+  };
+}
 
 // Gemini's responseSchema uses a restricted OpenAPI subset (uppercase TYPE,
 // no additionalProperties/pattern/min-max). Enforcing it forces the exact
 // field names + enums so the response matches VideoPlanSchema.
-const geminiResponseSchema = {
-  type: "OBJECT",
-  properties: {
-    script: { type: "STRING" },
-    plan: {
-      type: "OBJECT",
-      properties: {
-        duration: { type: "NUMBER" },
-        aspectRatio: { type: "STRING", enum: ["16:9", "9:16", "1:1"] },
-        template: { type: "STRING", enum: templates },
-        brandColors: { type: "ARRAY", items: { type: "STRING" } },
-        scenes: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              scene: { type: "INTEGER" },
-              duration: { type: "NUMBER" },
-              text: { type: "STRING" },
-              visual: { type: "STRING" },
-              animation: { type: "STRING", enum: animations },
-              transition: { type: "STRING", enum: transitions },
+function createGeminiResponseSchema(lottieAssetIds) {
+  return {
+    type: "OBJECT",
+    properties: {
+      script: { type: "STRING" },
+      plan: {
+        type: "OBJECT",
+        properties: {
+          duration: { type: "NUMBER" },
+          aspectRatio: { type: "STRING", enum: ["16:9", "9:16", "1:1"] },
+          template: { type: "STRING", enum: templates },
+          category: { type: "STRING", enum: VIDEO_CATEGORIES },
+          brandColors: { type: "ARRAY", items: { type: "STRING" } },
+          scenes: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                scene: { type: "INTEGER" },
+                duration: { type: "NUMBER" },
+                text: { type: "STRING" },
+                headline: { type: "STRING" },
+                subtext: { type: "STRING" },
+                visual: { type: "STRING" },
+                sceneTemplate: { type: "STRING", enum: SCENE_TEMPLATES },
+                lottieAsset: { type: "STRING", enum: lottieAssetIds },
+                animation: { type: "STRING", enum: animations },
+                transition: { type: "STRING", enum: transitions },
+              },
+              required: [
+                "scene",
+                "duration",
+                "text",
+                "headline",
+                "subtext",
+                "visual",
+                "sceneTemplate",
+                "lottieAsset",
+                "animation",
+                "transition",
+              ],
             },
-            required: ["scene", "duration", "text", "visual", "animation", "transition"],
           },
         },
+        required: ["duration", "aspectRatio", "template", "category", "brandColors", "scenes"],
       },
-      required: ["duration", "aspectRatio", "template", "brandColors", "scenes"],
     },
-  },
-  required: ["script", "plan"],
-};
+    required: ["script", "plan"],
+  };
+}
 
 async function resolveAiConfig(userId) {
   const settings = await getAppSettings();
@@ -158,16 +200,21 @@ export async function generationConfigError(userId) {
   return null;
 }
 
-function systemPrompt(durationSec) {
+function systemPrompt(durationSec, lottieAssetPrompt) {
   return [
     "You are a motion-graphics director for a SaaS video generator.",
     "Return only valid JSON that matches the requested schema.",
     `Create a ${durationSec}-second video plan from the user's prompt.`,
     "Use 3 to 5 scenes. Each scene text must be short and suitable for on-screen typography.",
     `Available templates: ${templates.join(", ")}.`,
+    `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
+    `Available scene templates: ${SCENE_TEMPLATES.join(", ")}.`,
+    `Available Lottie assets: ${lottieAssetPrompt}.`,
     `Available animations: ${animations.join(", ")}.`,
     `Available transitions: ${transitions.join(", ")}.`,
-    "No placeholder copy. No labels inside the script. No markdown.",
+    "For every scene, choose one sceneTemplate and one lottieAsset from the allowed lists.",
+    "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
+    "No labels inside the script. No markdown.",
   ].join(" ");
 }
 
@@ -202,7 +249,15 @@ async function withRetry(fn, attempts = 3, baseDelay = 700) {
   throw lastErr;
 }
 
-async function generateWithOpenAI(prompt, durationSec, config, userId, purpose) {
+async function generateWithOpenAI(
+  prompt,
+  durationSec,
+  config,
+  userId,
+  purpose,
+  lottieAssetIds,
+  lottieAssetPrompt
+) {
   const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
@@ -212,7 +267,7 @@ async function generateWithOpenAI(prompt, durationSec, config, userId, purpose) 
     body: JSON.stringify({
       model: config.model,
       messages: [
-        { role: "system", content: systemPrompt(durationSec) },
+        { role: "system", content: systemPrompt(durationSec, lottieAssetPrompt) },
         { role: "user", content: prompt },
       ],
       response_format: {
@@ -220,7 +275,7 @@ async function generateWithOpenAI(prompt, durationSec, config, userId, purpose) 
         json_schema: {
           name: "motion_video_generation",
           strict: true,
-          schema: generatedPayloadSchema,
+          schema: createGeneratedPayloadSchema(lottieAssetIds),
         },
       },
       temperature: 0.7,
@@ -241,7 +296,15 @@ async function generateWithOpenAI(prompt, durationSec, config, userId, purpose) 
   return parseModelJson(data.choices?.[0]?.message?.content);
 }
 
-async function generateWithGemini(prompt, durationSec, config, userId, purpose) {
+async function generateWithGemini(
+  prompt,
+  durationSec,
+  config,
+  userId,
+  purpose,
+  lottieAssetIds,
+  lottieAssetPrompt
+) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
   const res = await fetch(url, {
     method: "POST",
@@ -252,14 +315,14 @@ async function generateWithGemini(prompt, durationSec, config, userId, purpose) 
           role: "user",
           parts: [
             {
-              text: `${systemPrompt(durationSec)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`,
+              text: `${systemPrompt(durationSec, lottieAssetPrompt)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`,
             },
           ],
         },
       ],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: geminiResponseSchema,
+        responseSchema: createGeminiResponseSchema(lottieAssetIds),
         temperature: 0.7,
       },
     }),
@@ -373,20 +436,49 @@ function sanitizePlan(plan) {
       ...s,
       scene: Number.isInteger(s?.scene) && s.scene > 0 ? s.scene : i + 1,
       duration: Math.min(15, Math.max(1, Number(s?.duration) || 4)),
+      headline: s?.headline || s?.text || "",
+      subtext: s?.subtext || s?.visual || "",
     }));
   }
 
   return out;
 }
 
+function assertNoPlaceholders(plan) {
+  const raw = JSON.stringify(plan).toLowerCase();
+  const blocked = ["[brand", "brand name", "company name", "your brand", "example.com"];
+  const match = blocked.find((term) => raw.includes(term));
+  if (match) throw new Error(`AI response included placeholder copy: ${match}`);
+}
+
 async function generateVideoPlan(prompt, durationSec, userId) {
   const config = await resolveAiConfig(userId);
   if (!config) throw new Error(await generationConfigError(userId));
 
+  const lottieAssets = await listLottieAssetSummaries();
+  const lottieAssetIds = lottieAssets.map((asset) => asset.id);
+  const lottieAssetPrompt = lottieAssetPromptListFromSummaries(lottieAssets);
+
   const payload = await withRetry(() =>
     config.provider === "openai"
-      ? generateWithOpenAI(prompt, durationSec, config, userId, "video_generation")
-      : generateWithGemini(prompt, durationSec, config, userId, "video_generation")
+      ? generateWithOpenAI(
+          prompt,
+          durationSec,
+          config,
+          userId,
+          "video_generation",
+          lottieAssetIds,
+          lottieAssetPrompt
+        )
+      : generateWithGemini(
+          prompt,
+          durationSec,
+          config,
+          userId,
+          "video_generation",
+          lottieAssetIds,
+          lottieAssetPrompt
+        )
   );
 
   if (!payload || typeof payload.script !== "string") {
@@ -394,6 +486,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
   }
 
   const plan = sanitizePlan(payload.plan);
+  assertNoPlaceholders(plan);
+  assertKnownLottieAssets(plan, lottieAssetIds);
   const parsed = VideoPlanSchema.safeParse(plan);
   if (!parsed.success) {
     throw new Error(`AI response did not match the video schema: ${parsed.error.message}`);

@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  SCENE_TEMPLATES,
+  VIDEO_CATEGORIES,
+} from "./lib/videoAssets.js";
 
 // ---- Scene / video plan (matches the frontend contract) ----
 
@@ -21,6 +25,14 @@ export const TransitionType = z.enum(["cut", "quick-slide", "zoom-cut", "fade", 
 
 export const AspectRatio = z.enum(["16:9", "9:16", "1:1"]);
 
+export const VideoCategory = z.enum(VIDEO_CATEGORIES);
+
+export const SceneTemplate = z.enum(SCENE_TEMPLATES);
+
+export const LottieAssetId = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/);
+
 export const TemplateName = z.enum([
   "saas-product-promo",
   "app-launch",
@@ -33,7 +45,11 @@ export const SceneSchema = z.object({
   scene: z.number().int().min(1),
   duration: z.number().min(1).max(15),
   text: z.string().max(140),
+  headline: z.string().max(90).optional(),
+  subtext: z.string().max(160).optional(),
   visual: z.string(),
+  sceneTemplate: SceneTemplate.optional(),
+  lottieAsset: LottieAssetId.optional(),
   visualAssetId: z.string().optional(),
   animation: AnimationType,
   transition: TransitionType,
@@ -43,6 +59,7 @@ export const VideoPlanSchema = z.object({
   duration: z.number().min(5).max(60),
   aspectRatio: AspectRatio,
   template: TemplateName,
+  category: VideoCategory.optional(),
   brandColors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional(),
   scenes: z.array(SceneSchema).min(2).max(6),
 });
@@ -91,6 +108,24 @@ export const UpdateProfileInput = z.object({
 
 export const UpdateAdminSettingsInput = z.object({
   allowUserApiKeys: z.boolean().optional(),
+});
+
+export const LottieAnimationDataInput = z
+  .object({
+    fr: z.number().positive(),
+    op: z.number().positive(),
+    w: z.number().positive(),
+    h: z.number().positive(),
+    layers: z.array(z.unknown()),
+  })
+  .passthrough();
+
+export const CreateLottieAssetInput = z.object({
+  id: LottieAssetId.optional(),
+  label: z.string().trim().min(2).max(80),
+  category: VideoCategory.default("business"),
+  tags: z.array(z.string().trim().min(1).max(32)).max(10).optional().default([]),
+  animationData: LottieAnimationDataInput,
 });
 
 // ---- Static data ----

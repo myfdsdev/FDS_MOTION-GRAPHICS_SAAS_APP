@@ -3,13 +3,59 @@ import type {
   AdminSettings,
   CreditPack,
   CreditTx,
+  LottieAssetSummary,
   ProfileSettings,
   Project,
+  UploadLottieAssetInput,
   User,
 } from "@/types";
 import { mockApi } from "@/mocks/db";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
+
+const mockUploadedLottieAssets: LottieAssetSummary[] = [];
+const mockStarterLottieAssets: LottieAssetSummary[] = [
+  {
+    id: "business-growth-chart",
+    label: "Business growth chart",
+    category: "business",
+    tags: ["growth", "analytics", "chart", "revenue"],
+    source: "starter",
+    createdAt: null,
+  },
+  {
+    id: "saas-dashboard-flow",
+    label: "SaaS dashboard flow",
+    category: "saas",
+    tags: ["dashboard", "workflow", "automation", "product"],
+    source: "starter",
+    createdAt: null,
+  },
+  {
+    id: "marketing-megaphone",
+    label: "Marketing megaphone",
+    category: "marketing",
+    tags: ["launch", "announcement", "campaign", "promotion"],
+    source: "starter",
+    createdAt: null,
+  },
+  {
+    id: "personal-profile-intro",
+    label: "Personal profile intro",
+    category: "personal",
+    tags: ["profile", "creator", "portfolio", "identity"],
+    source: "starter",
+    createdAt: null,
+  },
+  {
+    id: "local-store-offer",
+    label: "Local store offer",
+    category: "local-business",
+    tags: ["store", "offer", "location", "service"],
+    source: "starter",
+    createdAt: null,
+  },
+];
 
 async function realFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -225,6 +271,45 @@ export async function updateAdminSettings(input: Partial<AdminSettings>): Promis
 
   return realFetch<AdminSettings>("/api/admin/settings", {
     method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+function mockSlug(value: string) {
+  const slug = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64)
+    .replace(/-+$/g, "");
+
+  return slug.length >= 3 ? slug : "custom-animation";
+}
+
+export async function listLottieAssets(): Promise<LottieAssetSummary[]> {
+  if (USE_MOCKS) return [...mockUploadedLottieAssets, ...mockStarterLottieAssets];
+  return realFetch<LottieAssetSummary[]>("/api/admin/lottie-assets");
+}
+
+export async function uploadLottieAsset(
+  input: UploadLottieAssetInput
+): Promise<LottieAssetSummary> {
+  if (USE_MOCKS) {
+    const asset: LottieAssetSummary = {
+      id: mockSlug(input.id || `custom-${input.label}-${mockUploadedLottieAssets.length + 1}`),
+      label: input.label,
+      category: input.category,
+      tags: input.tags ?? [],
+      source: "uploaded",
+      createdAt: new Date().toISOString(),
+    };
+    mockUploadedLottieAssets.unshift(asset);
+    return asset;
+  }
+
+  return realFetch<LottieAssetSummary>("/api/admin/lottie-assets", {
+    method: "POST",
     body: JSON.stringify(input),
   });
 }

@@ -5,7 +5,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import * as api from "@/lib/api";
-import type { AdminSettings, Project, User } from "@/types";
+import type { AdminSettings, Project, UploadLottieAssetInput, User } from "@/types";
 
 // ---------- Auth ----------
 
@@ -185,6 +185,24 @@ export function useUpdateAdminSettings() {
         return { ...current, settings };
       });
       qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+  });
+}
+
+export function useLottieAssets(enabled = true) {
+  return useQuery({
+    queryKey: ["admin-lottie-assets"],
+    queryFn: api.listLottieAssets,
+    enabled,
+  });
+}
+
+export function useUploadLottieAsset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UploadLottieAssetInput) => api.uploadLottieAsset(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-lottie-assets"] });
     },
   });
 }
