@@ -13,49 +13,9 @@ import { mockApi } from "@/mocks/db";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
 
+// Starter animations removed — the library is populated only by admin uploads.
 const mockUploadedLottieAssets: LottieAssetSummary[] = [];
-const mockStarterLottieAssets: LottieAssetSummary[] = [
-  {
-    id: "business-growth-chart",
-    label: "Business growth chart",
-    category: "business",
-    tags: ["growth", "analytics", "chart", "revenue"],
-    source: "starter",
-    createdAt: null,
-  },
-  {
-    id: "saas-dashboard-flow",
-    label: "SaaS dashboard flow",
-    category: "saas",
-    tags: ["dashboard", "workflow", "automation", "product"],
-    source: "starter",
-    createdAt: null,
-  },
-  {
-    id: "marketing-megaphone",
-    label: "Marketing megaphone",
-    category: "marketing",
-    tags: ["launch", "announcement", "campaign", "promotion"],
-    source: "starter",
-    createdAt: null,
-  },
-  {
-    id: "personal-profile-intro",
-    label: "Personal profile intro",
-    category: "personal",
-    tags: ["profile", "creator", "portfolio", "identity"],
-    source: "starter",
-    createdAt: null,
-  },
-  {
-    id: "local-store-offer",
-    label: "Local store offer",
-    category: "local-business",
-    tags: ["store", "offer", "location", "service"],
-    source: "starter",
-    createdAt: null,
-  },
-];
+const mockStarterLottieAssets: LottieAssetSummary[] = [];
 
 async function realFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {

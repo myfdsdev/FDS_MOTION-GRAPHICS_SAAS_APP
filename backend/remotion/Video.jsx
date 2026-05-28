@@ -177,7 +177,11 @@ function TextStack({ scene, style, align = "left", width = 720, large = false })
 }
 
 function LottiePanel({ scene, accent, secondary }) {
-  const animationData = scene.lottieAnimationData || getLottieAsset(scene.lottieAsset).animationData;
+  const animationData =
+    scene.lottieAnimationData || getLottieAsset(scene.lottieAsset)?.animationData;
+
+  // No animation selected/uploaded for this scene — render nothing.
+  if (!animationData) return null;
 
   return (
     <div
@@ -294,7 +298,7 @@ function Metric({ label, value, accent }) {
 function FeatureCards(props) {
   const frame = useCurrentFrame();
   const animationData =
-    props.scene.lottieAnimationData || getLottieAsset(props.scene.lottieAsset).animationData;
+    props.scene.lottieAnimationData || getLottieAsset(props.scene.lottieAsset)?.animationData;
   const items = [
     props.scene.headline || props.scene.text,
     props.scene.subtext || "Automated motion design",
@@ -325,14 +329,16 @@ function FeatureCards(props) {
               }),
             }}
           >
-            <div style={{ width: 62, height: 62 }}>
-              <Lottie
-                animationData={animationData}
-                loop
-                renderer="svg"
-                style={{ width: 62, height: 62 }}
-              />
-            </div>
+            {animationData ? (
+              <div style={{ width: 62, height: 62 }}>
+                <Lottie
+                  animationData={animationData}
+                  loop
+                  renderer="svg"
+                  style={{ width: 62, height: 62 }}
+                />
+              </div>
+            ) : null}
             <div style={{ marginTop: 24, fontSize: 27, lineHeight: 1.1, fontWeight: 800 }}>
               {item}
             </div>
