@@ -312,6 +312,143 @@ export default function AdminPage() {
         </div>
       </section>
 
+      <section className="mt-6 rounded-lg border border-white bg-white p-5 text-slate-950 shadow-card">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+              <Library size={17} />
+            </div>
+            <h2 className="text-lg font-semibold">Lottie library</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Upload animation JSON and categorize it for video scenes.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+            {lottieAssets.length} assets
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <form className="space-y-4" onSubmit={handleUploadLottie}>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Animation name
+              </label>
+              <input
+                value={lottieLabel}
+                onChange={(event) => setLottieLabel(event.target.value)}
+                placeholder="Business intro"
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Category
+                </label>
+                <select
+                  value={lottieCategory}
+                  onChange={(event) => setLottieCategory(event.target.value as VideoCategory)}
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                >
+                  {lottieCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {formatCategory(category)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Tags
+                </label>
+                <input
+                  value={lottieTags}
+                  onChange={(event) => setLottieTags(event.target.value)}
+                  placeholder="growth, chart"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                />
+              </div>
+            </div>
+
+            <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center text-sm text-slate-600 transition hover:border-slate-500 hover:bg-slate-100">
+              <UploadCloud size={22} className="mb-2 text-slate-500" />
+              <span className="font-medium text-slate-950">
+                {lottieFileName || "Choose Lottie JSON"}
+              </span>
+              <span className="mt-1 text-xs text-slate-500">
+                {lottieJson ? "Ready to upload" : "Exported JSON from LottieFiles"}
+              </span>
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="sr-only"
+                onChange={handleLottieFile}
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={uploadLottie.isPending}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {uploadLottie.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
+              Add animation
+            </button>
+          </form>
+
+          <div className="min-w-0 lg:border-l lg:border-slate-200 lg:pl-6">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Available animations
+              </h3>
+              {lottieLoading ? (
+                <Loader2 size={16} className="animate-spin text-slate-400" />
+              ) : null}
+            </div>
+
+            <div className="mt-4 divide-y divide-slate-200">
+              {lottieAssets.length ? (
+                lottieAssets.map((asset) => (
+                  <div key={asset.id} className="flex items-start justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-950">
+                          {asset.label}
+                        </p>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                          {asset.source}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate font-mono text-xs text-slate-500">{asset.id}</p>
+                      {asset.tags.length ? (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {asset.tags.slice(0, 5).map((tag) => (
+                            <span
+                              key={`${asset.id}-${tag}`}
+                              className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium capitalize text-slate-600">
+                      {formatCategory(asset.category)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="py-4 text-sm text-slate-500">No Lottie assets yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="rounded-lg border border-border bg-surface p-5">
           <h2 className="mb-4 text-lg font-semibold">Recent users</h2>
