@@ -1,0 +1,87 @@
+{
+  "duration": 8,
+  "aspectRatio": "16:9",
+  "template": "explainer-video",
+  "brandColors": ["#0f172a", "#8b5cf6", "#38bdf8", "#34d399"],
+  "scenes": [
+    {
+      "scene": 1,
+      "duration": 4,
+      "text": "Uncover the truth",
+      "headline": "Uncover the truth",
+      "subtext": "A timeline-driven render with a cinematic zoom.",
+      "visual": "intro",
+      "animation": "fade-in",
+      "transition": "fade"
+    },
+    {
+      "scene": 2,
+      "duration": 4,
+      "text": "Zoomed in by the editor",
+      "headline": "Zoomed in by the editor",
+      "subtext": "The zoom region animates scale between its start and end.",
+      "visual": "outro",
+      "animation": "slide-up",
+      "transition": "cut"
+    }
+  ],
+  "timeline": {
+    "fps": 30,
+    "duration": 8,
+    "tracks": [
+      {
+        "id": "track_scene",
+        "kind": "scene",
+        "name": "Scenes",
+        "clips": [
+          {
+            "id": "clip_1",
+            "type": "scene",
+            "start": 0,
+            "duration": 4,
+            "label": "Uncover the truth",
+            "scene": {
+              "scene": 1,
+              "duration": 4,
+              "text": "Uncover the truth",
+              "headline": "Uncover the truth",
+              "subtext": "A timeline-driven render with a cinematic zoom.",
+              "visual": "intro",
+              "sceneTemplate": "hero-title",
+              "animation": "fade-in",
+              "transition": "fade"
+            }
+          },
+          {
+            "id": "clip_2",
+            "type": "scene",
+            "start": 4,
+            "duration": 4,
+            "label": "Zoomed in",
+            "scene": {
+              "scene": 2,
+              "duration": 4,
+              "text": "Zoomed in by the editor",
+              "headline": "Zoomed in by the editor",
+              "subtext": "The zoom region animates scale between its start and end.",
+              "visual": "outro",
+              "sceneTemplate": "dashboard-metrics",
+              "animation": "slide-up",
+              "transition": "cut"
+            }
+          }
+        ]
+      }
+    ],
+    "zoomRegions": [
+      {
+        "id": "zoom_1",
+        "start": 2,
+        "end": 6,
+        "scale": 1.8,
+        "x": 0.3,
+        "y": 0.4
+      }
+    ]
+  }
+}
