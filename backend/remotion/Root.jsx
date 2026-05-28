@@ -57,10 +57,26 @@ export const Root = () => {
       defaultProps={defaultProps}
       calculateMetadata={({ props }) => {
         const [width, height] = DIMENSIONS[props.aspectRatio] ?? DIMENSIONS["16:9"];
-        const seconds =
-          Number(props.duration) > 0
-            ? Number(props.duration)
-            : (props.scenes ?? []).reduce((sum, s) => sum + (Number(s.duration) || 0), 0) || 20;
+        const timeline = props.timeline;
+        let seconds;
+        if (timeline && Array.isArray(timeline.tracks) && timeline.tracks.length) {
+          // Total = the latest clip / zoom-region end across all tracks.
+          let max = Number(timeline.duration) || 0;
+          for (const track of timeline.tracks) {
+            for (const clip of track.clips ?? []) {
+              max = Math.max(max, (Number(clip.start) || 0) + (Number(clip.duration) || 0));
+            }
+          }
+          for (const region of timeline.zoomRegions ?? []) {
+            max = Math.max(max, Number(region.end) || 0);
+          }
+          seconds = max || 20;
+        } else {
+          seconds =
+            Number(props.duration) > 0
+              ? Number(props.duration)
+              : (props.scenes ?? []).reduce((sum, s) => sum + (Number(s.duration) || 0), 0) || 20;
+        }
         return {
           width,
           height,

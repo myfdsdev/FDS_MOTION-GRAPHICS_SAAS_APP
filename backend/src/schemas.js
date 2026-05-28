@@ -60,25 +60,73 @@ export const TemplateName = z.enum([
 
 export const SceneSchema = z.object({
   scene: z.number().int().min(1),
-  duration: z.number().min(1).max(15),
+  // Editor allows finer/longer scenes than the AI generator; keep a sane cap.
+  duration: z.number().min(0.1).max(600),
   text: z.string().max(140),
   headline: z.string().max(90).optional(),
   subtext: z.string().max(160).optional(),
   visual: z.string(),
   sceneTemplate: SceneTemplate.optional(),
   lottieAsset: LottieAssetId.optional(),
+  lottieAnimationData: z.unknown().optional(),
   visualAssetId: z.string().optional(),
   animation: AnimationType,
   transition: TransitionType,
 });
 
+// ---- Multi-track editor timeline (optional; persisted on VideoPlan.timeline) ----
+
+export const ZoomRegionSchema = z.object({
+  id: z.string().min(1).max(80),
+  start: z.number().min(0).max(600),
+  end: z.number().min(0).max(600),
+  scale: z.number().min(1).max(4),
+  x: z.number().min(0).max(1).optional(),
+  y: z.number().min(0).max(1).optional(),
+});
+
+export const TimelineClipSchema = z.object({
+  id: z.string().min(1).max(80),
+  type: z.enum(["scene", "text", "image", "audio"]),
+  start: z.number().min(0).max(600),
+  duration: z.number().min(0.1).max(600),
+  trimStart: z.number().min(0).max(600).optional(),
+  volume: z.number().min(0).max(1).optional(),
+  animation: AnimationType.optional(),
+  transition: TransitionType.optional(),
+  scene: SceneSchema.optional(),
+  text: z.string().max(500).optional(),
+  src: z.string().max(2000).optional(),
+  label: z.string().max(200).optional(),
+});
+
+export const TimelineTrackSchema = z.object({
+  id: z.string().min(1).max(80),
+  kind: z.enum(["scene", "overlay", "audio"]),
+  name: z.string().max(80).optional(),
+  clips: z.array(TimelineClipSchema).max(200),
+});
+
+export const TimelineSchema = z.object({
+  fps: z.number().int().min(1).max(120),
+  duration: z.number().min(0.1).max(600),
+  tracks: z.array(TimelineTrackSchema).max(20),
+  zoomRegions: z.array(ZoomRegionSchema).max(50),
+});
+
 export const VideoPlanSchema = z.object({
-  duration: z.number().min(5).max(60),
+  // Editor can produce longer projects than the generator's 5–60s.
+  duration: z.number().min(1).max(600),
   aspectRatio: AspectRatio,
   template: TemplateName,
   category: VideoCategory.optional(),
   brandColors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional(),
-  scenes: z.array(SceneSchema).min(2).max(6),
+  scenes: z.array(SceneSchema).min(1).max(50),
+  timeline: TimelineSchema.optional(),
+});
+
+export const UpdateProjectInput = z.object({
+  sceneJson: VideoPlanSchema,
 });
 
 // ---- API request inputs ----

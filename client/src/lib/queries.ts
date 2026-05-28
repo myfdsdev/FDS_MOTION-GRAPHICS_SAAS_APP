@@ -5,7 +5,13 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import * as api from "@/lib/api";
-import type { AdminSettings, Project, UploadLottieAssetInput, User } from "@/types";
+import type {
+  AdminSettings,
+  Project,
+  UploadLottieAssetInput,
+  User,
+  VideoPlan,
+} from "@/types";
 
 // ---------- Auth ----------
 
@@ -117,6 +123,16 @@ export function useDeleteProject() {
     mutationFn: (id: string) => api.deleteProject(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+export function useUpdateProject(id: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { sceneJson?: VideoPlan }) => api.updateProject(id!, input),
+    onSuccess: (project) => {
+      qc.setQueryData(["project", id], project);
     },
   });
 }

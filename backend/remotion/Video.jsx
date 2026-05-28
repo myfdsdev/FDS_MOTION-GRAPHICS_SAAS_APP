@@ -1,6 +1,9 @@
 import { Lottie } from "@remotion/lottie";
 import {
   AbsoluteFill,
+  Audio,
+  Img,
+  Sequence,
   Series,
   interpolate,
   useCurrentFrame,
@@ -19,9 +22,15 @@ const templateFallbacks = [
   "cta-end-screen",
 ];
 
-export const Video = ({ brandColors, scenes }) => {
+export const Video = ({ brandColors, scenes, timeline }) => {
   const { fps } = useVideoConfig();
   const colors = Array.isArray(brandColors) && brandColors.length ? brandColors : DEFAULT_COLORS;
+
+  // New multi-track editor model takes precedence when present.
+  if (timeline && Array.isArray(timeline.tracks) && timeline.tracks.length) {
+    return <TimelineVideo timeline={timeline} colors={colors} />;
+  }
+
   const list = Array.isArray(scenes) && scenes.length ? scenes : [];
 
   return (
@@ -40,9 +49,151 @@ export const Video = ({ brandColors, scenes }) => {
   );
 };
 
-const Scene = ({ scene, colors, index }) => {
+// ---------------------------------------------------------------------------
+// Multi-track timeline renderer
+// ---------------------------------------------------------------------------
+
+const f = (seconds, fps) => Math.max(1, Math.round((Number(seconds) || 0) * fps));
+
+function TimelineVideo({ timeline, colors }) {
+  const { fps } = useVideoConfig();
+  const tracks = Array.isArray(timeline.tracks) ? timeline.tracks : [];
+  const zoomRegions = Array.isArray(timeline.zoomRegions) ? timeline.zoomRegions : [];
+
+  // Visual tracks render bottom-up in array order; audio tracks are siblings
+  // outside the zoom camera so the gain isn't affected by transforms.
+  const visualTracks = tracks.filter((t) => t.kind !== "audio");
+  const audioTracks = tracks.filter((t) => t.kind === "audio");
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: colors[0] }}>
+      <ZoomCamera zoomRegions={zoomRegions} fps={fps}>
+        {visualTracks.map((track) =>
+          (track.clips ?? []).map((clip, i) => (
+            <Sequence
+              key={clip.id ?? `${track.id}-${i}`}
+              from={f(clip.start, fps)}
+              durationInFrames={f(clip.duration, fps)}
+              layout="none"
+            >
+              <TimelineClipView clip={clip} colors={colors} index={i} fps={fps} />
+            </Sequence>
+          ))
+        )}
+      </ZoomCamera>
+
+      {audioTracks.map((track) =>
+        (track.clips ?? [])
+          .filter((clip) => clip.src)
+          .map((clip, i) => (
+            <Sequence
+              key={clip.id ?? `${track.id}-a${i}`}
+              from={f(clip.start, fps)}
+              durationInFrames={f(clip.duration, fps)}
+            >
+              <Audio
+                src={clip.src}
+                startFrom={f(clip.trimStart ?? 0, fps)}
+                volume={clip.volume == null ? 1 : clip.volume}
+              />
+            </Sequence>
+          ))
+      )}
+    </AbsoluteFill>
+  );
+}
+
+// Animate frame scale/translate between each zoom region's start and end.
+function ZoomCamera({ zoomRegions, fps, children }) {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames, width, height } = useVideoConfig();
+
+  let scale = 1;
+  let originX = 50;
+  let originY = 50;
+
+  for (const region of zoomRegions) {
+    const start = f(region.start, fps);
+    const end = f(region.end, fps);
+    if (frame < start || frame > end) continue;
+    const span = Math.max(1, end - start);
+    const ramp = Math.min(span / 2, Math.round(span * 0.3));
+    let p;
+    if (frame < start + ramp) p = interpolate(frame, [start, start + ramp], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    else if (frame > end - ramp) p = interpolate(frame, [end - ramp, end], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    else p = 1;
+    const target = Math.max(1, Math.min(4, Number(region.scale) || 1.4));
+    scale = 1 + (target - 1) * p;
+    originX = (region.x == null ? 0.5 : region.x) * 100;
+    originY = (region.y == null ? 0.5 : region.y) * 100;
+    break;
+  }
+
+  return (
+    <AbsoluteFill
+      style={{
+        transform: `scale(${scale})`,
+        transformOrigin: `${originX}% ${originY}%`,
+      }}
+    >
+      {children}
+    </AbsoluteFill>
+  );
+}
+
+function TimelineClipView({ clip, colors, index, fps }) {
+  if (clip.type === "image" && clip.src) {
+    return (
+      <AbsoluteFill style={{ backgroundColor: "#000" }}>
+        <Img src={clip.src} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </AbsoluteFill>
+    );
+  }
+
+  if (clip.type === "text") {
+    return <TextOverlay text={clip.text || clip.label || ""} accent={colors[1] ?? DEFAULT_COLORS[1]} />;
+  }
+
+  // Default: a scene clip reuses the existing rich Scene renderer.
+  const scene = clip.scene || { text: clip.label || "", animation: clip.animation || "fade-in" };
+  return (
+    <Scene
+      scene={scene}
+      colors={colors}
+      index={index}
+      clipDurationInFrames={f(clip.duration, fps)}
+    />
+  );
+}
+
+function TextOverlay({ text, accent }) {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%" }}>
+      <div
+        style={{
+          opacity,
+          fontSize: 72,
+          fontWeight: 850,
+          letterSpacing: "-0.03em",
+          textAlign: "center",
+          color: "#ffffff",
+          textShadow: `0 8px 40px ${accent}66`,
+          fontFamily:
+            "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        }}
+      >
+        {text}
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
+  const frame = useCurrentFrame();
+  const cfg = useVideoConfig();
+  const { fps, width, height } = cfg;
+  const durationInFrames = clipDurationInFrames ?? cfg.durationInFrames;
   const style = getSceneStyle(scene.animation, frame, fps, durationInFrames);
   const template = scene.sceneTemplate || templateFallbacks[index % templateFallbacks.length];
 

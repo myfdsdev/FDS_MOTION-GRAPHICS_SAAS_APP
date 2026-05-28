@@ -8,6 +8,7 @@ import type {
   Project,
   UploadLottieAssetInput,
   User,
+  VideoPlan,
 } from "@/types";
 import { mockApi } from "@/mocks/db";
 
@@ -143,6 +144,17 @@ export async function createProject(
 export async function deleteProject(id: string): Promise<void> {
   if (USE_MOCKS) return mockApi.deleteProject(id);
   await realFetch<void>(`/api/projects/${id}`, { method: "DELETE" });
+}
+
+export async function updateProject(
+  id: string,
+  input: { sceneJson?: VideoPlan }
+): Promise<Project> {
+  if (USE_MOCKS) return mockApi.getProject(id);
+  return realFetch<Project>(`/api/projects/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function rerenderProject(id: string): Promise<Project> {

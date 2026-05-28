@@ -129,14 +129,21 @@ export function assertKnownLottieAssets(plan, allowedIds) {
 }
 
 export async function attachLottieAssetsToPlan(plan) {
-  if (!plan || !Array.isArray(plan.scenes)) return plan;
+  if (!plan) return plan;
+
+  // Collect every uploaded Lottie id referenced by scenes OR timeline clips.
+  const referenced = [];
+  for (const scene of plan.scenes ?? []) {
+    if (scene?.lottieAsset) referenced.push(scene.lottieAsset);
+  }
+  for (const track of plan.timeline?.tracks ?? []) {
+    for (const clip of track.clips ?? []) {
+      if (clip?.scene?.lottieAsset) referenced.push(clip.scene.lottieAsset);
+    }
+  }
 
   const uploadedIds = [
-    ...new Set(
-      plan.scenes
-        .map((scene) => scene?.lottieAsset)
-        .filter((assetId) => assetId && !LOTTIE_ASSET_IDS.includes(assetId))
-    ),
+    ...new Set(referenced.filter((assetId) => assetId && !LOTTIE_ASSET_IDS.includes(assetId))),
   ];
 
   if (!uploadedIds.length) return plan;
@@ -148,11 +155,27 @@ export async function attachLottieAssetsToPlan(plan) {
     throw new Error(`Uploaded Lottie asset not found: ${missing.join(", ")}`);
   }
 
-  return {
-    ...plan,
-    scenes: plan.scenes.map((scene) => {
-      const animationData = byId.get(scene?.lottieAsset);
-      return animationData ? { ...scene, lottieAnimationData: animationData } : scene;
-    }),
+  const withScene = (scene) => {
+    const animationData = byId.get(scene?.lottieAsset);
+    return animationData ? { ...scene, lottieAnimationData: animationData } : scene;
   };
+
+  const next = {
+    ...plan,
+    scenes: Array.isArray(plan.scenes) ? plan.scenes.map(withScene) : plan.scenes,
+  };
+
+  if (plan.timeline?.tracks) {
+    next.timeline = {
+      ...plan.timeline,
+      tracks: plan.timeline.tracks.map((track) => ({
+        ...track,
+        clips: (track.clips ?? []).map((clip) =>
+          clip?.scene ? { ...clip, scene: withScene(clip.scene) } : clip
+        ),
+      })),
+    };
+  }
+
+  return next;
 }
