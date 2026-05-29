@@ -137,6 +137,18 @@ export function useUpdateProject(id: string | undefined) {
   });
 }
 
+export function useGenerateProject(id: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ prompt, durationSec }: { prompt: string; durationSec?: number }) =>
+      api.generateProject(id!, prompt, durationSec),
+    onSuccess: (project) => {
+      qc.setQueryData(["project", id], project);
+      qc.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}
+
 export function useRerender() {
   const qc = useQueryClient();
   return useMutation({

@@ -38,7 +38,7 @@ export default function ProjectListPage() {
           <p className="text-muted">All your generated videos in one place.</p>
         </div>
         <Button asChild>
-          <Link to="/create">
+          <Link to="/dashboard">
             <Plus size={15} /> New video
           </Link>
         </Button>
@@ -94,7 +94,7 @@ export default function ProjectListPage() {
           </p>
           {!query && filter === "all" && (
             <Button asChild>
-              <Link to="/create">
+              <Link to="/dashboard">
                 <Plus size={15} /> Create your first video
               </Link>
             </Button>

@@ -162,6 +162,18 @@ export async function rerenderProject(id: string): Promise<Project> {
   return realFetch<Project>(`/api/projects/${id}/rerender`, { method: "POST" });
 }
 
+export async function generateProject(
+  id: string,
+  prompt: string,
+  durationSec?: number
+): Promise<Project> {
+  if (USE_MOCKS) return mockApi.getProject(id);
+  return realFetch<Project>(`/api/projects/${id}/generate`, {
+    method: "POST",
+    body: JSON.stringify({ prompt, ...(durationSec ? { durationSec } : {}) }),
+  });
+}
+
 export async function enhancePrompt(prompt: string): Promise<string> {
   if (USE_MOCKS) return mockApi.enhancePrompt(prompt);
   const res = await realFetch<{ prompt: string }>("/api/enhance-prompt", {

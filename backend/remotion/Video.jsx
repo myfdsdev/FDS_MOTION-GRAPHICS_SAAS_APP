@@ -1,4 +1,5 @@
 import { Lottie } from "@remotion/lottie";
+import * as LucideIcons from "lucide-react";
 import {
   AbsoluteFill,
   Audio,
@@ -213,18 +214,108 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
     height,
   };
 
+  const hasElements = Array.isArray(scene.elements) && scene.elements.length > 0;
+
   return (
     <AbsoluteFill style={sceneShell(base, accent, secondary, frame, durationInFrames)}>
       <SceneChrome accent={accent} index={index} />
-      {template === "split-lottie-text" && <SplitLottieText {...common} />}
-      {template === "dashboard-metrics" && <DashboardMetrics {...common} />}
-      {template === "feature-cards" && <FeatureCards {...common} />}
-      {template === "cta-end-screen" && <CtaEndScreen {...common} />}
-      {template === "hero-title" && <HeroTitle {...common} />}
-      {!templateFallbacks.includes(template) && <HeroTitle {...common} />}
+      {hasElements ? (
+        <ElementsLayer elements={scene.elements} width={width} height={height} style={style} />
+      ) : (
+        <>
+          {template === "split-lottie-text" && <SplitLottieText {...common} />}
+          {template === "dashboard-metrics" && <DashboardMetrics {...common} />}
+          {template === "feature-cards" && <FeatureCards {...common} />}
+          {template === "cta-end-screen" && <CtaEndScreen {...common} />}
+          {template === "hero-title" && <HeroTitle {...common} />}
+          {!templateFallbacks.includes(template) && <HeroTitle {...common} />}
+        </>
+      )}
     </AbsoluteFill>
   );
 };
+
+// Renders direct-manipulation elements at their fractional positions. Mirrors
+// client/src/components/canvas/Canvas.tsx exactly so a drag in the editor lands
+// in the same spot in the MP4.
+function ElementsLayer({ elements, width, height, style }) {
+  const ordered = [...elements].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
+  return (
+    <AbsoluteFill style={style}>
+      {ordered.map((el) => {
+        const box = {
+          position: "absolute",
+          left: el.x * width,
+          top: el.y * height,
+          width: el.w * width,
+          height: el.h * height,
+          transform: `rotate(${el.rotation || 0}deg)`,
+          transformOrigin: "center",
+        };
+        return (
+          <div key={el.id} style={box}>
+            <ElementBody el={el} height={height} />
+          </div>
+        );
+      })}
+    </AbsoluteFill>
+  );
+}
+
+function ElementBody({ el, height }) {
+  if (el.type === "text") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent:
+            el.align === "left" ? "flex-start" : el.align === "right" ? "flex-end" : "center",
+          textAlign: el.align || "center",
+          fontSize: (el.size ?? 0.08) * height,
+          fontWeight: el.weight || 700,
+          color: el.color || "#ffffff",
+          fontFamily: el.font || "Inter, system-ui, sans-serif",
+          lineHeight: 1.05,
+          overflow: "hidden",
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {el.text}
+      </div>
+    );
+  }
+
+  if (el.type === "icon") {
+    const Ico = LucideIcons[el.name] || LucideIcons.Sparkles;
+    return (
+      <div style={{ width: "100%", height: "100%", color: el.color || "#ffffff" }}>
+        <Ico style={{ width: "100%", height: "100%" }} strokeWidth={1.75} />
+      </div>
+    );
+  }
+
+  if (el.type === "image") {
+    return el.src ? (
+      <Img src={el.src} style={{ width: "100%", height: "100%", objectFit: el.fit || "cover" }} />
+    ) : null;
+  }
+
+  // shape
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: el.fill || "#8b5cf6",
+        border: el.stroke ? `2px solid ${el.stroke}` : "none",
+        borderRadius: el.shape === "ellipse" ? "50%" : 8,
+      }}
+    />
+  );
+}
 
 function sceneShell(base, accent, secondary, frame, durationInFrames) {
   const drift = interpolate(frame, [0, durationInFrames], [-24, 24], {

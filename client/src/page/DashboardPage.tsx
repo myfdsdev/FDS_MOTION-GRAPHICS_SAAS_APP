@@ -58,7 +58,7 @@ export function DashboardEmpty() {
       <h3 className="font-semibold mb-1">No projects yet</h3>
       <p className="text-sm text-muted mb-5">Create your first AI-generated video in seconds.</p>
       <Button asChild>
-        <Link to="/create">
+        <Link to="/dashboard">
           <Plus size={15} />
           Create video
         </Link>

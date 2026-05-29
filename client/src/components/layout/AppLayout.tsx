@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import {
-  LayoutDashboard,
+  Clapperboard,
   Plus,
   FolderClock,
   CreditCard,
@@ -10,14 +10,12 @@ import {
   UserRound,
   ShieldCheck,
 } from "lucide-react";
-import { useMe, useLogout } from "@/lib/queries";
+import { useMe, useLogout, useProjects } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/create", label: "Create Video", icon: Plus },
   { to: "/projects", label: "Projects", icon: FolderClock },
   { to: "/billing", label: "Billing", icon: CreditCard },
   { to: "/profile", label: "Profile", icon: UserRound },
@@ -25,9 +23,20 @@ const NAV = [
 
 export default function AppLayout() {
   const { data: me, isLoading } = useMe();
+  const { data: projects } = useProjects();
   const logout = useLogout();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // The "Editor" link opens the most recent project (or the dashboard if none).
+  const latestProjectId = projects?.[0]?.id;
+  const editorTo = latestProjectId ? `/projects/${latestProjectId}/edit` : "/dashboard";
+
+  const navItems = [
+    { to: "/dashboard", label: "Create with AI", icon: Plus },
+    { to: editorTo, label: "Editor", icon: Clapperboard },
+    ...NAV,
+  ];
 
   if (isLoading) {
     return (
@@ -56,10 +65,14 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {[...NAV, ...(me.isAdmin ? [{ to: "/admin", label: "Admin", icon: ShieldCheck }] : [])].map((item) => {
-            const active =
-              location.pathname === item.to ||
-              (item.to !== "/dashboard" && location.pathname.startsWith(item.to));
+          {[...navItems, ...(me.isAdmin ? [{ to: "/admin", label: "Admin", icon: ShieldCheck }] : [])].map((item) => {
+            const path = location.pathname;
+            const onEditor = path.endsWith("/edit");
+            let active = false;
+            if (item.label === "Editor") active = onEditor;
+            else if (item.to === "/dashboard") active = path === "/dashboard";
+            else if (item.to === "/projects") active = path.startsWith("/projects") && !onEditor;
+            else active = path === item.to || path.startsWith(item.to);
             const Icon = item.icon;
             return (
               <Link

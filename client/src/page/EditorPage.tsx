@@ -2,9 +2,12 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowUp,
+  ChevronDown,
   Copy,
   CopyPlus,
   History,
+  Image as ImageIcon,
   Layers,
   Library,
   Magnet,
@@ -14,37 +17,45 @@ import {
   MousePointer2,
   Music,
   Palette,
+  Paperclip,
   Pause,
   Play,
   Plus,
   Redo2,
   Scissors,
   Settings,
+  Shapes,
   SlidersHorizontal,
   Sparkles,
   Trash2,
-  Type,
+  Type as TypeIcon,
   Undo2,
   Upload,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useMe, useProject, useUpdateProject } from "@/lib/queries";
+import { toast } from "sonner";
+import { useMe, useProject, useUpdateProject, useGenerateProject } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
+import { Canvas } from "@/components/canvas/Canvas";
+import { PropertiesPanel } from "@/components/canvas/panels";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEditorShortcuts } from "@/lib/editor/useEditorShortcuts";
 import {
   canRedo,
   canUndo,
   createInitialState,
+  currentSceneClipId,
   editorReducer,
+  findClip,
   toTimeline,
   totalDuration,
 } from "@/lib/editor/editorStore";
-import { DEFAULT_PX_PER_SECOND, FPS } from "@/lib/editor/editorTypes";
+import { DEFAULT_PX_PER_SECOND, FPS, type SceneElement } from "@/lib/editor/editorTypes";
 import { cn } from "@/lib/utils";
-import type { Scene, VideoPlan } from "@/types";
+import type { VideoPlan } from "@/types";
 
 type PanelId = "chat" | "edit" | "media" | "fonts" | "colors" | "projects" | "templates";
 
@@ -52,7 +63,7 @@ const RAIL: { id: PanelId; label: string; icon: typeof MessageSquare }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "edit", label: "Edit", icon: SlidersHorizontal },
   { id: "media", label: "Media", icon: Library },
-  { id: "fonts", label: "Fonts", icon: Type },
+  { id: "fonts", label: "Fonts", icon: TypeIcon },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "projects", label: "Projects", icon: Library },
   { id: "templates", label: "Templates", icon: Sparkles },
@@ -71,40 +82,65 @@ export default function EditorPage() {
   const { data: me, isLoading: meLoading } = useMe();
   const { data: project, isLoading } = useProject(id);
   const updateProject = useUpdateProject(id);
+  const generate = useGenerateProject(id);
 
   const [state, dispatch] = useReducer(editorReducer, EMPTY_STATE);
   const [panel, setPanel] = useState<PanelId>("chat");
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [awaitingGen, setAwaitingGen] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
+  const lastSavedRef = useRef<string>("");
+  const genBaselineRef = useRef<string>("");
 
-  const hasVideo = project?.status === "DONE" && Boolean(project.outputUrl);
   const editable = project ? project.status !== "QUEUED" && project.status !== "RENDERING" : false;
   const total = totalDuration(state);
+  const generating =
+    awaitingGen || project?.status === "PLANNING" || project?.status === "GENERATING_ASSETS";
 
-  // Initialize the store once the project loads.
+  const sceneClipId = useMemo(
+    () => currentSceneClipId(state.tracks, currentTime),
+    [state.tracks, currentTime]
+  );
+  const sceneClip = sceneClipId ? findClip(state.tracks, sceneClipId)?.clip ?? null : null;
+  const elements: SceneElement[] = sceneClip?.scene?.elements ?? [];
+
+  // Load (and reload) the store whenever the project's *scenes* change. This
+  // covers the first load, create-time generation, and in-editor chat
+  // generation. Autosave only mutates the timeline (not top-level scenes), so
+  // its server echo won't trigger an unwanted reload.
+  const loadedScenesSig = useRef<string | null>(null);
   useEffect(() => {
-    if (project && !initRef.current) {
-      initRef.current = true;
-      dispatch({
-        type: "RESET",
-        state: createInitialState(
-          project.sceneJson?.scenes ?? [],
-          project.sceneJson?.timeline ?? null
-        ),
-      });
+    if (!project) return;
+    const scenesSig = JSON.stringify(project.sceneJson?.scenes ?? null);
+    if (scenesSig === loadedScenesSig.current) return;
+    const hadScenes = loadedScenesSig.current !== null;
+    loadedScenesSig.current = scenesSig;
+    initRef.current = true;
+    dispatch({
+      type: "RESET",
+      state: createInitialState(project.sceneJson?.scenes ?? [], project.sceneJson?.timeline ?? null),
+    });
+    lastSavedRef.current = "";
+    if (awaitingGen) {
+      setAwaitingGen(false);
+      if (project.sceneJson?.scenes?.length) toast.success("Scenes generated — edit them on the canvas");
+    } else if (hadScenes && project.sceneJson?.scenes?.length) {
+      toast.success("Scenes ready");
     }
-  }, [project]);
+  }, [project, awaitingGen]);
 
-  // Debounced autosave of the timeline.
-  const lastSavedRef = useRef<string>("");
+  // Debounced autosave of the timeline + elements.
   useEffect(() => {
-    if (!initRef.current || !project?.sceneJson || !editable) return;
+    if (!initRef.current || !project?.sceneJson || !editable || awaitingGen) return;
     const timeline = toTimeline(state, FPS);
-    const serialized = JSON.stringify({ tracks: timeline.tracks, zoom: timeline.zoomRegions });
+    const serialized = JSON.stringify(timeline);
+    if (lastSavedRef.current === "") {
+      lastSavedRef.current = serialized;
+      return;
+    }
     if (serialized === lastSavedRef.current) return;
     const handle = setTimeout(() => {
       lastSavedRef.current = serialized;
@@ -113,14 +149,15 @@ export default function EditorPage() {
         duration: Math.max(1, Math.round(timeline.duration)),
         timeline,
       };
+      genBaselineRef.current = JSON.stringify({ ...project.sceneJson, timeline });
       updateProject.mutate({ sceneJson });
-    }, 900);
+    }, 800);
     return () => clearTimeout(handle);
-  }, [state.tracks, state.zoomRegions, editable, project, updateProject]);
+  }, [state.tracks, state.zoomRegions, editable, project, updateProject, awaitingGen]);
 
-  // Virtual clock for projects without a rendered video.
+  // Virtual playback clock.
   useEffect(() => {
-    if (!playing || hasVideo) return;
+    if (!playing) return;
     let raf = 0;
     let last = performance.now();
     const tick = (now: number) => {
@@ -138,61 +175,48 @@ export default function EditorPage() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, hasVideo, total]);
-
-  // Sync with the real <video> when one exists.
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    const onTime = () => setCurrentTime(el.currentTime);
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    el.addEventListener("timeupdate", onTime);
-    el.addEventListener("seeked", onTime);
-    el.addEventListener("play", onPlay);
-    el.addEventListener("pause", onPause);
-    return () => {
-      el.removeEventListener("timeupdate", onTime);
-      el.removeEventListener("seeked", onTime);
-      el.removeEventListener("play", onPlay);
-      el.removeEventListener("pause", onPause);
-    };
-  }, [project?.outputUrl]);
+  }, [playing, total]);
 
   const togglePlay = () => {
-    if (hasVideo && videoRef.current) {
-      if (videoRef.current.paused) videoRef.current.play();
-      else videoRef.current.pause();
-      return;
-    }
     if (currentTime >= total) setCurrentTime(0);
     setPlaying((p) => !p);
   };
+  const handleSeek = (time: number) => setCurrentTime(Math.max(0, Math.min(total, time)));
 
-  const handleSeek = (time: number) => {
-    const clamped = Math.max(0, Math.min(total, time));
-    setCurrentTime(clamped);
-    if (hasVideo && videoRef.current) videoRef.current.currentTime = clamped;
-  };
-
-  // Toolbar handlers
+  // Toolbar handlers (element-aware).
   const undo = () => dispatch({ type: "UNDO" });
   const redo = () => dispatch({ type: "REDO" });
   const split = () => dispatch({ type: "SPLIT_AT", time: currentTime });
-  const duplicate = () => dispatch({ type: "DUPLICATE_SELECTED" });
-  const remove = () => dispatch({ type: "DELETE_SELECTED" });
+  const remove = () => {
+    if (state.selectedElementIds.length && sceneClipId)
+      dispatch({ type: "DELETE_ELEMENT", clipId: sceneClipId });
+    else dispatch({ type: "DELETE_SELECTED" });
+  };
+  const duplicate = () => {
+    if (state.selectedElementIds.length && sceneClipId) {
+      for (const elId of state.selectedElementIds) {
+        const el = elements.find((e) => e.id === elId);
+        if (!el) continue;
+        const { id: _id, ...rest } = el;
+        dispatch({
+          type: "ADD_ELEMENT",
+          clipId: sceneClipId,
+          elementType: el.type,
+          element: { ...rest, x: Math.min(0.9, el.x + 0.03), y: Math.min(0.9, el.y + 0.03) },
+        });
+      }
+    } else dispatch({ type: "DUPLICATE_SELECTED" });
+  };
+  const addElement = (elementType: SceneElement["type"]) => {
+    if (sceneClipId) dispatch({ type: "ADD_ELEMENT", clipId: sceneClipId, elementType });
+    else toast.error("Generate or add a scene first");
+  };
   const addTrack = () => dispatch({ type: "ADD_TRACK", kind: "overlay" });
   const addAudio = () => dispatch({ type: "ADD_TRACK", kind: "audio" });
   const addZoom = () =>
-    dispatch({
-      type: "ADD_ZOOM",
-      start: currentTime,
-      end: Math.min(total, currentTime + 2),
-    });
-  const zoomIn = () =>
-    dispatch({ type: "SET_PX_PER_SECOND", value: Math.round(state.pxPerSecond * 1.4) });
-  const zoomOut = () =>
-    dispatch({ type: "SET_PX_PER_SECOND", value: Math.round(state.pxPerSecond / 1.4) });
+    dispatch({ type: "ADD_ZOOM", start: currentTime, end: Math.min(total, currentTime + 2) });
+  const zoomIn = () => dispatch({ type: "SET_PX_PER_SECOND", value: Math.round(state.pxPerSecond * 1.4) });
+  const zoomOut = () => dispatch({ type: "SET_PX_PER_SECOND", value: Math.round(state.pxPerSecond / 1.4) });
   const zoomFit = () => {
     const w = previewRef.current?.parentElement?.clientWidth ?? 900;
     dispatch({ type: "SET_PX_PER_SECOND", value: Math.max(12, Math.floor((w - 140) / total)) });
@@ -208,39 +232,37 @@ export default function EditorPage() {
     toggleSnap: () => dispatch({ type: "TOGGLE_SNAP" }),
   });
 
-  // Active scene clip under the playhead (for the placeholder preview).
-  const activeScene = useMemo<Scene | null>(() => {
-    const sceneTrack = state.tracks.find((t) => t.kind === "scene");
-    if (!sceneTrack) return null;
-    const clip = sceneTrack.clips.find(
-      (c) => currentTime >= c.start && currentTime < c.start + c.duration
-    );
-    return clip?.scene ?? null;
-  }, [state.tracks, currentTime]);
+  const runGenerate = async (prompt: string, durationSec: number) => {
+    if (!project) return;
+    if (prompt.trim().length < 10) {
+      toast.error("Describe the video — at least a sentence.");
+      return;
+    }
+    try {
+      genBaselineRef.current = JSON.stringify(project.sceneJson ?? null);
+      setAwaitingGen(true);
+      await generate.mutateAsync({ prompt, durationSec });
+    } catch (e) {
+      setAwaitingGen(false);
+      toast.error(e instanceof Error ? e.message : "Generation failed");
+    }
+  };
 
   if (!meLoading && !me) return <Navigate to="/login" replace />;
-
   if (meLoading || isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-bg text-muted">
-        Loading editor…
-      </div>
-    );
+    return <div className="flex h-screen items-center justify-center bg-bg text-muted">Loading editor…</div>;
   }
-
   if (!project) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-bg">
         <p className="text-fg">Project not found</p>
-        <Link to="/projects" className="text-sm text-accent hover:underline">
-          Back to projects
-        </Link>
+        <Link to="/projects" className="text-sm text-accent hover:underline">Back to projects</Link>
       </div>
     );
   }
 
   const brand = project.sceneJson?.brandColors ?? ["#0f172a", "#8b5cf6", "#38bdf8"];
-  const hasSelection = state.selection.length > 0;
+  const hasSelection = state.selection.length > 0 || state.selectedElementIds.length > 0;
   const zoomPct = Math.round((state.pxPerSecond / DEFAULT_PX_PER_SECOND) * 100);
 
   return (
@@ -249,42 +271,26 @@ export default function EditorPage() {
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border-soft bg-bg/80 px-3 backdrop-blur">
         <div className="flex items-center gap-2">
           <Tooltip content="Back to project" side="bottom">
-            <Link
-              to={`/projects/${project.id}`}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg"
-            >
+            <Link to={`/projects/${project.id}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg">
               <ArrowLeft size={16} />
             </Link>
           </Tooltip>
           <span className="mx-1 h-5 w-px bg-border-soft" />
-          <span className="max-w-[36vw] truncate text-sm font-medium">
-            {project.prompt || "Untitled Project"}
-          </span>
+          <span className="max-w-[28vw] truncate text-sm font-medium">{project.prompt || "Untitled Project"}</span>
           <Tooltip content="Aspect ratio" side="bottom">
             <button className="flex items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-xs text-muted hover:text-fg">
               <Monitor size={13} /> {project.aspectRatio}
             </button>
           </Tooltip>
-          <Tooltip content="Project settings" side="bottom">
-            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg">
-              <Settings size={14} />
-            </button>
-          </Tooltip>
-          {updateProject.isPending && (
-            <span className="text-[11px] text-faint">Saving…</span>
-          )}
+          {updateProject.isPending && <span className="text-[11px] text-faint">Saving…</span>}
         </div>
 
         <div className="flex items-center gap-1">
-          <Tooltip content="Undo" shortcut="⌘Z" side="bottom">
-            <IconBtn icon={Undo2} onClick={undo} disabled={!canUndo(state)} />
-          </Tooltip>
-          <Tooltip content="Redo" shortcut="⌘⇧Z" side="bottom">
-            <IconBtn icon={Redo2} onClick={redo} disabled={!canRedo(state)} />
-          </Tooltip>
-          <Tooltip content="Version history" side="bottom">
-            <IconBtn icon={History} />
-          </Tooltip>
+          <AddElementMenu onAdd={addElement} disabled={!sceneClipId} />
+          <span className="mx-1 h-5 w-px bg-border-soft" />
+          <Tooltip content="Undo" shortcut="⌘Z" side="bottom"><IconBtn icon={Undo2} onClick={undo} disabled={!canUndo(state)} /></Tooltip>
+          <Tooltip content="Redo" shortcut="⌘⇧Z" side="bottom"><IconBtn icon={Redo2} onClick={redo} disabled={!canRedo(state)} /></Tooltip>
+          <Tooltip content="Version history" side="bottom"><IconBtn icon={History} /></Tooltip>
           <span className="mx-1 h-5 w-px bg-border-soft" />
           <button className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg hover:border-accent/40">
             <Copy size={13} /> Duplicate
@@ -321,96 +327,67 @@ export default function EditorPage() {
 
         {/* Left panel */}
         <aside className="flex w-80 shrink-0 flex-col border-r border-border-soft bg-bg/40">
-          {panel === "chat" && <ChatPanel credits={me?.credits ?? 0} />}
-          {panel === "edit" && <EditPanel state={state} dispatch={dispatch} />}
+          {panel === "chat" && (
+            <ChatPanel
+              credits={me?.credits ?? 0}
+              aspectRatio={project.aspectRatio}
+              defaultDuration={project.durationSec}
+              generating={generating}
+              onGenerate={runGenerate}
+            />
+          )}
+          {panel === "edit" && (
+            <ScenePanel state={state} currentTime={currentTime} onSeek={handleSeek} />
+          )}
           {panel !== "chat" && panel !== "edit" && <PlaceholderPanel id={panel} />}
         </aside>
 
-        {/* Preview */}
-        <main className="flex min-w-0 flex-1 items-center justify-center bg-[#0a0a0f] p-6">
-          <div
-            ref={previewRef}
-            className={cn(
-              "relative w-full max-w-4xl overflow-hidden rounded-lg shadow-2xl",
-              project.aspectRatio === "9:16"
-                ? "aspect-[9/16] max-h-full max-w-[360px]"
-                : project.aspectRatio === "1:1"
-                  ? "aspect-square max-h-full max-w-[640px]"
-                  : "aspect-video"
-            )}
-          >
-            {hasVideo ? (
-              <video
-                ref={videoRef}
-                src={project.outputUrl}
-                playsInline
-                className="absolute inset-0 h-full w-full bg-black object-contain"
-              />
-            ) : (
-              <div
-                className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center"
-                style={{
-                  background: `radial-gradient(circle at 50% 40%, ${brand[1]}33, transparent 60%), linear-gradient(160deg, ${brand[0]}, #050509)`,
-                }}
-              >
-                {activeScene ? (
-                  <>
-                    <p className="text-2xl font-bold leading-tight text-white drop-shadow sm:text-4xl">
-                      {activeScene.headline || activeScene.text}
-                    </p>
-                    {activeScene.subtext && (
-                      <p className="mt-3 max-w-lg text-sm text-white/70">{activeScene.subtext}</p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-white/60">
-                    No scene under the playhead. Drag the timeline to preview.
-                  </p>
-                )}
-              </div>
-            )}
+        {/* Canvas */}
+        <main className="relative flex min-w-0 flex-1 items-center justify-center bg-[#0a0a0f] p-6">
+          <div ref={previewRef} className="flex w-full items-center justify-center">
+            <Canvas
+              elements={elements}
+              selectedIds={state.selectedElementIds}
+              aspectRatio={project.aspectRatio}
+              brandColors={brand}
+              clipId={sceneClipId}
+              snapping={state.snapping}
+              dispatch={dispatch}
+            />
           </div>
+          {generating && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-bg/60 backdrop-blur-sm">
+              <Sparkles size={28} className="animate-pulse text-accent" />
+              <p className="text-sm text-muted">Generating your scenes…</p>
+            </div>
+          )}
         </main>
+
+        {/* Properties */}
+        <aside className="w-72 shrink-0 border-l border-border-soft bg-bg/40">
+          <PropertiesPanel elements={elements} selectedIds={state.selectedElementIds} clipId={sceneClipId} dispatch={dispatch} />
+        </aside>
       </div>
 
       {/* ---- Bottom: toolbar + timeline ---- */}
       <footer className="shrink-0 border-t border-border-soft bg-bg/80 backdrop-blur">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
           <div className="flex items-center gap-1">
-            <Tooltip content="Select / move">
-              <IconBtn icon={MousePointer2} active />
-            </Tooltip>
-            <Tooltip content="Split clip at playhead" shortcut="S">
-              <IconBtn icon={Scissors} onClick={split} />
-            </Tooltip>
-            <Tooltip content="Duplicate selection" shortcut="⌘D">
-              <IconBtn icon={CopyPlus} onClick={duplicate} disabled={!hasSelection} />
-            </Tooltip>
-            <Tooltip content="Delete selection" shortcut="⌫">
-              <IconBtn icon={Trash2} onClick={remove} disabled={!hasSelection && !state.selectedZoomId} />
-            </Tooltip>
+            <Tooltip content="Select / move"><IconBtn icon={MousePointer2} active /></Tooltip>
+            <Tooltip content="Split clip at playhead" shortcut="S"><IconBtn icon={Scissors} onClick={split} /></Tooltip>
+            <Tooltip content="Duplicate selection" shortcut="⌘D"><IconBtn icon={CopyPlus} onClick={duplicate} disabled={!hasSelection} /></Tooltip>
+            <Tooltip content="Delete selection" shortcut="⌫"><IconBtn icon={Trash2} onClick={remove} disabled={!hasSelection && !state.selectedZoomId} /></Tooltip>
             <span className="mx-1 h-5 w-px bg-border-soft" />
-            <Tooltip content="Add overlay track">
-              <ToolbarButton icon={Layers} label="Add track" onClick={addTrack} />
-            </Tooltip>
-            <Tooltip content="Add audio track">
-              <ToolbarButton icon={Music} label="Add audio" onClick={addAudio} />
-            </Tooltip>
-            <Tooltip content="Add cinematic zoom at playhead">
-              <ToolbarButton icon={ZoomIn} label="Add zoom" onClick={addZoom} />
-            </Tooltip>
-            <Tooltip content={`Snapping ${state.snapping ? "on" : "off"}`} shortcut="N">
-              <IconBtn icon={Magnet} active={state.snapping} onClick={() => dispatch({ type: "TOGGLE_SNAP" })} />
-            </Tooltip>
+            <Tooltip content="Add overlay track"><ToolbarButton icon={Layers} label="Add track" onClick={addTrack} /></Tooltip>
+            <Tooltip content="Add audio track"><ToolbarButton icon={Music} label="Add audio" onClick={addAudio} /></Tooltip>
+            <Tooltip content="Add cinematic zoom at playhead"><ToolbarButton icon={ZoomIn} label="Add zoom" onClick={addZoom} /></Tooltip>
+            <Tooltip content={`Snapping ${state.snapping ? "on" : "off"}`} shortcut="N"><IconBtn icon={Magnet} active={state.snapping} onClick={() => dispatch({ type: "TOGGLE_SNAP" })} /></Tooltip>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="font-mono text-xs text-muted">{fmt(currentTime)}</span>
             <Tooltip content={playing ? "Pause" : "Play"} shortcut="Space">
-              <button
-                onClick={togglePlay}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-fg hover:bg-surface-3"
-              >
+              <button onClick={togglePlay} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-fg hover:bg-surface-3">
                 {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
               </button>
             </Tooltip>
@@ -418,16 +395,10 @@ export default function EditorPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            <Tooltip content="Zoom out">
-              <IconBtn icon={ZoomOut} onClick={zoomOut} />
-            </Tooltip>
+            <Tooltip content="Zoom out"><IconBtn icon={ZoomOut} onClick={zoomOut} /></Tooltip>
             <span className="w-10 text-center text-xs text-muted">{zoomPct}%</span>
-            <Tooltip content="Zoom in">
-              <IconBtn icon={ZoomIn} onClick={zoomIn} />
-            </Tooltip>
-            <Tooltip content="Fit to window">
-              <IconBtn icon={Maximize} onClick={zoomFit} />
-            </Tooltip>
+            <Tooltip content="Zoom in"><IconBtn icon={ZoomIn} onClick={zoomIn} /></Tooltip>
+            <Tooltip content="Fit to window"><IconBtn icon={Maximize} onClick={zoomFit} /></Tooltip>
           </div>
         </div>
 
@@ -436,7 +407,7 @@ export default function EditorPage() {
             <Timeline state={state} dispatch={dispatch} currentTime={currentTime} onSeek={handleSeek} />
           ) : (
             <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted">
-              <Plus size={16} className="mr-2" /> No clips yet
+              <Plus size={16} className="mr-2" /> No clips yet — generate a video in the chat
             </div>
           )}
         </div>
@@ -445,28 +416,14 @@ export default function EditorPage() {
   );
 }
 
-function IconBtn({
-  icon: Icon,
-  onClick,
-  active,
-  disabled,
-}: {
-  icon: typeof Undo2;
-  onClick?: () => void;
-  active?: boolean;
-  disabled?: boolean;
-}) {
+function IconBtn({ icon: Icon, onClick, active, disabled }: { icon: typeof Undo2; onClick?: () => void; active?: boolean; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className={cn(
         "flex h-8 w-8 items-center justify-center rounded-lg transition",
-        disabled
-          ? "cursor-not-allowed text-faint opacity-50"
-          : active
-            ? "bg-surface-2 text-accent"
-            : "text-muted hover:bg-surface-2 hover:text-fg"
+        disabled ? "cursor-not-allowed text-faint opacity-50" : active ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2 hover:text-fg"
       )}
     >
       <Icon size={15} />
@@ -474,22 +431,46 @@ function IconBtn({
   );
 }
 
-function ToolbarButton({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof Layers;
-  label: string;
-  onClick?: () => void;
-}) {
+function ToolbarButton({ icon: Icon, label, onClick }: { icon: typeof Layers; label: string; onClick?: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg"
-    >
+    <button onClick={onClick} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
       <Icon size={14} /> {label}
     </button>
+  );
+}
+
+function AddElementMenu({ onAdd, disabled }: { onAdd: (t: SceneElement["type"]) => void; disabled?: boolean }) {
+  const items: { type: SceneElement["type"]; label: string; icon: typeof TypeIcon }[] = [
+    { type: "text", label: "Text", icon: TypeIcon },
+    { type: "icon", label: "Icon", icon: Sparkles },
+    { type: "image", label: "Image", icon: ImageIcon },
+    { type: "shape", label: "Shape", icon: Shapes },
+  ];
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          disabled={disabled}
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Plus size={13} /> Add <ChevronDown size={12} className="opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-1" align="start">
+        {items.map((it) => {
+          const Icon = it.icon;
+          return (
+            <button
+              key={it.type}
+              onClick={() => onAdd(it.type)}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-fg hover:bg-surface-2"
+            >
+              <Icon size={15} className="text-muted" /> {it.label}
+            </button>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -500,7 +481,26 @@ const SUGGESTIONS = [
   "Build an explainer video on how solar panels work",
 ];
 
-function ChatPanel({ credits }: { credits: number }) {
+function ChatPanel({
+  credits,
+  aspectRatio,
+  defaultDuration,
+  generating,
+  onGenerate,
+}: {
+  credits: number;
+  aspectRatio: string;
+  defaultDuration: number;
+  generating: boolean;
+  onGenerate: (prompt: string, durationSec: number) => void;
+}) {
+  const [prompt, setPrompt] = useState("");
+  const [duration, setDuration] = useState(defaultDuration || 15);
+
+  const submit = () => {
+    onGenerate(prompt, duration);
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
@@ -509,8 +509,9 @@ function ChatPanel({ credits }: { credits: number }) {
           <Plus size={15} />
         </button>
       </div>
+
       <div className="flex flex-1 flex-col items-center justify-center px-5 text-center">
-        <div className="mb-4 h-16 w-16 rounded-full bg-gradient-to-br from-accent/40 to-accent/5" />
+        <div className="mb-4 h-16 w-16 rounded-full bg-gradient-to-br from-accent/50 to-accent/5 shadow-[0_0_40px] shadow-accent/30" />
         <h3 className="font-semibold">Let's create some animations</h3>
         <p className="mt-1 text-xs text-muted">
           Tell me the video you want. I'll generate every scene, narration, and animation for you.
@@ -519,110 +520,109 @@ function ChatPanel({ credits }: { credits: number }) {
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
-              className="w-full rounded-lg border border-border bg-surface-2/60 px-3 py-2 text-xs text-muted transition hover:border-accent/40 hover:text-fg"
+              onClick={() => setPrompt(s)}
+              className="w-full rounded-full border border-border bg-surface-2/60 px-3 py-2 text-xs text-muted transition hover:border-accent/40 hover:text-fg"
             >
               {s}
             </button>
           ))}
         </div>
       </div>
+
       <div className="space-y-2 border-t border-border-soft p-3">
-        <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-2 text-xs">
-          <span className="text-muted">{credits} credits remaining</span>
-          <Link to="/billing" className="font-semibold text-accent hover:underline">
+        <div className="flex items-center justify-between rounded-lg bg-warning/10 px-3 py-2 text-xs">
+          <span className="flex items-center gap-1.5 text-muted">
+            <Sparkles size={13} className="text-accent" /> {credits} credits remaining
+          </span>
+          <Link to="/billing" className="rounded-md border border-border bg-surface-2 px-2 py-1 font-semibold text-fg hover:border-accent/40">
             Upgrade
           </Link>
         </div>
+
         <div className="rounded-xl border border-border bg-surface-2 p-2">
+          <div className="mb-2 flex items-center gap-1.5">
+            <select
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="rounded-md border border-border bg-surface-3 px-2 py-1 text-xs text-fg outline-none"
+            >
+              {[10, 15, 20, 30, 45, 60].map((d) => (
+                <option key={d} value={d}>{d}s</option>
+              ))}
+            </select>
+            <span className="flex items-center gap-1 rounded-md border border-border bg-surface-3 px-2 py-1 text-xs text-muted">
+              <Monitor size={12} /> {aspectRatio}
+            </span>
+          </div>
           <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
             rows={2}
             placeholder="Describe a scene or edit the whole video"
             className="w-full resize-none bg-transparent px-1 text-sm text-fg outline-none placeholder:text-faint"
           />
+          <div className="mt-1 flex items-center justify-between">
+            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-3 hover:text-fg" title="Attach (coming soon)">
+              <Paperclip size={14} />
+            </button>
+            <button
+              onClick={submit}
+              disabled={generating || prompt.trim().length < 10}
+              className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              title="Generate"
+            >
+              {generating ? (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent-ink/40 border-t-accent-ink" />
+              ) : (
+                <ArrowUp size={14} />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function EditPanel({
+function ScenePanel({
   state,
-  dispatch,
+  currentTime,
+  onSeek,
 }: {
   state: ReturnType<typeof createInitialState>;
-  dispatch: React.Dispatch<import("@/lib/editor/editorStore").EditorAction>;
+  currentTime: number;
+  onSeek: (t: number) => void;
 }) {
-  const sceneClips = state.tracks
-    .filter((t) => t.kind === "scene")
-    .flatMap((t) => t.clips)
-    .filter((c) => c.type === "scene");
-  const selectedId = state.selection[0];
-  const selected = sceneClips.find((c) => c.id === selectedId) ?? null;
-
+  const sceneTrack = state.tracks.find((t) => t.kind === "scene");
+  const clips = sceneTrack?.clips.slice().sort((a, b) => a.start - b.start) ?? [];
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">Edit</div>
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-faint">Scenes</p>
-          <div className="space-y-1.5">
-            {sceneClips.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => dispatch({ type: "SELECT", ids: [c.id] })}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition",
-                  c.id === selectedId
-                    ? "border-accent bg-surface-2"
-                    : "border-border bg-surface-2/40 hover:border-accent/40"
-                )}
-              >
-                <span className="flex-1 truncate text-fg">{c.label ?? c.scene?.text}</span>
-                <span className="text-faint">{c.duration.toFixed(1)}s</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {selected && selected.scene && (
-          <div className="space-y-3 rounded-xl border border-border bg-surface-2/40 p-3">
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">Text</span>
-              <textarea
-                rows={2}
-                value={selected.scene.text}
-                onChange={(e) =>
-                  dispatch({
-                    type: "UPDATE_CLIP",
-                    clipId: selected.id,
-                    patch: {
-                      label: e.target.value,
-                      scene: { ...selected.scene!, text: e.target.value },
-                    },
-                  })
-                }
-                className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">Duration (s)</span>
-              <input
-                type="number"
-                min={0.2}
-                step={0.1}
-                value={selected.duration}
-                onChange={(e) =>
-                  dispatch({
-                    type: "UPDATE_CLIP",
-                    clipId: selected.id,
-                    patch: { duration: Math.max(0.2, Number(e.target.value) || 0.2) },
-                  })
-                }
-                className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
-              />
-            </label>
-          </div>
-        )}
+      <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">Scenes</div>
+      <div className="flex-1 space-y-1.5 overflow-y-auto p-3">
+        {clips.map((c, i) => {
+          const active = currentTime >= c.start && currentTime < c.start + c.duration;
+          return (
+            <button
+              key={c.id}
+              onClick={() => onSeek(c.start + 0.01)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition",
+                active ? "border-accent bg-surface-2" : "border-border bg-surface-2/40 hover:border-accent/40"
+              )}
+            >
+              <span className="font-bold text-accent-soft">{i + 1}</span>
+              <span className="flex-1 truncate text-fg">{c.label ?? c.scene?.text ?? "Scene"}</span>
+              <span className="text-faint">{c.duration.toFixed(1)}s</span>
+            </button>
+          );
+        })}
+        {!clips.length && <p className="px-1 text-xs text-faint">No scenes yet — generate in Chat.</p>}
       </div>
     </div>
   );
@@ -632,9 +632,7 @@ function PlaceholderPanel({ id }: { id: PanelId }) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold capitalize">{id}</div>
-      <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted">
-        {id} panel — coming soon.
-      </div>
+      <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted">{id} panel — coming soon.</div>
     </div>
   );
 }

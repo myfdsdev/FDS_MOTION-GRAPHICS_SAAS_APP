@@ -1,7 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { Project } from "../models.js";
-import { CreateProjectInput, UpdateProjectInput } from "../schemas.js";
+import { CreateProjectInput, GenerateProjectInput, UpdateProjectInput } from "../schemas.js";
 import { toProjectDTO } from "../serialize.js";
 import { requireAuth } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
@@ -118,6 +118,48 @@ projectsRouter.delete("/:id", async (req, res, next) => {
     next(err);
   }
 });
+
+// (Re)generate a project's plan from a prompt — used by the in-editor chat.
+// Runs the AI pipeline and overwrites sceneJson (the editor then loads it).
+projectsRouter.post(
+  "/:id/generate",
+  rateLimit({ max: 20, windowMs: 60 * 60 * 1000 }),
+  validate(GenerateProjectInput),
+  async (req, res, next) => {
+    try {
+      if (!isValidId(req.params.id)) return res.status(404).json({ error: "Project not found" });
+      const project = await Project.findOne({ _id: req.params.id, deletedAt: null });
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      if (String(project.userId) !== req.user.id)
+        return res.status(403).json({ error: "Forbidden" });
+      if (project.status === "QUEUED" || project.status === "RENDERING")
+        return res.status(409).json({ error: "Project is rendering — wait for it to finish" });
+
+      const configError = await generationConfigError(req.user.id);
+      if (configError) return res.status(500).json({ error: configError });
+
+      const { prompt, durationSec } = req.body;
+      const seconds = durationSec ?? project.durationSec ?? 20;
+
+      const cost = costForDuration(seconds);
+      await deductCredits(req.user.id, cost, String(project._id));
+
+      project.prompt = prompt;
+      project.durationSec = seconds;
+      project.status = "PLANNING";
+      project.progress = 0;
+      project.errorMessage = null;
+      project.outputUrl = null;
+      await project.save();
+
+      runPipeline(String(project._id), req.user.id, prompt, seconds);
+
+      res.status(202).json(toProjectDTO(project));
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 projectsRouter.post("/:id/rerender", async (req, res, next) => {
   try {

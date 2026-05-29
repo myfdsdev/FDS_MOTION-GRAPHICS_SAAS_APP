@@ -1,11 +1,17 @@
 // Persisted multi-track timeline produced by the editor. Type-only import
 // (erased at build time, so the editorTypes ↔ types cycle is harmless).
-import type { Timeline } from "@/lib/editor/editorTypes";
+import type { SceneElement, Timeline } from "@/lib/editor/editorTypes";
 export type {
   Timeline,
   TimelineTrack,
   TimelineClip,
   ZoomRegion,
+  SceneElement,
+  TextElement,
+  IconElement,
+  ImageElement,
+  ShapeElement,
+  ElementType,
 } from "@/lib/editor/editorTypes";
 
 export type ProjectStatus =
@@ -68,6 +74,7 @@ export interface Scene {
   visualAssetId?: string;
   animation: AnimationType;
   transition: TransitionType;
+  elements?: SceneElement[];
 }
 
 export interface VideoPlan {

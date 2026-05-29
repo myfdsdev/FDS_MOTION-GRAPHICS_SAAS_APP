@@ -49,7 +49,8 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
     }
     try {
       const proj = await createProject.mutateAsync({ prompt, durationSec });
-      navigate(`/projects/${proj.id}`);
+      // Open the generated project straight in the editor.
+      navigate(`/projects/${proj.id}/edit`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create";
       if (msg.includes("Not authenticated")) {

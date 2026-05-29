@@ -30,6 +30,63 @@ export const RULER_HEIGHT = 22;
 export type ClipType = "scene" | "text" | "image" | "audio";
 export type TrackKind = "scene" | "overlay" | "audio";
 
+// ---------------------------------------------------------------------------
+// Direct-manipulation scene elements (positions are FRACTIONS of the
+// composition 0..1 so they survive resolution changes).
+// ---------------------------------------------------------------------------
+
+export type ElementType = "text" | "icon" | "image" | "shape";
+export type TextAlign = "left" | "center" | "right";
+
+export interface ElementBase {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Rotation in degrees. */
+  rotation: number;
+  /** Stacking order; higher renders on top. */
+  z: number;
+}
+
+export interface TextElement extends ElementBase {
+  type: "text";
+  text: string;
+  font?: string;
+  /** Font size as a fraction of composition HEIGHT (e.g. 0.08). */
+  size?: number;
+  weight?: number;
+  color?: string;
+  align?: TextAlign;
+}
+
+export interface IconElement extends ElementBase {
+  type: "icon";
+  /** lucide-react icon name, e.g. "Sparkles". */
+  name: string;
+  color?: string;
+}
+
+export interface ImageElement extends ElementBase {
+  type: "image";
+  src: string;
+  fit?: "cover" | "contain";
+}
+
+export interface ShapeElement extends ElementBase {
+  type: "shape";
+  shape: "rect" | "ellipse";
+  fill?: string;
+  stroke?: string;
+}
+
+export type SceneElement = TextElement | IconElement | ImageElement | ShapeElement;
+
+/** Defaults for newly created elements (centered, sensible size per type). */
+export const DEFAULT_TEXT_SIZE = 0.08;
+export const DEFAULT_ELEMENT_COLOR = "#ffffff";
+
 /** Per-clip-type accent used on the timeline + chips. */
 export const CLIP_COLORS: Record<ClipType, string> = {
   scene: "#8b5cf6",
@@ -104,6 +161,8 @@ export interface EditorSnapshot {
   selection: string[];
   /** Selected zoom-region id, if any. */
   selectedZoomId: string | null;
+  /** Selected element ids on the canvas (within the current scene). */
+  selectedElementIds: string[];
 }
 
 export interface EditorState extends EditorSnapshot {

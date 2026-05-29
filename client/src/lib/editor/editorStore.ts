@@ -1,7 +1,9 @@
 import type { Scene } from "@/types";
 import {
   CLIP_COLORS,
+  DEFAULT_ELEMENT_COLOR,
   DEFAULT_PX_PER_SECOND,
+  DEFAULT_TEXT_SIZE,
   MAX_PX_PER_SECOND,
   MIN_CLIP_DURATION,
   MIN_PX_PER_SECOND,
@@ -11,12 +13,91 @@ import {
   type ClipType,
   type EditorSnapshot,
   type EditorState,
+  type SceneElement,
   type Timeline,
   type TimelineClip,
   type TimelineTrack,
   type TrackKind,
   type ZoomRegion,
 } from "./editorTypes";
+
+// ---------------------------------------------------------------------------
+// Scene-element migration + helpers
+// ---------------------------------------------------------------------------
+
+/** Build canvas elements from a legacy scene's headline/text/subtext fields. */
+export function elementsFromScene(scene: Scene): SceneElement[] {
+  const out: SceneElement[] = [];
+  let z = 0;
+  const headline = scene.headline || scene.text;
+  if (headline) {
+    out.push({
+      id: uid("el"),
+      type: "text",
+      x: 0.1,
+      y: 0.38,
+      w: 0.8,
+      h: 0.18,
+      rotation: 0,
+      z: z++,
+      text: headline,
+      size: 0.1,
+      weight: 800,
+      color: DEFAULT_ELEMENT_COLOR,
+      align: "center",
+    });
+  }
+  if (scene.subtext) {
+    out.push({
+      id: uid("el"),
+      type: "text",
+      x: 0.15,
+      y: 0.58,
+      w: 0.7,
+      h: 0.12,
+      rotation: 0,
+      z: z++,
+      text: scene.subtext,
+      size: 0.04,
+      weight: 500,
+      color: "#cbd5e1",
+      align: "center",
+    });
+  }
+  return out;
+}
+
+/** Ensure a scene has an `elements` array (migrate legacy scenes lazily). */
+export function ensureElements(scene: Scene): Scene {
+  if (scene.elements && scene.elements.length) return scene;
+  return { ...scene, elements: elementsFromScene(scene) };
+}
+
+export function currentSceneClipId(
+  tracks: TimelineTrack[],
+  time: number
+): string | null {
+  const sceneTrack = tracks.find((t) => t.kind === "scene");
+  if (!sceneTrack) return null;
+  const clip =
+    sceneTrack.clips.find((c) => time >= c.start && time < c.start + c.duration) ??
+    sceneTrack.clips[sceneTrack.clips.length - 1];
+  return clip?.id ?? null;
+}
+
+const NEW_ELEMENT_DEFAULTS = (type: SceneElement["type"]): SceneElement => {
+  const base = { id: uid("el"), x: 0.35, y: 0.4, w: 0.3, h: 0.2, rotation: 0, z: 0 };
+  switch (type) {
+    case "text":
+      return { ...base, type: "text", text: "New text", size: DEFAULT_TEXT_SIZE, weight: 700, color: DEFAULT_ELEMENT_COLOR, align: "center" };
+    case "icon":
+      return { ...base, type: "icon", w: 0.16, h: 0.16, name: "Sparkles", color: DEFAULT_ELEMENT_COLOR };
+    case "image":
+      return { ...base, type: "image", src: "", fit: "cover" };
+    case "shape":
+      return { ...base, type: "shape", shape: "rect", fill: "#8b5cf6" };
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Selectors / helpers
@@ -102,7 +183,7 @@ function sceneClip(scene: Scene, start: number): TimelineClip {
     type: "scene",
     start,
     duration,
-    scene,
+    scene: ensureElements(scene),
     animation: scene.animation,
     transition: scene.transition,
     label: scene.headline || scene.text,
@@ -116,10 +197,17 @@ export function createInitialState(
 ): EditorState {
   if (existing && existing.tracks?.length) {
     return {
-      tracks: existing.tracks.map((t) => ({ ...t, clips: t.clips.map((c) => ({ ...c })) })),
+      tracks: existing.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => ({
+          ...c,
+          scene: c.scene ? ensureElements(c.scene) : c.scene,
+        })),
+      })),
       zoomRegions: (existing.zoomRegions ?? []).map((z) => ({ ...z })),
       selection: [],
       selectedZoomId: null,
+      selectedElementIds: [],
       pxPerSecond: DEFAULT_PX_PER_SECOND,
       snapping: true,
       past: [],
@@ -142,6 +230,7 @@ export function createInitialState(
     zoomRegions: [],
     selection: [],
     selectedZoomId: null,
+    selectedElementIds: [],
     pxPerSecond: DEFAULT_PX_PER_SECOND,
     snapping: true,
     past: [],
@@ -186,6 +275,14 @@ export type EditorAction =
   | { type: "DELETE_ZOOM"; id: string }
   | { type: "REORDER_TRACK"; trackId: string; toIndex: number }
   | { type: "UPDATE_CLIP"; clipId: string; patch: Partial<TimelineClip> }
+  // scene elements (canvas). clipId is the current scene clip (derived from playhead)
+  | { type: "ADD_ELEMENT"; clipId: string; elementType: SceneElement["type"]; element?: Partial<SceneElement> }
+  | { type: "UPDATE_ELEMENT"; clipId: string; elementId: string; patch: ElementPatch }
+  | { type: "MOVE_ELEMENT"; clipId: string; elementId: string; x: number; y: number } // ephemeral
+  | { type: "RESIZE_ELEMENT"; clipId: string; elementId: string; patch: ElementPatch } // ephemeral
+  | { type: "DELETE_ELEMENT"; clipId: string; elementIds?: string[] }
+  | { type: "REORDER_Z"; clipId: string; elementId: string; dir: "front" | "back" | "forward" | "backward" }
+  | { type: "SELECT_ELEMENTS"; ids: string[]; additive?: boolean }
   // selection / view (no history)
   | { type: "SELECT"; ids: string[]; additive?: boolean }
   | { type: "SELECT_ZOOM"; id: string | null }
@@ -200,10 +297,19 @@ export type EditorAction =
 
 function snapshot(state: EditorState): EditorSnapshot {
   return {
-    tracks: state.tracks.map((t) => ({ ...t, clips: t.clips.map((c) => ({ ...c })) })),
+    tracks: state.tracks.map((t) => ({
+      ...t,
+      clips: t.clips.map((c) => ({
+        ...c,
+        scene: c.scene
+          ? { ...c.scene, elements: c.scene.elements ? c.scene.elements.map((e) => ({ ...e })) : undefined }
+          : c.scene,
+      })),
+    })),
     zoomRegions: state.zoomRegions.map((z) => ({ ...z })),
     selection: [...state.selection],
     selectedZoomId: state.selectedZoomId,
+    selectedElementIds: [...state.selectedElementIds],
   };
 }
 
@@ -221,6 +327,56 @@ function mapClip(
     ...t,
     clips: t.clips.map((c) => (c.id === clipId ? fn(c) : c)),
   }));
+}
+
+// A patch can carry any element field; the discriminant `type` is never changed.
+export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
+  text?: string;
+  font?: string;
+  size?: number;
+  weight?: number;
+  color?: string;
+  align?: "left" | "center" | "right";
+  name?: string;
+  src?: string;
+  fit?: "cover" | "contain";
+  shape?: "rect" | "ellipse";
+  fill?: string;
+  stroke?: string;
+};
+
+/** Map over the elements of a specific scene clip. */
+function mapElements(
+  tracks: TimelineTrack[],
+  clipId: string,
+  fn: (elements: SceneElement[]) => SceneElement[]
+): TimelineTrack[] {
+  return mapClip(tracks, clipId, (c) => {
+    if (!c.scene) return c;
+    const elements = c.scene.elements ?? [];
+    return { ...c, scene: { ...c.scene, elements: fn(elements) } };
+  });
+}
+
+function applyElementPatch(el: SceneElement, patch: ElementPatch): SceneElement {
+  return { ...el, ...patch } as SceneElement;
+}
+
+function reorderZ(
+  elements: SceneElement[],
+  elementId: string,
+  dir: "front" | "back" | "forward" | "backward"
+): SceneElement[] {
+  const order = [...elements].sort((a, b) => a.z - b.z);
+  const idx = order.findIndex((e) => e.id === elementId);
+  if (idx === -1) return elements;
+  const [moved] = order.splice(idx, 1);
+  if (dir === "front") order.push(moved);
+  else if (dir === "back") order.unshift(moved);
+  else if (dir === "forward") order.splice(Math.min(order.length, idx + 1), 0, moved);
+  else order.splice(Math.max(0, idx - 1), 0, moved);
+  const zById = new Map(order.map((e, i) => [e.id, i]));
+  return elements.map((e) => ({ ...e, z: zById.get(e.id) ?? e.z }));
 }
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -294,6 +450,86 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         tracks: mapClip(state.tracks, action.clipId, (c) => ({ ...c, ...action.patch })),
       });
     }
+
+    // ---- Scene elements (canvas) ----
+
+    case "ADD_ELEMENT": {
+      const next = withHistory(state);
+      const newEl = {
+        ...NEW_ELEMENT_DEFAULTS(action.elementType),
+        ...action.element,
+        id: uid("el"),
+        type: action.elementType,
+      } as SceneElement;
+      return {
+        ...next,
+        tracks: mapElements(next.tracks, action.clipId, (els) => {
+          const maxZ = els.reduce((m, e) => Math.max(m, e.z), -1);
+          return [...els, { ...newEl, z: maxZ + 1 }];
+        }),
+        selectedElementIds: [newEl.id],
+      };
+    }
+
+    case "UPDATE_ELEMENT": {
+      return withHistory({
+        ...state,
+        tracks: mapElements(state.tracks, action.clipId, (els) =>
+          els.map((e) => (e.id === action.elementId ? applyElementPatch(e, action.patch) : e))
+        ),
+      });
+    }
+
+    case "MOVE_ELEMENT": {
+      return {
+        ...state,
+        tracks: mapElements(state.tracks, action.clipId, (els) =>
+          els.map((e) => (e.id === action.elementId ? { ...e, x: action.x, y: action.y } : e))
+        ),
+      };
+    }
+
+    case "RESIZE_ELEMENT": {
+      return {
+        ...state,
+        tracks: mapElements(state.tracks, action.clipId, (els) =>
+          els.map((e) => (e.id === action.elementId ? applyElementPatch(e, action.patch) : e))
+        ),
+      };
+    }
+
+    case "DELETE_ELEMENT": {
+      const ids = action.elementIds ?? state.selectedElementIds;
+      if (!ids.length) return state;
+      const next = withHistory(state);
+      return {
+        ...next,
+        tracks: mapElements(next.tracks, action.clipId, (els) =>
+          els.filter((e) => !ids.includes(e.id))
+        ),
+        selectedElementIds: [],
+      };
+    }
+
+    case "REORDER_Z": {
+      const next = withHistory(state);
+      return {
+        ...next,
+        tracks: mapElements(next.tracks, action.clipId, (els) =>
+          reorderZ(els, action.elementId, action.dir)
+        ),
+      };
+    }
+
+    case "SELECT_ELEMENTS":
+      return {
+        ...state,
+        selectedElementIds: action.additive
+          ? Array.from(new Set([...state.selectedElementIds, ...action.ids]))
+          : action.ids,
+        selection: [],
+        selectedZoomId: null,
+      };
 
     case "SPLIT_AT": {
       const targetIds = action.clipId
@@ -446,7 +682,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return { ...state, selectedZoomId: action.id, selection: [] };
 
     case "CLEAR_SELECTION":
-      return { ...state, selection: [], selectedZoomId: null };
+      return { ...state, selection: [], selectedZoomId: null, selectedElementIds: [] };
 
     case "SET_PX_PER_SECOND":
       return {

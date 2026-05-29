@@ -58,6 +58,53 @@ export const TemplateName = z.enum([
   "local-business",
 ]);
 
+// ---- Direct-manipulation scene elements (fractional 0..1 positions) ----
+
+const Hex = z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/);
+const Frac = z.number().min(-1).max(2); // allow slight off-canvas overflow
+
+const ElementBase = {
+  id: z.string().min(1).max(80),
+  x: Frac,
+  y: Frac,
+  w: z.number().min(0).max(3),
+  h: z.number().min(0).max(3),
+  rotation: z.number().min(-360).max(360).default(0),
+  z: z.number().int().min(0).max(9999).default(0),
+};
+
+export const SceneElementSchema = z.discriminatedUnion("type", [
+  z.object({
+    ...ElementBase,
+    type: z.literal("text"),
+    text: z.string().max(1000),
+    font: z.string().max(80).optional(),
+    size: z.number().min(0.005).max(1).optional(),
+    weight: z.number().int().min(100).max(900).optional(),
+    color: Hex.optional(),
+    align: z.enum(["left", "center", "right"]).optional(),
+  }),
+  z.object({
+    ...ElementBase,
+    type: z.literal("icon"),
+    name: z.string().max(60),
+    color: Hex.optional(),
+  }),
+  z.object({
+    ...ElementBase,
+    type: z.literal("image"),
+    src: z.string().max(2000),
+    fit: z.enum(["cover", "contain"]).optional(),
+  }),
+  z.object({
+    ...ElementBase,
+    type: z.literal("shape"),
+    shape: z.enum(["rect", "ellipse"]),
+    fill: Hex.optional(),
+    stroke: Hex.optional(),
+  }),
+]);
+
 export const SceneSchema = z.object({
   scene: z.number().int().min(1),
   // Editor allows finer/longer scenes than the AI generator; keep a sane cap.
@@ -72,6 +119,7 @@ export const SceneSchema = z.object({
   visualAssetId: z.string().optional(),
   animation: AnimationType,
   transition: TransitionType,
+  elements: z.array(SceneElementSchema).max(50).optional(),
 });
 
 // ---- Multi-track editor timeline (optional; persisted on VideoPlan.timeline) ----
@@ -149,6 +197,11 @@ export const CreateProjectInput = z.object({
 
 export const EnhancePromptInput = z.object({
   prompt: z.string().min(5).max(1000),
+});
+
+export const GenerateProjectInput = z.object({
+  prompt: z.string().min(10).max(1000),
+  durationSec: z.number().int().min(5).max(60).optional(),
 });
 
 export const TopUpInput = z.object({
