@@ -10,12 +10,16 @@ import {
   History,
   Image as ImageIcon,
   Layers,
+  Library,
   Magnet,
   Maximize,
+  MessageSquare,
   Monitor,
   MousePointer2,
   Music,
+  Palette,
   Paperclip,
+  SlidersHorizontal,
   Pause,
   Play,
   Plus,
@@ -53,6 +57,18 @@ import { DEFAULT_PX_PER_SECOND, FPS, type SceneElement } from "@/lib/editor/edit
 import { cn } from "@/lib/utils";
 import type { VideoPlan } from "@/types";
 
+type PanelId = "chat" | "edit" | "media" | "fonts" | "colors" | "projects" | "templates";
+
+const RAIL: { id: PanelId; label: string; icon: typeof MessageSquare }[] = [
+  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "edit", label: "Edit", icon: SlidersHorizontal },
+  { id: "media", label: "Media", icon: Library },
+  { id: "fonts", label: "Fonts", icon: TypeIcon },
+  { id: "colors", label: "Colors", icon: Palette },
+  { id: "projects", label: "Projects", icon: Library },
+  { id: "templates", label: "Templates", icon: Sparkles },
+];
+
 const EMPTY_STATE = createInitialState([]);
 
 function fmt(t: number) {
@@ -70,6 +86,7 @@ export default function EditorPage() {
   const rerender = useRerender();
 
   const [state, dispatch] = useReducer(editorReducer, EMPTY_STATE);
+  const [panel, setPanel] = useState<PanelId>("chat");
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [awaitingGen, setAwaitingGen] = useState(false);
@@ -326,15 +343,40 @@ export default function EditorPage() {
 
       {/* ---- Body ---- */}
       <div className="flex min-h-0 flex-1">
-        {/* Left: AI chat panel */}
+        {/* Icon rail */}
+        <nav className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-border-soft bg-bg/60 py-3">
+          {RAIL.map((item) => {
+            const Icon = item.icon;
+            const active = panel === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setPanel(item.id)}
+                className={cn(
+                  "flex w-14 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition",
+                  active ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2/60 hover:text-fg"
+                )}
+              >
+                <Icon size={18} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Left panel */}
         <aside className="flex w-80 shrink-0 flex-col border-r border-border-soft bg-bg/40">
-          <ChatPanel
-            credits={me?.credits ?? 0}
-            aspectRatio={project.aspectRatio}
-            defaultDuration={project.durationSec}
-            generating={generating}
-            onGenerate={runGenerate}
-          />
+          {panel === "chat" && (
+            <ChatPanel
+              credits={me?.credits ?? 0}
+              aspectRatio={project.aspectRatio}
+              defaultDuration={project.durationSec}
+              generating={generating}
+              onGenerate={runGenerate}
+            />
+          )}
+          {panel === "edit" && <ScenePanel state={state} currentTime={currentTime} onSeek={handleSeek} />}
+          {panel !== "chat" && panel !== "edit" && <PlaceholderPanel id={panel} />}
         </aside>
 
         {/* Canvas */}
@@ -581,6 +623,53 @@ function ChatPanel({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ScenePanel({
+  state,
+  currentTime,
+  onSeek,
+}: {
+  state: ReturnType<typeof createInitialState>;
+  currentTime: number;
+  onSeek: (t: number) => void;
+}) {
+  const sceneTrack = state.tracks.find((t) => t.kind === "scene");
+  const clips = sceneTrack?.clips.slice().sort((a, b) => a.start - b.start) ?? [];
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">Scenes</div>
+      <div className="flex-1 space-y-1.5 overflow-y-auto p-3">
+        {clips.map((c, i) => {
+          const active = currentTime >= c.start && currentTime < c.start + c.duration;
+          return (
+            <button
+              key={c.id}
+              onClick={() => onSeek(c.start + 0.01)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition",
+                active ? "border-accent bg-surface-2" : "border-border bg-surface-2/40 hover:border-accent/40"
+              )}
+            >
+              <span className="font-bold text-accent-soft">{i + 1}</span>
+              <span className="flex-1 truncate text-fg">{c.label ?? c.scene?.text ?? "Scene"}</span>
+              <span className="text-faint">{c.duration.toFixed(1)}s</span>
+            </button>
+          );
+        })}
+        {!clips.length && <p className="px-1 text-xs text-faint">No scenes yet — generate in Chat.</p>}
+      </div>
+    </div>
+  );
+}
+
+function PlaceholderPanel({ id }: { id: PanelId }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold capitalize">{id}</div>
+      <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted">{id} panel — coming soon.</div>
     </div>
   );
 }
