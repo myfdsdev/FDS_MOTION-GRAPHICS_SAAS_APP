@@ -45,6 +45,7 @@ export function Canvas({
   const [size, setSize] = useState({ w: 1, h: 1 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
 
   // Track stage pixel size for fraction <-> px conversion.
   useLayoutEffect(() => {
@@ -98,14 +99,18 @@ export function Canvas({
       const others = elements.filter((o) => o.id !== d.id);
       const xs = [0, 0.5, 1, ...others.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w])];
       const ys = [0, 0.5, 1, ...others.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h])];
-      nx = snapAnchored(nx, el.w, xs, size.w);
-      ny = snapAnchored(ny, el.h, ys, size.h);
+      const rx = snapAnchored(nx, el.w, xs, size.w);
+      const ry = snapAnchored(ny, el.h, ys, size.h);
+      nx = rx.pos;
+      ny = ry.pos;
+      setGuides({ x: rx.guide, y: ry.guide });
     }
     dispatch({ type: "MOVE_ELEMENT", clipId, elementId: d.id, x: nx, y: ny });
   };
 
   const endMove = (e: React.PointerEvent) => {
     drag.current = null;
+    setGuides({ x: null, y: null });
     (e.target as Element).releasePointerCapture?.(e.pointerId);
   };
 
@@ -348,7 +353,7 @@ function ElementBody({
           fontWeight: el.weight ?? 700,
           color: el.color ?? "#ffffff",
           fontFamily: el.font ?? "Inter, system-ui, sans-serif",
-          lineHeight: 1.05,
+          lineHeight: el.lineHeight ?? 1.05,
           outline: "none",
           overflow: "hidden",
           cursor: editing ? "text" : "inherit",
