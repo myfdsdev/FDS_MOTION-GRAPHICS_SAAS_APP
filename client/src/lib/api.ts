@@ -17,11 +17,18 @@ const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
 // Base URL of the backend API. Leave empty for same-origin (dev uses the Vite
 // proxy; same-server prod serves both). Set VITE_API_BASE_URL to an absolute
 // origin (e.g. https://fds-...onrender.com) for a split frontend/API deploy.
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/+$/, "");
 
 function apiUrl(path: string) {
   if (/^https?:\/\//.test(path)) return path;
-  return `${API_BASE_URL}${path}`;
+  const apiPath = path.startsWith("/") ? path : `/${path}`;
+
+  if (!API_BASE_URL) return apiPath;
+  if (API_BASE_URL.endsWith("/api") && apiPath.startsWith("/api/")) {
+    return `${API_BASE_URL}${apiPath.slice(4)}`;
+  }
+
+  return `${API_BASE_URL}${apiPath}`;
 }
 
 // Starter animations removed — the library is populated only by admin uploads.
