@@ -83,6 +83,7 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
     weight: z.number().int().min(100).max(900).optional(),
     color: Hex.optional(),
     align: z.enum(["left", "center", "right"]).optional(),
+    lineHeight: z.number().min(0.5).max(4).optional(),
   }),
   z.object({
     ...ElementBase,
@@ -102,6 +103,8 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
     shape: z.enum(["rect", "ellipse"]),
     fill: Hex.optional(),
     stroke: Hex.optional(),
+    strokeWidth: z.number().min(0).max(100).optional(),
+    radius: z.number().min(0).max(500).optional(),
   }),
 ]);
 

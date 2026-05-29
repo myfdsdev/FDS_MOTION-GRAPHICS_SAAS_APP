@@ -59,6 +59,7 @@ export interface TextElement extends ElementBase {
   weight?: number;
   color?: string;
   align?: TextAlign;
+  lineHeight?: number;
 }
 
 export interface IconElement extends ElementBase {
@@ -79,6 +80,9 @@ export interface ShapeElement extends ElementBase {
   shape: "rect" | "ellipse";
   fill?: string;
   stroke?: string;
+  strokeWidth?: number;
+  /** Corner radius in px (rect only). */
+  radius?: number;
 }
 
 export type SceneElement = TextElement | IconElement | ImageElement | ShapeElement;

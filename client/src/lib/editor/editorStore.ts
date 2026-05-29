@@ -337,12 +337,15 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   weight?: number;
   color?: string;
   align?: "left" | "center" | "right";
+  lineHeight?: number;
   name?: string;
   src?: string;
   fit?: "cover" | "contain";
   shape?: "rect" | "ellipse";
   fill?: string;
   stroke?: string;
+  strokeWidth?: number;
+  radius?: number;
 };
 
 /** Map over the elements of a specific scene clip. */
