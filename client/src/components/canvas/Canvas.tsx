@@ -389,8 +389,8 @@ function ElementBody({
         width: "100%",
         height: "100%",
         background: el.fill ?? "#8b5cf6",
-        border: el.stroke ? `2px solid ${el.stroke}` : "none",
-        borderRadius: el.shape === "ellipse" ? "50%" : 8,
+        border: el.stroke ? `${el.strokeWidth ?? 2}px solid ${el.stroke}` : "none",
+        borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
       }}
     />
   );
@@ -411,9 +411,16 @@ function handleStyle(handle: Handle): React.CSSProperties {
 }
 
 // Snap an element's left/center/right anchor (axis-generic) to candidates.
-function snapAnchored(pos: number, sizeFrac: number, candidates: number[], stagePx: number): number {
+// Returns the snapped position and the guide line (in fractions) it locked to.
+function snapAnchored(
+  pos: number,
+  sizeFrac: number,
+  candidates: number[],
+  stagePx: number
+): { pos: number; guide: number | null } {
   const anchors = [pos, pos + sizeFrac / 2, pos + sizeFrac];
   let bestDelta = 0;
+  let bestGuide: number | null = null;
   let bestDist = SNAP_THRESHOLD_PX / Math.max(1, stagePx);
   for (const a of anchors) {
     const snapped = snapValue(a, candidates, stagePx, true);
@@ -421,7 +428,8 @@ function snapAnchored(pos: number, sizeFrac: number, candidates: number[], stage
     if (Math.abs(delta) < bestDist) {
       bestDist = Math.abs(delta);
       bestDelta = delta;
+      bestGuide = snapped;
     }
   }
-  return pos + bestDelta;
+  return { pos: pos + bestDelta, guide: bestGuide };
 }
