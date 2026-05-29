@@ -1,15 +1,29 @@
+import { useMemo, useState, type ComponentType } from "react";
 import {
   ArrowDownToLine,
   ArrowUpToLine,
+  CopyPlus,
   Image as ImageIcon,
+  Search,
   Shapes,
   Sparkles,
   Trash2,
   Type as TypeIcon,
 } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import type { SceneElement } from "@/types";
 import type { EditorAction, ElementPatch } from "@/lib/editor/editorStore";
 import { Tooltip } from "@/components/ui/Tooltip";
+
+const FONTS = [
+  "Inter",
+  "Arial",
+  "Georgia",
+  "Times New Roman",
+  "Courier New",
+  "Verdana",
+  "Trebuchet MS",
+];
 
 interface PanelCommon {
   clipId: string | null;
@@ -181,6 +195,54 @@ export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: Pro
             </div>
           </Section>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Searchable lucide icon picker.
+const ICON_LIB = LucideIcons as unknown as Record<string, ComponentType<{ size?: number }>>;
+const ICON_NAMES = Object.keys(LucideIcons).filter(
+  (k) => /^[A-Z][A-Za-z0-9]+$/.test(k) && !["Icon", "LucideProps"].includes(k)
+);
+
+function IconPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [q, setQ] = useState("");
+  const results = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    const list = term ? ICON_NAMES.filter((n) => n.toLowerCase().includes(term)) : ICON_NAMES;
+    return list.slice(0, 60);
+  }, [q]);
+
+  return (
+    <div>
+      <span className="mb-1 block text-xs text-muted">Icon ({value})</span>
+      <div className="relative mb-1.5">
+        <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-faint" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search icons…"
+          className="w-full rounded-lg border border-border bg-surface-2 py-1.5 pl-7 pr-2 text-sm text-fg outline-none focus:border-accent/50"
+        />
+      </div>
+      <div className="grid max-h-40 grid-cols-6 gap-1 overflow-y-auto rounded-lg border border-border bg-surface-2/40 p-1.5">
+        {results.map((name) => {
+          const Ico = ICON_LIB[name];
+          if (!Ico) return null;
+          return (
+            <button
+              key={name}
+              title={name}
+              onClick={() => onChange(name)}
+              className={`flex h-8 items-center justify-center rounded transition ${
+                name === value ? "bg-accent text-accent-ink" : "text-muted hover:bg-surface-2 hover:text-fg"
+              }`}
+            >
+              <Ico size={16} />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
