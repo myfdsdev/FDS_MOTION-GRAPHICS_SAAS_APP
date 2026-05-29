@@ -107,6 +107,15 @@ export default function EditorPage() {
   );
   const sceneClip = sceneClipId ? findClip(state.tracks, sceneClipId)?.clip ?? null : null;
   const elements: SceneElement[] = sceneClip?.scene?.elements ?? [];
+  const sceneNumber = useMemo(() => {
+    const track = state.tracks.find((t) => t.kind === "scene");
+    if (!track || !sceneClipId) return 1;
+    const idx = track.clips
+      .slice()
+      .sort((a, b) => a.start - b.start)
+      .findIndex((c) => c.id === sceneClipId);
+    return idx >= 0 ? idx + 1 : 1;
+  }, [state.tracks, sceneClipId]);
 
   // Load (and reload) the store whenever the project's *scenes* change. This
   // covers the first load, create-time generation, and in-editor chat
@@ -390,6 +399,7 @@ export default function EditorPage() {
               clipId={sceneClipId}
               snapping={state.snapping}
               dispatch={dispatch}
+              sceneNumber={sceneNumber}
             />
           </div>
           {generating && (

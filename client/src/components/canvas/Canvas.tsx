@@ -244,9 +244,42 @@ export function Canvas({
       }}
       className={`relative w-full max-w-4xl overflow-hidden rounded-lg shadow-2xl ${ASPECT_CLASS[aspectRatio]}`}
       style={{
-        background: `radial-gradient(circle at 50% 40%, ${brandColors[1] ?? "#8b5cf6"}22, transparent 60%), linear-gradient(160deg, ${brandColors[0] ?? "#0f172a"}, #050509)`,
+        background:
+          `radial-gradient(circle at 48% 34%, ${brandColors[1] ?? "#8b5cf6"}55 0%, transparent 34%), ` +
+          `radial-gradient(circle at 78% 78%, ${brandColors[2] ?? "#38bdf8"}44 0%, transparent 30%), ` +
+          `linear-gradient(135deg, ${brandColors[0] ?? "#0f172a"} 0%, #0b1020 100%)`,
       }}
     >
+      {/* Template backdrop approximation (matches sceneShell + SceneChrome).
+          Non-interactive — only foreground elements are selectable. */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
+          backgroundSize: "8% 14%",
+          opacity: 0.28,
+        }}
+      />
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          top: "10%",
+          left: "8%",
+          width: 84,
+          height: 6,
+          borderRadius: 99,
+          backgroundColor: brandColors[1] ?? "#8b5cf6",
+          boxShadow: `0 0 28px ${brandColors[1] ?? "#8b5cf6"}`,
+        }}
+      />
+      <div
+        className="pointer-events-none absolute font-extrabold tracking-widest text-white/20"
+        style={{ right: "7%", bottom: "8%", fontSize: "min(5vw,30px)" }}
+      >
+        {String(sceneNumber ?? 1).padStart(2, "0")}
+      </div>
+
       {ordered.map((el) => {
         const selected = selectedIds.includes(el.id);
         const editing = editingId === el.id;
