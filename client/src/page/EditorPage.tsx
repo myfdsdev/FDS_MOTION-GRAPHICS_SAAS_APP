@@ -296,12 +296,30 @@ export default function EditorPage() {
           <Tooltip content="Redo" shortcut="⌘⇧Z" side="bottom"><IconBtn icon={Redo2} onClick={redo} disabled={!canRedo(state)} /></Tooltip>
           <Tooltip content="Version history" side="bottom"><IconBtn icon={History} /></Tooltip>
           <span className="mx-1 h-5 w-px bg-border-soft" />
-          <button className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg hover:border-accent/40">
-            <Copy size={13} /> Duplicate
-          </button>
-          <button className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover">
-            <Upload size={13} /> Share / Export
-          </button>
+          {project.status === "DONE" && project.outputUrl && (
+            <Tooltip content="Download MP4" side="bottom">
+              <a
+                href={project.outputUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg hover:border-accent/40"
+              >
+                <Download size={13} /> Download
+              </a>
+            </Tooltip>
+          )}
+          <Tooltip content="Render the final MP4" side="bottom">
+            <button
+              onClick={handleRender}
+              disabled={!editable || rerender.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Film size={13} />
+              {project.status === "RENDERING" || project.status === "QUEUED"
+                ? `Rendering ${project.progress}%`
+                : "Render"}
+            </button>
+          </Tooltip>
           <ThemeToggle className="ml-1 h-7 w-7" />
         </div>
       </header>
@@ -567,49 +585,3 @@ function ChatPanel({
   );
 }
 
-function ScenePanel({
-  state,
-  currentTime,
-  onSeek,
-}: {
-  state: ReturnType<typeof createInitialState>;
-  currentTime: number;
-  onSeek: (t: number) => void;
-}) {
-  const sceneTrack = state.tracks.find((t) => t.kind === "scene");
-  const clips = sceneTrack?.clips.slice().sort((a, b) => a.start - b.start) ?? [];
-  return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">Scenes</div>
-      <div className="flex-1 space-y-1.5 overflow-y-auto p-3">
-        {clips.map((c, i) => {
-          const active = currentTime >= c.start && currentTime < c.start + c.duration;
-          return (
-            <button
-              key={c.id}
-              onClick={() => onSeek(c.start + 0.01)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition",
-                active ? "border-accent bg-surface-2" : "border-border bg-surface-2/40 hover:border-accent/40"
-              )}
-            >
-              <span className="font-bold text-accent-soft">{i + 1}</span>
-              <span className="flex-1 truncate text-fg">{c.label ?? c.scene?.text ?? "Scene"}</span>
-              <span className="text-faint">{c.duration.toFixed(1)}s</span>
-            </button>
-          );
-        })}
-        {!clips.length && <p className="px-1 text-xs text-faint">No scenes yet — generate in Chat.</p>}
-      </div>
-    </div>
-  );
-}
-
-function PlaceholderPanel({ id }: { id: PanelId }) {
-  return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold capitalize">{id}</div>
-      <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted">{id} panel — coming soon.</div>
-    </div>
-  );
-}
