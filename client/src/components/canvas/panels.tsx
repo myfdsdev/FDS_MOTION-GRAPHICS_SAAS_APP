@@ -72,6 +72,17 @@ export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: Pro
   const patch = (p: ElementPatch) =>
     dispatch({ type: "UPDATE_ELEMENT", clipId, elementId: el.id, patch: p });
 
+  const duplicate = () => {
+    const { id: _id, ...rest } = el;
+    void _id;
+    dispatch({
+      type: "ADD_ELEMENT",
+      clipId,
+      elementType: el.type,
+      element: { ...rest, x: Math.min(0.9, el.x + 0.03), y: Math.min(0.9, el.y + 0.03) },
+    });
+  };
+
   const pct = (v: number) => Math.round(v * 100);
 
   return (

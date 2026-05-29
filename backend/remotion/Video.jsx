@@ -278,7 +278,7 @@ function ElementBody({ el, height }) {
           fontWeight: el.weight || 700,
           color: el.color || "#ffffff",
           fontFamily: el.font || "Inter, system-ui, sans-serif",
-          lineHeight: 1.05,
+          lineHeight: el.lineHeight || 1.05,
           overflow: "hidden",
           whiteSpace: "pre-wrap",
         }}
@@ -310,8 +310,8 @@ function ElementBody({ el, height }) {
         width: "100%",
         height: "100%",
         background: el.fill || "#8b5cf6",
-        border: el.stroke ? `2px solid ${el.stroke}` : "none",
-        borderRadius: el.shape === "ellipse" ? "50%" : 8,
+        border: el.stroke ? `${el.strokeWidth ?? 2}px solid ${el.stroke}` : "none",
+        borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
       }}
     />
   );
