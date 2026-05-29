@@ -4,19 +4,17 @@ import {
   ArrowLeft,
   ArrowUp,
   ChevronDown,
-  Copy,
   CopyPlus,
+  Download,
+  Film,
   History,
   Image as ImageIcon,
   Layers,
-  Library,
   Magnet,
   Maximize,
-  MessageSquare,
   Monitor,
   MousePointer2,
   Music,
-  Palette,
   Paperclip,
   Pause,
   Play,
@@ -25,17 +23,15 @@ import {
   Scissors,
   Settings,
   Shapes,
-  SlidersHorizontal,
   Sparkles,
   Trash2,
   Type as TypeIcon,
   Undo2,
-  Upload,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMe, useProject, useUpdateProject, useGenerateProject } from "@/lib/queries";
+import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
 import { Canvas } from "@/components/canvas/Canvas";
 import { PropertiesPanel } from "@/components/canvas/panels";
@@ -57,18 +53,6 @@ import { DEFAULT_PX_PER_SECOND, FPS, type SceneElement } from "@/lib/editor/edit
 import { cn } from "@/lib/utils";
 import type { VideoPlan } from "@/types";
 
-type PanelId = "chat" | "edit" | "media" | "fonts" | "colors" | "projects" | "templates";
-
-const RAIL: { id: PanelId; label: string; icon: typeof MessageSquare }[] = [
-  { id: "chat", label: "Chat", icon: MessageSquare },
-  { id: "edit", label: "Edit", icon: SlidersHorizontal },
-  { id: "media", label: "Media", icon: Library },
-  { id: "fonts", label: "Fonts", icon: TypeIcon },
-  { id: "colors", label: "Colors", icon: Palette },
-  { id: "projects", label: "Projects", icon: Library },
-  { id: "templates", label: "Templates", icon: Sparkles },
-];
-
 const EMPTY_STATE = createInitialState([]);
 
 function fmt(t: number) {
@@ -83,9 +67,9 @@ export default function EditorPage() {
   const { data: project, isLoading } = useProject(id);
   const updateProject = useUpdateProject(id);
   const generate = useGenerateProject(id);
+  const rerender = useRerender();
 
   const [state, dispatch] = useReducer(editorReducer, EMPTY_STATE);
-  const [panel, setPanel] = useState<PanelId>("chat");
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [awaitingGen, setAwaitingGen] = useState(false);
@@ -248,6 +232,26 @@ export default function EditorPage() {
     }
   };
 
+  const handleRender = async () => {
+    if (!project) return;
+    try {
+      if (project.sceneJson) {
+        const timeline = toTimeline(state, FPS);
+        await updateProject.mutateAsync({
+          sceneJson: {
+            ...project.sceneJson,
+            duration: Math.max(1, Math.round(timeline.duration)),
+            timeline,
+          },
+        });
+      }
+      await rerender.mutateAsync(project.id);
+      toast.success("Render started — this can take a minute.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't start the render");
+    }
+  };
+
   if (!meLoading && !me) return <Navigate to="/login" replace />;
   if (meLoading || isLoading) {
     return <div className="flex h-screen items-center justify-center bg-bg text-muted">Loading editor…</div>;
@@ -304,42 +308,15 @@ export default function EditorPage() {
 
       {/* ---- Body ---- */}
       <div className="flex min-h-0 flex-1">
-        {/* Icon rail */}
-        <nav className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-border-soft bg-bg/60 py-3">
-          {RAIL.map((item) => {
-            const Icon = item.icon;
-            const active = panel === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setPanel(item.id)}
-                className={cn(
-                  "flex w-14 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition",
-                  active ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2/60 hover:text-fg"
-                )}
-              >
-                <Icon size={18} />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Left panel */}
+        {/* Left: AI chat panel */}
         <aside className="flex w-80 shrink-0 flex-col border-r border-border-soft bg-bg/40">
-          {panel === "chat" && (
-            <ChatPanel
-              credits={me?.credits ?? 0}
-              aspectRatio={project.aspectRatio}
-              defaultDuration={project.durationSec}
-              generating={generating}
-              onGenerate={runGenerate}
-            />
-          )}
-          {panel === "edit" && (
-            <ScenePanel state={state} currentTime={currentTime} onSeek={handleSeek} />
-          )}
-          {panel !== "chat" && panel !== "edit" && <PlaceholderPanel id={panel} />}
+          <ChatPanel
+            credits={me?.credits ?? 0}
+            aspectRatio={project.aspectRatio}
+            defaultDuration={project.durationSec}
+            generating={generating}
+            onGenerate={runGenerate}
+          />
         </aside>
 
         {/* Canvas */}
