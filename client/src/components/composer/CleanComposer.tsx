@@ -1,25 +1,9 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
-import {
-  Sparkles,
-  Plus,
-  Mic,
-  AudioLines,
-  ArrowUp,
-  Wand2,
-  ChevronDown,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2 } from "lucide-react";
 import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
 import { toast } from "sonner";
-
-const MODELS = [
-  { name: "Miltos 5.0", desc: "Best quality, balanced", beta: true },
-  { name: "Miltos 4.0", desc: "Faster, less detailed" },
-  { name: "Miltos Fast", desc: "Lowest cost" },
-];
 
 interface Props {
   /** Big centered greeting shown above the box, e.g. "Back at it, Deepanker". */
@@ -37,7 +21,6 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState(MODELS[0]);
 
   const isSubmitting = createProject.isPending;
   const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
@@ -149,46 +132,6 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
             >
               <Wand2 size={15} className={enhance.isPending ? "animate-pulse" : ""} />
             </button>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted hover:text-fg hover:bg-surface-2 transition-colors"
-                >
-                  {model.name}
-                  {model.beta && (
-                    <span className="px-1.5 py-px bg-accent/20 text-accent-soft rounded text-[10px] font-bold tracking-wider">
-                      BETA
-                    </span>
-                  )}
-                  <ChevronDown size={12} className="opacity-60" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64" align="end">
-                <div className="text-xs text-muted px-2 py-1.5">Model</div>
-                {MODELS.map((m) => (
-                  <button
-                    key={m.name}
-                    onClick={() => setModel(m)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded-md hover:bg-surface-2",
-                      model.name === m.name && "bg-surface-2"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      {m.name}
-                      {m.beta && (
-                        <span className="px-1.5 py-px bg-accent/20 text-accent-soft rounded text-[10px] font-bold tracking-wider">
-                          BETA
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted mt-0.5">{m.desc}</div>
-                  </button>
-                ))}
-              </PopoverContent>
-            </Popover>
 
             <button
               type="button"

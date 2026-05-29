@@ -14,6 +14,7 @@ import { useMe, useLogout, useProjects } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const NAV = [
   { to: "/projects", label: "Projects", icon: FolderClock },
@@ -92,7 +93,7 @@ export default function AppLayout() {
           })}
         </nav>
 
-        <div className="p-3 border-t border-border-soft space-y-3">
+        <div className="p-3 border-t border-border-soft">
           <Link
             to="/billing"
             className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface-2 border border-border hover:border-accent/40 transition-colors"
@@ -103,29 +104,65 @@ export default function AppLayout() {
             </span>
             <span className="font-semibold">{me.credits}</span>
           </Link>
-
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-sm font-semibold text-accent-soft">
-              {(me.name ?? me.email)[0].toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{me.name ?? "User"}</div>
-              <div className="text-xs text-muted truncate">{me.email}</div>
-            </div>
-            <ThemeToggle className="w-7 h-7" />
-            <button
-              onClick={handleLogout}
-              className="text-muted hover:text-fg transition-colors"
-              aria-label="Logout"
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="flex-1 min-w-0">
+      <main className="relative flex-1 min-w-0">
+        {/* Top-right account menu */}
+        <div className="absolute right-4 top-3 z-30">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent-soft ring-1 ring-border transition hover:ring-accent/50"
+                aria-label="Account menu"
+              >
+                {(me.name ?? me.email)[0].toUpperCase()}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-60 p-2">
+              <div className="flex items-center gap-3 px-2 py-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent-soft">
+                  {(me.name ?? me.email)[0].toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{me.name ?? "User"}</div>
+                  <div className="truncate text-xs text-muted">{me.email}</div>
+                </div>
+              </div>
+
+              <div className="my-1 h-px bg-border-soft" />
+
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-fg hover:bg-surface-2"
+              >
+                <UserRound size={15} className="text-muted" /> Profile
+              </Link>
+              <Link
+                to="/billing"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-fg hover:bg-surface-2"
+              >
+                <Coins size={15} className="text-muted" /> Billing
+              </Link>
+
+              <div className="flex items-center justify-between rounded-md px-2 py-2 text-sm text-fg">
+                <span className="text-muted">Theme</span>
+                <ThemeToggle className="h-7 w-7" />
+              </div>
+
+              <div className="my-1 h-px bg-border-soft" />
+
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-danger hover:bg-surface-2"
+              >
+                <LogOut size={15} /> Log out
+              </button>
+            </PopoverContent>
+          </Popover>
+        </div>
+
         <Outlet />
       </main>
     </div>
