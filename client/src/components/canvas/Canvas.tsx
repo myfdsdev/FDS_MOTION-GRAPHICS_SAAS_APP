@@ -14,6 +14,8 @@ interface CanvasProps {
   clipId: string | null;
   snapping: boolean;
   dispatch: React.Dispatch<EditorAction>;
+  /** 1-based number of the current scene (drawn in the template backdrop). */
+  sceneNumber?: number;
 }
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
@@ -40,6 +42,7 @@ export function Canvas({
   clipId,
   snapping,
   dispatch,
+  sceneNumber,
 }: CanvasProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1, h: 1 });

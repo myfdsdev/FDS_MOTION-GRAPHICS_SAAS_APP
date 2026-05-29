@@ -27,6 +27,11 @@ import {
 
 /** Build canvas elements from a legacy scene's headline/text/subtext fields. */
 export function elementsFromScene(scene: Scene): SceneElement[] {
+  // Templated scenes draw their own headline/subtext as the BASE layer, so the
+  // foreground starts empty — otherwise the text would be doubled. Only legacy
+  // scenes WITHOUT a template fall back to converting their text into elements.
+  if (scene.sceneTemplate) return [];
+
   const out: SceneElement[] = [];
   let z = 0;
   const headline = scene.headline || scene.text;

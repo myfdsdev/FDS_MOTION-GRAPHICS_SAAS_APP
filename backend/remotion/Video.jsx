@@ -219,17 +219,18 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
   return (
     <AbsoluteFill style={sceneShell(base, accent, secondary, frame, durationInFrames)}>
       <SceneChrome accent={accent} index={index} />
-      {hasElements ? (
+
+      {/* BASE layer — the template draws its own design. Never removed. */}
+      {template === "split-lottie-text" && <SplitLottieText {...common} />}
+      {template === "dashboard-metrics" && <DashboardMetrics {...common} />}
+      {template === "feature-cards" && <FeatureCards {...common} />}
+      {template === "cta-end-screen" && <CtaEndScreen {...common} />}
+      {template === "hero-title" && <HeroTitle {...common} />}
+      {!templateFallbacks.includes(template) && <HeroTitle {...common} />}
+
+      {/* FOREGROUND layer — user-placed elements render on top of the template. */}
+      {hasElements && (
         <ElementsLayer elements={scene.elements} width={width} height={height} style={style} />
-      ) : (
-        <>
-          {template === "split-lottie-text" && <SplitLottieText {...common} />}
-          {template === "dashboard-metrics" && <DashboardMetrics {...common} />}
-          {template === "feature-cards" && <FeatureCards {...common} />}
-          {template === "cta-end-screen" && <CtaEndScreen {...common} />}
-          {template === "hero-title" && <HeroTitle {...common} />}
-          {!templateFallbacks.includes(template) && <HeroTitle {...common} />}
-        </>
       )}
     </AbsoluteFill>
   );
@@ -238,10 +239,12 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
 // Renders direct-manipulation elements at their fractional positions. Mirrors
 // client/src/components/canvas/Canvas.tsx exactly so a drag in the editor lands
 // in the same spot in the MP4.
-function ElementsLayer({ elements, width, height, style }) {
+function ElementsLayer({ elements, width, height }) {
   const ordered = [...elements].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
+  // No entrance transform here — elements sit at exact fractional positions so
+  // the render matches the editor canvas pixel-for-pixel.
   return (
-    <AbsoluteFill style={style}>
+    <AbsoluteFill>
       {ordered.map((el) => {
         const box = {
           position: "absolute",
