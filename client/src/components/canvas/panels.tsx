@@ -122,6 +122,7 @@ export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: Pro
             <NumField label="W %" value={pct(el.w)} onChange={(v) => patch({ w: v / 100 })} />
             <NumField label="H %" value={pct(el.h)} onChange={(v) => patch({ h: v / 100 })} />
             <NumField label="Rotation°" value={Math.round(el.rotation)} onChange={(v) => patch({ rotation: v })} />
+            <NumField label="Z-index" value={el.z} onChange={(v) => patch({ z: Math.max(0, Math.round(v)) })} />
           </div>
         </Section>
 
@@ -144,12 +145,16 @@ export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: Pro
               <ColorField label="Color" value={el.color ?? "#ffffff"} onChange={(v) => patch({ color: v })} />
               <SelectField label="Align" value={el.align ?? "center"} options={["left", "center", "right"]} onChange={(v) => patch({ align: v as "left" | "center" | "right" })} />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <SelectField label="Font" value={el.font ?? "Inter"} options={FONTS} onChange={(v) => patch({ font: v })} />
+              <NumField label="Line height" value={el.lineHeight ?? 1.05} step={0.05} onChange={(v) => patch({ lineHeight: Math.max(0.5, v) })} />
+            </div>
           </Section>
         )}
 
         {el.type === "icon" && (
           <Section title="Icon">
-            <TextField label="lucide name" value={el.name} onChange={(v) => patch({ name: v })} />
+            <IconPicker value={el.name} onChange={(v) => patch({ name: v })} />
             <ColorField label="Color" value={el.color ?? "#ffffff"} onChange={(v) => patch({ color: v })} />
           </Section>
         )}
@@ -167,6 +172,12 @@ export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: Pro
             <div className="grid grid-cols-2 gap-2">
               <ColorField label="Fill" value={el.fill ?? "#8b5cf6"} onChange={(v) => patch({ fill: v })} />
               <ColorField label="Stroke" value={el.stroke ?? "#000000"} onChange={(v) => patch({ stroke: v })} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <NumField label="Stroke width" value={el.strokeWidth ?? 2} onChange={(v) => patch({ strokeWidth: Math.max(0, v) })} />
+              {el.shape === "rect" && (
+                <NumField label="Radius" value={el.radius ?? 8} onChange={(v) => patch({ radius: Math.max(0, v) })} />
+              )}
             </div>
           </Section>
         )}
