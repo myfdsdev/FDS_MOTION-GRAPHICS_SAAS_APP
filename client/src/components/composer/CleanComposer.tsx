@@ -6,9 +6,6 @@ import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
 import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
 
-// Lazy so three.js only loads when the composer mounts.
-const LaserFlow = lazy(() => import("@/components/reactbits/LaserFlow"));
-
 interface Props {
   /** Big centered greeting shown above the box, e.g. "Back at it, Deepanker". */
   greeting?: string;
