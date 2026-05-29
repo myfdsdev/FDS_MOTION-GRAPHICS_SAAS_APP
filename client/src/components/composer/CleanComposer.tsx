@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2 } from "lucide-react";
@@ -194,8 +194,6 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
             )}
           </div>
         </div>
-      </div>
-
       </div>
 
       <p className="text-center text-xs text-faint mt-3">
