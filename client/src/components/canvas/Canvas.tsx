@@ -298,6 +298,20 @@ export function Canvas({
           }}
         />
       )}
+
+      {/* Snap guide lines */}
+      {guides.x !== null && (
+        <div
+          className="pointer-events-none absolute top-0 z-30 h-full w-px bg-accent/80"
+          style={{ left: `${guides.x * 100}%` }}
+        />
+      )}
+      {guides.y !== null && (
+        <div
+          className="pointer-events-none absolute left-0 z-30 h-px w-full bg-accent/80"
+          style={{ top: `${guides.y * 100}%` }}
+        />
+      )}
     </div>
   );
 }
