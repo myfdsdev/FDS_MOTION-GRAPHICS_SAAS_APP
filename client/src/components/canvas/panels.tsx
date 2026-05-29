@@ -100,6 +100,11 @@ export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: Pro
               <ArrowDownToLine size={14} />
             </button>
           </Tooltip>
+          <Tooltip content="Duplicate" shortcut="⌘D">
+            <button onClick={duplicate} className="rounded p-1 text-muted hover:bg-surface-2 hover:text-fg">
+              <CopyPlus size={14} />
+            </button>
+          </Tooltip>
           <Tooltip content="Delete" shortcut="⌫">
             <button onClick={() => dispatch({ type: "DELETE_ELEMENT", clipId })} className="rounded p-1 text-danger hover:bg-surface-2">
               <Trash2 size={14} />
