@@ -1,9 +1,13 @@
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2 } from "lucide-react";
 import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
+import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
+
+// Lazy so three.js only loads when the composer mounts.
+const LaserFlow = lazy(() => import("@/components/reactbits/LaserFlow"));
 
 interface Props {
   /** Big centered greeting shown above the box, e.g. "Back at it, Deepanker". */
@@ -78,16 +82,36 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       )}
 
       <div className="bg-surface border border-border rounded-2xl px-4 pt-3 pb-2.5 shadow-card focus-within:border-neutral-600 transition-colors">
-        <TextareaAutosize
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="How can I help you today?"
-          minRows={2}
-          maxRows={12}
-          autoFocus
-          className="w-full bg-transparent border-0 outline-none text-fg placeholder:text-faint px-1.5 py-2 text-[15px] resize-none scrollbar-thin"
-        />
+        <div className="relative">
+          {prompt === "" && (
+            <TextType
+              as="div"
+              aria-hidden
+              className="pointer-events-none absolute left-1.5 top-2 text-[15px] leading-normal text-faint"
+              text={[
+                "How can I help you today?",
+                "Make a 30-second product demo",
+                "Animate a chart of our revenue growth",
+                "Create a YouTube intro for my channel",
+                "Build an explainer video on how solar panels work",
+              ]}
+              typingSpeed={55}
+              deletingSpeed={28}
+              pauseDuration={1800}
+              cursorCharacter="▋"
+              cursorClassName="text-accent/70"
+            />
+          )}
+          <TextareaAutosize
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            minRows={2}
+            maxRows={12}
+            autoFocus
+            className="relative w-full bg-transparent border-0 outline-none text-fg placeholder:text-faint px-1.5 py-2 text-[15px] resize-none scrollbar-thin"
+          />
+        </div>
 
         {/* Bottom toolbar */}
         <div className="flex items-center justify-between gap-2 pt-1">
@@ -170,6 +194,8 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
             )}
           </div>
         </div>
+      </div>
+
       </div>
 
       <p className="text-center text-xs text-faint mt-3">
