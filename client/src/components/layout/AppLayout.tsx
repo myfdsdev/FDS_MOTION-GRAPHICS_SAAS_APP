@@ -3,7 +3,6 @@ import {
   Clapperboard,
   Plus,
   FolderClock,
-  CreditCard,
   LogOut,
   Sparkles,
   Coins,
@@ -18,8 +17,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 const NAV = [
   { to: "/projects", label: "Projects", icon: FolderClock },
-  { to: "/billing", label: "Billing", icon: CreditCard },
-  { to: "/profile", label: "Profile", icon: UserRound },
 ];
 
 export default function AppLayout() {
