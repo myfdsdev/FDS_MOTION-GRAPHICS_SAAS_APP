@@ -23,6 +23,44 @@ const templateFallbacks = [
   "cta-end-screen",
 ];
 
+// ---------------------------------------------------------------------------
+// Deterministic per-scene layout variation. Same seed -> same result, so a
+// re-render of the same scene looks identical, but each scene in a video gets
+// a different layout/chrome/background so videos stop looking templated.
+// ---------------------------------------------------------------------------
+
+const BG_VARIANTS = ["radial-glow", "diagonal", "corner-spotlight"];
+const CORNERS = ["tl", "tr", "bl", "br"];
+const GRID_SIZES = [0, 72, 96];
+const ALIGNS = ["left", "center"];
+const SIZE_SCALES = [0.95, 1.0, 1.1];
+
+function hashStr(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function pickSceneVariant(scene, index) {
+  const seed = hashStr(`${index}|${scene?.text || scene?.headline || ""}`);
+  const bg = BG_VARIANTS[seed % BG_VARIANTS.length];
+  const flip = ((seed >> 2) & 1) === 1;
+  const accentCorner = CORNERS[(seed >> 4) % CORNERS.length];
+  const numberCandidates = CORNERS.filter((c) => c !== accentCorner);
+  const numberCorner = numberCandidates[(seed >> 6) % numberCandidates.length];
+  const gridSize = GRID_SIZES[(seed >> 8) % GRID_SIZES.length];
+  const align = ALIGNS[(seed >> 10) % ALIGNS.length];
+  const sizeScale = SIZE_SCALES[(seed >> 12) % SIZE_SCALES.length];
+  return { bg, flip, accentCorner, numberCorner, gridSize, align, sizeScale };
+}
+
+const CORNER_POS = {
+  tl: { top: "10%", left: "8%" },
+  tr: { top: "10%", right: "8%" },
+  bl: { bottom: "10%", left: "8%" },
+  br: { bottom: "10%", right: "8%" },
+};
+
 export const Video = ({ brandColors, scenes, timeline }) => {
   const { fps } = useVideoConfig();
   const colors = Array.isArray(brandColors) && brandColors.length ? brandColors : DEFAULT_COLORS;
@@ -201,6 +239,7 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
   const base = colors[0] ?? DEFAULT_COLORS[0];
   const accent = colors[(index % Math.max(1, colors.length - 1)) + 1] ?? colors[1] ?? DEFAULT_COLORS[1];
   const secondary = colors[(index + 2) % colors.length] ?? DEFAULT_COLORS[2];
+  const variant = pickSceneVariant(scene, index);
 
   const common = {
     scene,
@@ -212,13 +251,14 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
     secondary,
     width,
     height,
+    variant,
   };
 
   const hasElements = Array.isArray(scene.elements) && scene.elements.length > 0;
 
   return (
-    <AbsoluteFill style={sceneShell(base, accent, secondary, frame, durationInFrames)}>
-      <SceneChrome accent={accent} index={index} />
+    <AbsoluteFill style={sceneShell(base, accent, secondary, frame, durationInFrames, variant)}>
+      <SceneChrome accent={accent} index={index} variant={variant} />
 
       {/* BASE layer — the template draws its own design. Never removed. */}
       {template === "split-lottie-text" && <SplitLottieText {...common} />}
@@ -332,42 +372,68 @@ function ElementBody({ el, height }) {
   );
 }
 
-function sceneShell(base, accent, secondary, frame, durationInFrames) {
+function sceneShell(base, accent, secondary, frame, durationInFrames, variant) {
   const drift = interpolate(frame, [0, durationInFrames], [-24, 24], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  return {
-    overflow: "hidden",
-    background:
+  let background;
+  if (variant?.bg === "diagonal") {
+    background =
+      `linear-gradient(${68 + drift / 8}deg, ${accent}33 0%, transparent 45%), ` +
+      `linear-gradient(135deg, ${base} 0%, #0b1020 100%)`;
+  } else if (variant?.bg === "corner-spotlight") {
+    const spot = {
+      tl: [14, 18],
+      tr: [86, 18],
+      bl: [14, 82],
+      br: [86, 82],
+    }[variant.accentCorner] || [50, 50];
+    background =
+      `radial-gradient(circle at ${spot[0]}% ${spot[1]}%, ${accent}77 0%, transparent 38%), ` +
+      `linear-gradient(180deg, ${base} 0%, #0b1020 100%)`;
+  } else {
+    // "radial-glow" (the original look)
+    background =
       `radial-gradient(circle at ${48 + drift / 8}% 34%, ${accent}66 0%, transparent 34%), ` +
       `radial-gradient(circle at ${78 - drift / 12}% 78%, ${secondary}44 0%, transparent 30%), ` +
-      `linear-gradient(135deg, ${base} 0%, #0b1020 100%)`,
+      `linear-gradient(135deg, ${base} 0%, #0b1020 100%)`;
+  }
+
+  return {
+    overflow: "hidden",
+    background,
     color: "#ffffff",
     fontFamily:
       "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
   };
 }
 
-function SceneChrome({ accent, index }) {
+function SceneChrome({ accent, index, variant }) {
+  const accentCorner = variant?.accentCorner || "tl";
+  const numberCorner = variant?.numberCorner || "br";
+  const gridSize = variant?.gridSize ?? 72;
+  // Bars in left/right corners run horizontal; top/bottom-only corners (none
+  // here) — keep all bars horizontal to stay tasteful.
   return (
     <>
+      {gridSize > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
+            backgroundSize: `${gridSize}px ${gridSize}px`,
+            opacity: 0.28,
+          }}
+        />
+      )}
       <div
         style={{
           position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
-          backgroundSize: "72px 72px",
-          opacity: 0.28,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          top: "10%",
-          left: "8%",
+          ...CORNER_POS[accentCorner],
           width: 84,
           height: 6,
           borderRadius: 99,
@@ -378,8 +444,7 @@ function SceneChrome({ accent, index }) {
       <div
         style={{
           position: "absolute",
-          right: "7%",
-          bottom: "8%",
+          ...CORNER_POS[numberCorner],
           fontSize: 30,
           fontWeight: 800,
           letterSpacing: "0.12em",
@@ -392,9 +457,11 @@ function SceneChrome({ accent, index }) {
   );
 }
 
-function TextStack({ scene, style, align = "left", width = 720, large = false }) {
+function TextStack({ scene, style, align = "left", width = 720, large = false, sizeScale = 1 }) {
   const title = scene.headline || scene.text;
   const subtext = scene.subtext || scene.visual;
+  const titleSize = Math.round((large ? 86 : 68) * sizeScale);
+  const subSize = Math.round((large ? 30 : 25) * sizeScale);
 
   return (
     <div
@@ -406,7 +473,7 @@ function TextStack({ scene, style, align = "left", width = 720, large = false })
     >
       <div
         style={{
-          fontSize: large ? 86 : 68,
+          fontSize: titleSize,
           lineHeight: 0.96,
           fontWeight: 850,
           letterSpacing: "-0.03em",
@@ -419,7 +486,7 @@ function TextStack({ scene, style, align = "left", width = 720, large = false })
         <div
           style={{
             marginTop: 28,
-            fontSize: large ? 30 : 25,
+            fontSize: subSize,
             lineHeight: 1.28,
             fontWeight: 550,
             color: "rgba(255,255,255,0.78)",
@@ -469,31 +536,46 @@ function LottiePanel({ scene, accent, secondary }) {
 }
 
 function HeroTitle(props) {
+  const sizeScale = props.variant?.sizeScale ?? 1;
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "10%" }}>
       <div style={{ position: "absolute", opacity: 0.24, transform: "scale(1.16)" }}>
         <LottiePanel {...props} />
       </div>
-      <TextStack scene={props.scene} style={props.style} align="center" width={1120} large />
+      <TextStack scene={props.scene} style={props.style} align="center" width={1120} large sizeScale={sizeScale} />
     </AbsoluteFill>
   );
 }
 
 function SplitLottieText(props) {
+  const flip = !!props.variant?.flip;
+  const sizeScale = props.variant?.sizeScale ?? 1;
+  const lottie = (
+    <div key="lottie" style={{ transform: "translateY(8px)" }}>
+      <LottiePanel {...props} />
+    </div>
+  );
+  const text = (
+    <TextStack
+      key="text"
+      scene={props.scene}
+      style={props.style}
+      width={780}
+      align={flip ? "right" : "left"}
+      sizeScale={sizeScale}
+    />
+  );
   return (
     <AbsoluteFill
       style={{
         display: "grid",
-        gridTemplateColumns: "0.9fr 1.1fr",
+        gridTemplateColumns: flip ? "1.1fr 0.9fr" : "0.9fr 1.1fr",
         alignItems: "center",
         gap: 80,
         padding: "8% 9%",
       }}
     >
-      <div style={{ transform: "translateY(8px)" }}>
-        <LottiePanel {...props} />
-      </div>
-      <TextStack scene={props.scene} style={props.style} width={780} />
+      {flip ? [text, lottie] : [lottie, text]}
     </AbsoluteFill>
   );
 }
@@ -505,33 +587,42 @@ function DashboardMetrics(props) {
       extrapolateRight: "clamp",
     })
   );
+  const flip = !!props.variant?.flip;
+  const sizeScale = props.variant?.sizeScale ?? 1;
+
+  const text = (
+    <TextStack key="text" scene={props.scene} style={props.style} width={730} sizeScale={sizeScale} />
+  );
+  const card = (
+    <div
+      key="card"
+      style={{
+        borderRadius: 38,
+        padding: 34,
+        background: "rgba(255,255,255,0.13)",
+        border: "1px solid rgba(255,255,255,0.18)",
+        boxShadow: "0 36px 90px rgba(0,0,0,0.34)",
+      }}
+    >
+      <LottiePanel {...props} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 24 }}>
+        <Metric label="Growth" value={`${value}%`} accent={props.accent} />
+        <Metric label="Time saved" value={`${Math.max(1, Math.round(value / 9))}h`} accent={props.secondary} />
+      </div>
+    </div>
+  );
 
   return (
     <AbsoluteFill
       style={{
         display: "grid",
-        gridTemplateColumns: "1.05fr 0.95fr",
+        gridTemplateColumns: flip ? "0.95fr 1.05fr" : "1.05fr 0.95fr",
         alignItems: "center",
         gap: 70,
         padding: "8% 9%",
       }}
     >
-      <TextStack scene={props.scene} style={props.style} width={730} />
-      <div
-        style={{
-          borderRadius: 38,
-          padding: 34,
-          background: "rgba(255,255,255,0.13)",
-          border: "1px solid rgba(255,255,255,0.18)",
-          boxShadow: "0 36px 90px rgba(0,0,0,0.34)",
-        }}
-      >
-        <LottiePanel {...props} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 24 }}>
-          <Metric label="Growth" value={`${value}%`} accent={props.accent} />
-          <Metric label="Time saved" value={`${Math.max(1, Math.round(value / 9))}h`} accent={props.secondary} />
-        </div>
-      </div>
+      {flip ? [card, text] : [text, card]}
     </AbsoluteFill>
   );
 }
@@ -562,9 +653,12 @@ function FeatureCards(props) {
     props.scene.visual || "Ready for export",
   ];
 
+  const align = props.variant?.align ?? "left";
+  const sizeScale = props.variant?.sizeScale ?? 1;
+
   return (
     <AbsoluteFill style={{ justifyContent: "center", padding: "8% 9%" }}>
-      <TextStack scene={props.scene} style={props.style} width={1040} />
+      <TextStack scene={props.scene} style={props.style} width={1040} align={align} sizeScale={sizeScale} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, marginTop: 54 }}>
         {items.map((item, i) => (
           <div
@@ -607,6 +701,7 @@ function FeatureCards(props) {
 }
 
 function CtaEndScreen(props) {
+  const sizeScale = props.variant?.sizeScale ?? 1;
   return (
     <AbsoluteFill
       style={{
@@ -617,7 +712,7 @@ function CtaEndScreen(props) {
     >
       <LottiePanel {...props} />
       <div style={{ marginTop: 42 }}>
-        <TextStack scene={props.scene} style={props.style} align="center" width={1100} large />
+        <TextStack scene={props.scene} style={props.style} align="center" width={1100} large sizeScale={sizeScale} />
       </div>
     </AbsoluteFill>
   );
