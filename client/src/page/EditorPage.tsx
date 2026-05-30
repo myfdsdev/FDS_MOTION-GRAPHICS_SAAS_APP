@@ -117,6 +117,54 @@ export default function EditorPage() {
     return idx >= 0 ? idx + 1 : 1;
   }, [state.tracks, sceneClipId]);
 
+  // Active audio clip under the playhead (for voiceover sync). Mute respects
+  // the parent track's `muted` flag so the editor preview matches the render.
+  const activeAudio = useMemo(() => {
+    for (const track of state.tracks) {
+      if (track.kind !== "audio") continue;
+      for (const clip of track.clips) {
+        if (
+          clip.type === "audio" &&
+          clip.src &&
+          currentTime >= clip.start &&
+          currentTime < clip.start + clip.duration
+        ) {
+          return { clip, track };
+        }
+      }
+    }
+    return null;
+  }, [state.tracks, currentTime]);
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Keep the <audio> element's src bound to the active clip. When the user
+  // scrubs out of range, pause but don't change the src (avoids reloads).
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (activeAudio?.clip.src && el.src !== activeAudio.clip.src) {
+      el.src = activeAudio.clip.src;
+    }
+    el.volume = activeAudio?.track.muted
+      ? 0
+      : Math.max(0, Math.min(1, activeAudio?.clip.volume ?? 1));
+  }, [activeAudio]);
+
+  // Sync currentTime + play/pause with the playhead.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !activeAudio) {
+      audioRef.current?.pause();
+      return;
+    }
+    const desired =
+      currentTime - activeAudio.clip.start + (activeAudio.clip.trimStart ?? 0);
+    if (Math.abs(el.currentTime - desired) > 0.18) el.currentTime = Math.max(0, desired);
+    if (playing && el.paused) el.play().catch(() => {});
+    if (!playing && !el.paused) el.pause();
+  }, [playing, currentTime, activeAudio]);
+
   // Load (and reload) the store whenever the project's *scenes* change. This
   // covers the first load, create-time generation, and in-editor chat
   // generation. Autosave only mutates the timeline (not top-level scenes), so
@@ -131,7 +179,13 @@ export default function EditorPage() {
     initRef.current = true;
     dispatch({
       type: "RESET",
-      state: createInitialState(project.sceneJson?.scenes ?? [], project.sceneJson?.timeline ?? null),
+      state: createInitialState(
+        project.sceneJson?.scenes ?? [],
+        project.sceneJson?.timeline ?? null,
+        project.voiceoverUrl && project.voiceoverDuration
+          ? { url: project.voiceoverUrl, duration: project.voiceoverDuration }
+          : null
+      ),
     });
     lastSavedRef.current = "";
     if (awaitingGen) {
@@ -459,6 +513,9 @@ export default function EditorPage() {
           )}
         </div>
       </footer>
+
+      {/* Hidden narration <audio> driven by the playhead. */}
+      <audio ref={audioRef} preload="auto" />
     </div>
   );
 }

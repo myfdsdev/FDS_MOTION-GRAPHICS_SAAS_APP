@@ -267,9 +267,29 @@ export function createInitialState(
   }
 
   const sceneTrack: TimelineTrack = { id: uid("track"), kind: "scene", name: "Scenes", clips };
+  const initialTracks: TimelineTrack[] = [sceneTrack];
+
+  if (voiceover && voiceover.url && voiceover.duration > 0) {
+    initialTracks.push({
+      id: uid("track"),
+      kind: "audio",
+      name: "Narration",
+      clips: [
+        {
+          id: uid("clip"),
+          type: "audio",
+          start: 0,
+          duration: voiceover.duration,
+          src: voiceover.url,
+          volume: 1,
+          label: "Narration",
+        },
+      ],
+    });
+  }
 
   return {
-    tracks: [sceneTrack],
+    tracks: initialTracks,
     zoomRegions: [],
     selection: [],
     selectedZoomId: null,
