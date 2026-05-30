@@ -340,7 +340,12 @@ function Clip({ clip, pps, snapping, selected, makeCandidates, dispatch }: ClipP
       style={{
         left: clip.start * pps,
         width: Math.max(8, clip.duration * pps),
+        // Audio clips get a waveform-suggesting repeating bar pattern.
         backgroundColor: `${color}26`,
+        backgroundImage:
+          clip.type === "audio"
+            ? `repeating-linear-gradient(90deg, ${color}55 0 2px, transparent 2px 6px)`
+            : undefined,
         borderColor: color,
         cursor: "grab",
       }}
