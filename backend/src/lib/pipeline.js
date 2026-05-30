@@ -1,5 +1,14 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Project, User } from "../models.js";
 import { VideoPlanSchema } from "../schemas.js";
+import { isStorageConfigured, uploadFile } from "./storage.js";
+import {
+  estimateVoiceoverDuration,
+  isTtsConfigured,
+  synthesizeVoiceover,
+} from "./tts.js";
 import {
   recordApiUsage,
   usageFromGemini,
