@@ -466,7 +466,21 @@ export default function EditorPage() {
 
         {/* Properties */}
         <aside className="w-72 shrink-0 border-l border-border-soft bg-bg/40">
-          <PropertiesPanel elements={elements} selectedIds={state.selectedElementIds} clipId={sceneClipId} dispatch={dispatch} />
+          <PropertiesPanel
+            elements={elements}
+            selectedIds={state.selectedElementIds}
+            clipId={sceneClipId}
+            dispatch={dispatch}
+            selectedClip={(() => {
+              if (state.selection.length !== 1) return null;
+              const id = state.selection[0];
+              for (const t of state.tracks) {
+                const c = t.clips.find((x) => x.id === id);
+                if (c) return c;
+              }
+              return null;
+            })()}
+          />
         </aside>
       </div>
 

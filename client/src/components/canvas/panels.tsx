@@ -11,7 +11,7 @@ import {
   Type as TypeIcon,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
-import type { SceneElement } from "@/types";
+import type { SceneElement, TimelineClip } from "@/types";
 import type { EditorAction, ElementPatch } from "@/lib/editor/editorStore";
 import { Tooltip } from "@/components/ui/Tooltip";
 
@@ -66,11 +66,58 @@ export function ElementsPanel({ clipId, dispatch }: PanelCommon) {
 interface PropertiesProps extends PanelCommon {
   elements: SceneElement[];
   selectedIds: string[];
+  /** Single selected non-element clip (e.g. audio narration) — shown when no
+   *  element is selected. */
+  selectedClip?: TimelineClip | null;
 }
 
-export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: PropertiesProps) {
+export function PropertiesPanel({
+  elements,
+  selectedIds,
+  clipId,
+  dispatch,
+  selectedClip,
+}: PropertiesProps) {
   const selected = elements.filter((e) => selectedIds.includes(e.id));
   const el = selected[0] ?? null;
+
+  // Audio clip selected (no element selection) — show audio-specific controls.
+  if (!el && selectedClip && selectedClip.type === "audio") {
+    const patchClip = (patch: Partial<TimelineClip>) =>
+      dispatch({ type: "UPDATE_CLIP", clipId: selectedClip.id, patch });
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">
+          {selectedClip.label ?? "Audio"}
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <Section title="Audio">
+            <NumField
+              label="Volume (0–1)"
+              value={Number((selectedClip.volume ?? 1).toFixed(2))}
+              step={0.05}
+              onChange={(v) => patchClip({ volume: Math.max(0, Math.min(1, v)) })}
+            />
+            <NumField
+              label="Start (s)"
+              value={Number(selectedClip.start.toFixed(2))}
+              step={0.1}
+              onChange={(v) => patchClip({ start: Math.max(0, v) })}
+            />
+            <NumField
+              label="Duration (s)"
+              value={Number(selectedClip.duration.toFixed(2))}
+              step={0.1}
+              onChange={(v) => patchClip({ duration: Math.max(0.1, v) })}
+            />
+            {selectedClip.src && (
+              <p className="break-all text-[11px] text-faint">{selectedClip.src}</p>
+            )}
+          </Section>
+        </div>
+      </div>
+    );
+  }
 
   if (!el || !clipId) {
     return (

@@ -122,7 +122,9 @@ function TimelineVideo({ timeline, colors }) {
       </ZoomCamera>
 
       {audioTracks.map((track) =>
-        (track.clips ?? [])
+        track.muted
+          ? null
+          : (track.clips ?? [])
           .filter((clip) => clip.src)
           .map((clip, i) => (
             <Sequence
