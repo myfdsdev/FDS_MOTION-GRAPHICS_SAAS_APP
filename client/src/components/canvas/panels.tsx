@@ -180,6 +180,21 @@ export function PropertiesPanel({ elements, selectedIds, clipId, dispatch }: Pro
           </Section>
         )}
 
+        {el.type === "lottie" && (
+          <Section title="Lottie">
+            <div className="grid grid-cols-2 gap-2">
+              <NumField label="Speed" value={el.speed ?? 1} step={0.1} onChange={(v) => patch({ speed: Math.max(0.1, v) })} />
+              <SelectField
+                label="Loop"
+                value={el.loop === false ? "no" : "yes"}
+                options={["yes", "no"]}
+                onChange={(v) => patch({ loop: v === "yes" })}
+              />
+            </div>
+            {el.assetId && <p className="text-[11px] text-faint">Asset: {el.assetId}</p>}
+          </Section>
+        )}
+
         {el.type === "shape" && (
           <Section title="Shape">
             <SelectField label="Shape" value={el.shape} options={["rect", "ellipse"]} onChange={(v) => patch({ shape: v as "rect" | "ellipse" })} />

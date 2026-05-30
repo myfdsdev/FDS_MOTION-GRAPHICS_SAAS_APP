@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as LucideIcons from "lucide-react";
+import Lottie from "lottie-react";
+import { useQuery } from "@tanstack/react-query";
 import type { AspectRatio, SceneElement } from "@/types";
 import { snapValue } from "@/lib/editor/editorStore";
 import type { EditorAction } from "@/lib/editor/editorStore";
 import { SNAP_THRESHOLD_PX } from "@/lib/editor/editorTypes";
+import { getLottieAnimation } from "@/lib/api";
 
 interface CanvasProps {
   elements: SceneElement[];
@@ -432,6 +435,10 @@ function ElementBody({
     );
   }
 
+  if (el.type === "lottie") {
+    return <LottieView el={el} />;
+  }
+
   // shape
   return (
     <div
@@ -442,6 +449,34 @@ function ElementBody({
         border: el.stroke ? `${el.strokeWidth ?? 2}px solid ${el.stroke}` : "none",
         borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
       }}
+    />
+  );
+}
+
+function LottieView({ el }: { el: Extract<SceneElement, { type: "lottie" }> }) {
+  // Resolve animationData: inline first, otherwise fetch by assetId. Cached
+  // globally so multiple scenes/elements sharing an asset only hit the API once.
+  const { data: fetched } = useQuery({
+    queryKey: ["lottie-animation", el.assetId],
+    queryFn: () => getLottieAnimation(el.assetId!),
+    enabled: !el.animationData && !!el.assetId,
+    staleTime: Infinity,
+  });
+  const data = el.animationData ?? fetched ?? null;
+  if (!data) {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded border border-dashed border-border bg-surface-2/40 text-[10px] text-faint">
+        Lottie
+      </div>
+    );
+  }
+  return (
+    <Lottie
+      animationData={data}
+      loop={el.loop !== false}
+      autoplay
+      style={{ width: "100%", height: "100%" }}
+      rendererSettings={{ preserveAspectRatio: "xMidYMid meet" }}
     />
   );
 }

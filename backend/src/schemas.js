@@ -106,6 +106,14 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
     strokeWidth: z.number().min(0).max(100).optional(),
     radius: z.number().min(0).max(500).optional(),
   }),
+  z.object({
+    ...ElementBase,
+    type: z.literal("lottie"),
+    assetId: LottieAssetId.optional(),
+    animationData: z.unknown().optional(),
+    speed: z.number().min(0.1).max(4).optional(),
+    loop: z.boolean().optional(),
+  }),
 ]);
 
 export const SceneSchema = z.object({

@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { ProjectStatus } from "@/types";
-import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, Pencil } from "lucide-react";
 
 const STATUS_CONFIG: Record<
   ProjectStatus,
@@ -8,6 +8,7 @@ const STATUS_CONFIG: Record<
 > = {
   PLANNING: { label: "Planning", variant: "accent", icon: Loader2, spin: true },
   GENERATING_ASSETS: { label: "Generating assets", variant: "accent", icon: Loader2, spin: true },
+  READY_TO_EDIT: { label: "Ready to edit", variant: "muted", icon: Pencil },
   QUEUED: { label: "Queued", variant: "warning", icon: Clock },
   RENDERING: { label: "Rendering", variant: "accent", icon: Loader2, spin: true },
   DONE: { label: "Done", variant: "success", icon: CheckCircle2 },

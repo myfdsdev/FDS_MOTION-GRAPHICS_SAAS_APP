@@ -35,7 +35,7 @@ export type TrackKind = "scene" | "overlay" | "audio";
 // composition 0..1 so they survive resolution changes).
 // ---------------------------------------------------------------------------
 
-export type ElementType = "text" | "icon" | "image" | "shape";
+export type ElementType = "text" | "icon" | "image" | "shape" | "lottie";
 export type TextAlign = "left" | "center" | "right";
 
 export interface ElementBase {
@@ -85,7 +85,23 @@ export interface ShapeElement extends ElementBase {
   radius?: number;
 }
 
-export type SceneElement = TextElement | IconElement | ImageElement | ShapeElement;
+export interface LottieElement extends ElementBase {
+  type: "lottie";
+  /** Lottie library asset id; the editor / renderer resolves animationData. */
+  assetId?: string;
+  /** Inline animation JSON (preferred over assetId when present). */
+  animationData?: Record<string, unknown>;
+  /** 1 = normal speed. */
+  speed?: number;
+  loop?: boolean;
+}
+
+export type SceneElement =
+  | TextElement
+  | IconElement
+  | ImageElement
+  | ShapeElement
+  | LottieElement;
 
 /** Defaults for newly created elements (centered, sensible size per type). */
 export const DEFAULT_TEXT_SIZE = 0.08;

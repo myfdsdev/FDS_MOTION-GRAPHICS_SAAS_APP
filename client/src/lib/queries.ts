@@ -100,7 +100,13 @@ export function useProject(id: string | undefined) {
     enabled: !!id,
     refetchInterval: (q) => {
       const status = q.state.data?.status;
-      return status === "DONE" || status === "FAILED" ? false : 2000;
+      // Stop polling on any terminal/editable state — only render-in-progress
+      // states need live updates.
+      const idle =
+        status === "DONE" ||
+        status === "FAILED" ||
+        status === "READY_TO_EDIT";
+      return idle ? false : 2000;
     },
   });
 }

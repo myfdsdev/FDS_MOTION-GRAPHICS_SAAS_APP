@@ -5,6 +5,9 @@ const { Schema } = mongoose;
 export const PROJECT_STATUSES = [
   "PLANNING",
   "GENERATING_ASSETS",
+  // Plan has been generated/saved; the user is editing. Worker does NOT
+  // auto-claim this state — rendering happens only on explicit user action.
+  "READY_TO_EDIT",
   "QUEUED",
   "RENDERING",
   "DONE",

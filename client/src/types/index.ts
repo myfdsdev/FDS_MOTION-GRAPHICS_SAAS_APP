@@ -11,12 +11,14 @@ export type {
   IconElement,
   ImageElement,
   ShapeElement,
+  LottieElement,
   ElementType,
 } from "@/lib/editor/editorTypes";
 
 export type ProjectStatus =
   | "PLANNING"
   | "GENERATING_ASSETS"
+  | "READY_TO_EDIT"
   | "QUEUED"
   | "RENDERING"
   | "DONE"

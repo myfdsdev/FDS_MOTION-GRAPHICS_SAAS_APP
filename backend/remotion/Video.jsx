@@ -306,6 +306,18 @@ function ElementBody({ el, height }) {
     ) : null;
   }
 
+  if (el.type === "lottie") {
+    if (!el.animationData) return null;
+    return (
+      <Lottie
+        animationData={el.animationData}
+        loop={el.loop !== false}
+        playbackRate={el.speed || 1}
+        style={{ width: "100%", height: "100%" }}
+      />
+    );
+  }
+
   // shape
   return (
     <div

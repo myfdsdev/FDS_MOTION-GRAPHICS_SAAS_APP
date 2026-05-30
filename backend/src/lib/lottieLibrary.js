@@ -131,15 +131,21 @@ export function assertKnownLottieAssets(plan, allowedIds) {
 export async function attachLottieAssetsToPlan(plan) {
   if (!plan) return plan;
 
-  // Collect every uploaded Lottie id referenced by scenes OR timeline clips.
+  // Collect every uploaded Lottie id referenced anywhere: top-level scenes,
+  // timeline clip scenes, and (new) lottie elements within either.
   const referenced = [];
-  for (const scene of plan.scenes ?? []) {
-    if (scene?.lottieAsset) referenced.push(scene.lottieAsset);
-  }
-  for (const track of plan.timeline?.tracks ?? []) {
-    for (const clip of track.clips ?? []) {
-      if (clip?.scene?.lottieAsset) referenced.push(clip.scene.lottieAsset);
+  const collectFromScene = (scene) => {
+    if (!scene) return;
+    if (scene.lottieAsset) referenced.push(scene.lottieAsset);
+    for (const el of scene.elements ?? []) {
+      if (el?.type === "lottie" && el.assetId && !el.animationData) {
+        referenced.push(el.assetId);
+      }
     }
+  };
+  for (const scene of plan.scenes ?? []) collectFromScene(scene);
+  for (const track of plan.timeline?.tracks ?? []) {
+    for (const clip of track.clips ?? []) collectFromScene(clip?.scene);
   }
 
   const uploadedIds = [
@@ -156,8 +162,21 @@ export async function attachLottieAssetsToPlan(plan) {
   }
 
   const withScene = (scene) => {
-    const animationData = byId.get(scene?.lottieAsset);
-    return animationData ? { ...scene, lottieAnimationData: animationData } : scene;
+    if (!scene) return scene;
+    let next = scene;
+    const animationData = byId.get(scene.lottieAsset);
+    if (animationData) next = { ...next, lottieAnimationData: animationData };
+    if (Array.isArray(scene.elements) && scene.elements.length) {
+      const elements = scene.elements.map((el) => {
+        if (el?.type !== "lottie" || el.animationData || !el.assetId) return el;
+        const data = byId.get(el.assetId);
+        return data ? { ...el, animationData: data } : el;
+      });
+      if (elements.some((el, i) => el !== scene.elements[i])) {
+        next = { ...next, elements };
+      }
+    }
+    return next;
   };
 
   const next = {

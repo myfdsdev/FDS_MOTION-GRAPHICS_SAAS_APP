@@ -515,7 +515,10 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
     await Project.updateOne(
       { _id: projectId },
       {
-        status: "QUEUED",
+        // Stop here so the user can edit on the canvas. The render worker only
+        // claims "QUEUED" — rendering happens when the user clicks Render
+        // (POST /:id/rerender), which transitions READY_TO_EDIT → QUEUED.
+        status: "READY_TO_EDIT",
         progress: 30,
         script,
         sceneJson: plan,
@@ -523,8 +526,6 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
         aspectRatio: plan.aspectRatio,
       }
     );
-
-    // The render worker (worker.js) picks up QUEUED projects and produces the MP4.
   } catch (err) {
     const message = err instanceof Error ? err.message : "Pipeline error";
     console.error(`[pipeline] project ${projectId} failed:`, err);

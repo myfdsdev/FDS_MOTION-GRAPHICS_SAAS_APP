@@ -296,8 +296,10 @@ export async function listLottieAssets(): Promise<LottieAssetSummary[]> {
 export async function getLottieAnimation(id: string): Promise<Record<string, unknown> | null> {
   if (USE_MOCKS) return null;
   try {
+    // Public (auth-only) endpoint — works for non-admin users so the editor
+    // canvas can render Lottie elements. AdminPage uses the same function.
     const res = await realFetch<{ animationData: Record<string, unknown> }>(
-      `/api/admin/lottie-assets/${id}/animation`
+      `/api/lottie-assets/${id}/animation`
     );
     return res.animationData;
   } catch {
