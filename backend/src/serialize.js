@@ -24,6 +24,8 @@ export function toProjectDTO(p) {
     durationSec: p.durationSec,
     outputUrl: p.outputUrl ?? undefined,
     thumbnailUrl: p.thumbnailUrl ?? undefined,
+    voiceoverUrl: p.voiceoverUrl ?? undefined,
+    voiceoverDuration: p.voiceoverDuration ?? undefined,
     progress: p.progress,
     errorMessage: p.errorMessage ?? undefined,
     createdAt: new Date(p.createdAt).toISOString(),

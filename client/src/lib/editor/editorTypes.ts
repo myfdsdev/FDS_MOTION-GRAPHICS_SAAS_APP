@@ -159,6 +159,8 @@ export interface TimelineTrack {
   id: string;
   kind: TrackKind;
   name?: string;
+  /** Skip rendering this track's clips in the renderer when true. */
+  muted?: boolean;
   clips: TimelineClip[];
 }
 

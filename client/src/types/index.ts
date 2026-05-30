@@ -110,6 +110,8 @@ export interface Project {
   durationSec: number;
   outputUrl?: string;
   thumbnailUrl?: string;
+  voiceoverUrl?: string;
+  voiceoverDuration?: number;
   progress: number;
   errorMessage?: string;
   createdAt: string;

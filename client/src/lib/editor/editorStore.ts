@@ -229,10 +229,14 @@ function sceneClip(scene: Scene, start: number): TimelineClip {
   };
 }
 
-/** Build editor state from an existing scene list (sequential clips on one track). */
+/** Build editor state from an existing scene list (sequential clips on one track).
+ *  When `voiceover` is provided and no `existing` timeline exists, an audio
+ *  track with a single clip is auto-appended so the narration shows on the
+ *  timeline. If `existing` is provided, it wins (user-saved edits trump). */
 export function createInitialState(
   scenes: Scene[],
-  existing?: Timeline | null
+  existing?: Timeline | null,
+  voiceover?: { url: string; duration: number } | null
 ): EditorState {
   if (existing && existing.tracks?.length) {
     return {

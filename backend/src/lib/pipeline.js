@@ -509,6 +509,26 @@ async function generateVideoPlan(prompt, durationSec, userId) {
   };
 }
 
+// Save an MP3 buffer for a project using the same path/bucket pattern as the
+// rendered MP4: written to backend/public/videos/<id>.mp3 (served via /videos
+// when local) and uploaded to voiceovers/<id>.mp3 when object storage is on.
+const __PIPELINE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const VOICEOVERS_LOCAL_DIR = path.join(__PIPELINE_DIR, "..", "..", "public", "videos");
+const PUBLIC_BASE = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+async function persistVoiceover(projectId, mp3Buffer, script) {
+  fs.mkdirSync(VOICEOVERS_LOCAL_DIR, { recursive: true });
+  const localPath = path.join(VOICEOVERS_LOCAL_DIR, `${projectId}.mp3`);
+  await fs.promises.writeFile(localPath, mp3Buffer);
+
+  let url = `${PUBLIC_BASE}/videos/${projectId}.mp3`;
+  if (isStorageConfigured()) {
+    url = await uploadFile(localPath, `voiceovers/${projectId}.mp3`, "audio/mpeg");
+    await fs.promises.rm(localPath, { force: true }).catch(() => {});
+  }
+  return { url, duration: estimateVoiceoverDuration(script) };
+}
+
 // Fire-and-forget pipeline. It never creates placeholder videos. If AI or the
 // real renderer is unavailable, the project fails and credits are refunded.
 export async function runPipeline(projectId, userId, prompt, durationSec) {
@@ -522,6 +542,24 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
 
     const { script, plan } = await generateVideoPlan(prompt, durationSec, userId);
 
+    // Voiceover is additive — TTS failure (or missing key) must NEVER fail the
+    // project. We try, swallow errors, and continue to READY_TO_EDIT.
+    let voiceoverUrl = null;
+    let voiceoverDuration = null;
+    if (isTtsConfigured() && script && script.trim()) {
+      try {
+        const mp3 = await synthesizeVoiceover(script);
+        const { url, duration } = await persistVoiceover(projectId, mp3, script);
+        voiceoverUrl = url;
+        voiceoverDuration = duration;
+      } catch (err) {
+        console.warn(
+          `[pipeline] voiceover failed for ${projectId}:`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+
     await Project.updateOne(
       { _id: projectId },
       {
@@ -534,6 +572,8 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
         sceneJson: plan,
         template: plan.template,
         aspectRatio: plan.aspectRatio,
+        voiceoverUrl,
+        voiceoverDuration,
       }
     );
   } catch (err) {

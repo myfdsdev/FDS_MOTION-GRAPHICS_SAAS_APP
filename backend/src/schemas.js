@@ -163,6 +163,7 @@ export const TimelineTrackSchema = z.object({
   id: z.string().min(1).max(80),
   kind: z.enum(["scene", "overlay", "audio"]),
   name: z.string().max(80).optional(),
+  muted: z.boolean().optional(),
   clips: z.array(TimelineClipSchema).max(200),
 });
 
