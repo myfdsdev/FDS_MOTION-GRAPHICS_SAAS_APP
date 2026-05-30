@@ -337,6 +337,7 @@ export type EditorAction =
   | { type: "ADD_ZOOM"; start: number; end: number }
   | { type: "DELETE_ZOOM"; id: string }
   | { type: "REORDER_TRACK"; trackId: string; toIndex: number }
+  | { type: "UPDATE_TRACK"; trackId: string; patch: Partial<TimelineTrack> }
   | { type: "UPDATE_CLIP"; clipId: string; patch: Partial<TimelineClip> }
   // scene elements (canvas). clipId is the current scene clip (derived from playhead)
   | { type: "ADD_ELEMENT"; clipId: string; elementType: SceneElement["type"]; element?: Partial<SceneElement> }
@@ -518,6 +519,15 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return withHistory({
         ...state,
         tracks: mapClip(state.tracks, action.clipId, (c) => ({ ...c, ...action.patch })),
+      });
+    }
+
+    case "UPDATE_TRACK": {
+      return withHistory({
+        ...state,
+        tracks: state.tracks.map((t) =>
+          t.id === action.trackId ? { ...t, ...action.patch } : t
+        ),
       });
     }
 
