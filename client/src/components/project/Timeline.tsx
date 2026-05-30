@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Layers, Music, Trash2, Type as TypeIcon, ZoomIn } from "lucide-react";
+import { Layers, Music, Trash2, Type as TypeIcon, Volume2, VolumeX, ZoomIn } from "lucide-react";
 import {
   RULER_HEIGHT,
   TRACK_HEIGHT,
@@ -144,14 +144,27 @@ export function Timeline({ state, dispatch, currentTime, onSeek }: TimelineProps
         {/* Label gutter */}
         <div className="w-28 shrink-0 border-r border-border-soft bg-surface-2/40">
           <div style={{ height: RULER_HEIGHT + GAP }} />
-          {tracks.map((track, i) => (
+          {tracks.map((track) => (
             <div
               key={track.id}
               style={{ height: TRACK_HEIGHT, marginBottom: GAP }}
               className="flex items-center gap-1.5 px-2 text-[11px] text-muted"
             >
               <TrackIcon kind={track.kind} />
-              <span className="truncate">{track.name ?? track.kind}</span>
+              <span className="flex-1 truncate">{track.name ?? track.kind}</span>
+              {track.kind === "audio" && (
+                <button
+                  title={track.muted ? "Unmute track" : "Mute track"}
+                  onClick={() =>
+                    dispatch({ type: "UPDATE_TRACK", trackId: track.id, patch: { muted: !track.muted } })
+                  }
+                  className={`rounded p-0.5 transition ${
+                    track.muted ? "text-danger" : "text-muted hover:text-fg"
+                  }`}
+                >
+                  {track.muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                </button>
+              )}
             </div>
           ))}
           <div
