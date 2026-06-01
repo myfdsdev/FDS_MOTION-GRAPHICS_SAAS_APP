@@ -947,69 +947,6 @@ function FinalCta(props) {
   );
 }
 
-function DashboardMetrics(props) {
-  const frame = useCurrentFrame();
-  const value = Math.round(
-    interpolate(frame, [0, props.height > props.width ? 70 : 55], [0, 92], {
-      extrapolateRight: "clamp",
-    })
-  );
-  const flip = !!props.variant?.flip;
-  const sizeScale = props.variant?.sizeScale ?? 1;
-
-  const text = (
-    <TextStack key="text" scene={props.scene} style={props.style} width={730} sizeScale={sizeScale} />
-  );
-  const card = (
-    <div
-      key="card"
-      style={{
-        borderRadius: 38,
-        padding: 34,
-        background: "rgba(255,255,255,0.13)",
-        border: "1px solid rgba(255,255,255,0.18)",
-        boxShadow: "0 36px 90px rgba(0,0,0,0.34)",
-      }}
-    >
-      {/* Lottie removed from generation; admin uploads now reach the canvas only. */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 24 }}>
-        <Metric label="Growth" value={`${value}%`} accent={props.accent} />
-        <Metric label="Time saved" value={`${Math.max(1, Math.round(value / 9))}h`} accent={props.secondary} />
-      </div>
-    </div>
-  );
-
-  return (
-    <AbsoluteFill
-      style={{
-        display: "grid",
-        gridTemplateColumns: flip ? "0.95fr 1.05fr" : "1.05fr 0.95fr",
-        alignItems: "center",
-        gap: 70,
-        padding: "8% 9%",
-      }}
-    >
-      {flip ? [card, text] : [text, card]}
-    </AbsoluteFill>
-  );
-}
-
-function Metric({ label, value, accent }) {
-  return (
-    <div
-      style={{
-        borderRadius: 22,
-        padding: 22,
-        background: "rgba(255,255,255,0.12)",
-        border: "1px solid rgba(255,255,255,0.14)",
-      }}
-    >
-      <div style={{ fontSize: 19, color: "rgba(255,255,255,0.68)", fontWeight: 650 }}>{label}</div>
-      <div style={{ marginTop: 10, fontSize: 42, fontWeight: 850, color: accent }}>{value}</div>
-    </div>
-  );
-}
-
 function FeatureCards(props) {
   const frame = useCurrentFrame();
   // Lottie no longer auto-placed inside cards — kept clean and text-driven.
