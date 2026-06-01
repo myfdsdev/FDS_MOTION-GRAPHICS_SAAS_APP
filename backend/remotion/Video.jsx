@@ -947,7 +947,7 @@ function FinalCta(props) {
   );
 }
 
-function OldFeatureCardsUnused(props) {
+function LegacyCardsUnused(props) {
   const frame = useCurrentFrame();
   // Lottie no longer auto-placed inside cards — kept clean and text-driven.
   const items = [
@@ -993,7 +993,7 @@ function OldFeatureCardsUnused(props) {
   );
 }
 
-function OldCtaEndScreenUnused(props) {
+function LegacyEndScreenUnused(props) {
   const sizeScale = props.variant?.sizeScale ?? 1;
   return (
     <AbsoluteFill
