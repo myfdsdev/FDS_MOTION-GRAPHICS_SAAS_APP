@@ -245,15 +245,26 @@ async function readErrorBody(res) {
   }
 }
 
-// Retry transient AI failures (5xx, brief network/parse hiccups) with backoff.
-async function withRetry(fn, attempts = 3, baseDelay = 700) {
+// Retry transient AI failures (5xx, 429, brief network/parse hiccups) with
+// exponential backoff + jitter. 4xx auth/validation errors are NOT retried —
+// hammering won't fix them and wastes quota.
+async function withRetry(fn, attempts = 5, baseDelay = 1500) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (i < attempts - 1) await new Promise((r) => setTimeout(r, baseDelay * (i + 1)));
+      const msg = err instanceof Error ? err.message : String(err);
+      // Bail early on permanent client errors (401/403/404/etc.) but not 429.
+      const m = msg.match(/\((\d{3})\)/);
+      const code = m ? Number(m[1]) : null;
+      const retryable = !code || code >= 500 || code === 429 || code === 408;
+      if (!retryable || i >= attempts - 1) break;
+      // Exponential backoff: 1.5s, 3s, 6s, 12s with ±30% jitter.
+      const delay = Math.round(baseDelay * Math.pow(2, i) * (0.7 + Math.random() * 0.6));
+      console.warn(`[pipeline] retry ${i + 1}/${attempts - 1} after ${delay}ms (${code ?? "?"})`);
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;
