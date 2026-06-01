@@ -217,7 +217,8 @@ function systemPrompt(durationSec, lottieAssetPrompt) {
     `Available animations: ${animations.join(", ")}.`,
     `Available transitions: ${transitions.join(", ")}.`,
     "For every scene, choose one sceneTemplate from the allowed list.",
-    "VARY the sceneTemplate across scenes — do NOT use the same template for every scene. Prefer 'hero-title' for openers, 'cta-end-screen' for closers, and mix 'split-lottie-text' / 'dashboard-metrics' / 'feature-cards' for the middle. In a 3+ scene plan no template should repeat back-to-back, and the same template should not appear in more than half the scenes.",
+    "VARY the sceneTemplate across scenes — do NOT use the same template for every scene. Prefer 'kinetic-title' or 'animated-bg-text' for openers, 'final-cta' for closers, and mix 'app-showcase' / 'offer-burst' / 'proof-cards' for the middle. In a 3+ scene plan no template should repeat back-to-back, and the same template should not appear in more than half the scenes.",
+    "Favor modern ad motion: white kinetic typography, animated dark backgrounds, glowing accent shapes, punchy offer reveals, and clear app/product callouts.",
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
     "No labels inside the script. No markdown.",
   ].join(" ");

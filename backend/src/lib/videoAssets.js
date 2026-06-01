@@ -7,11 +7,12 @@ export const VIDEO_CATEGORIES = [
 ];
 
 export const SCENE_TEMPLATES = [
-  "hero-title",
-  "split-lottie-text",
-  "dashboard-metrics",
-  "feature-cards",
-  "cta-end-screen",
+  "kinetic-title",
+  "animated-bg-text",
+  "app-showcase",
+  "offer-burst",
+  "proof-cards",
+  "final-cta",
 ];
 
 // Starter animations removed — the Lottie library is now populated only by

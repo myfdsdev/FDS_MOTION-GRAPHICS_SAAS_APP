@@ -57,11 +57,12 @@ export type VideoCategory =
   | "local-business";
 
 export type SceneTemplate =
-  | "hero-title"
-  | "split-lottie-text"
-  | "dashboard-metrics"
-  | "feature-cards"
-  | "cta-end-screen";
+  | "kinetic-title"
+  | "animated-bg-text"
+  | "app-showcase"
+  | "offer-burst"
+  | "proof-cards"
+  | "final-cta";
 
 export interface Scene {
   scene: number;

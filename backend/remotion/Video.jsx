@@ -16,11 +16,12 @@ import { getLottieAsset } from "./lottieCatalog.js";
 const DEFAULT_COLORS = ["#0f172a", "#8b5cf6", "#38bdf8", "#34d399"];
 
 const templateFallbacks = [
-  "hero-title",
-  "split-lottie-text",
-  "dashboard-metrics",
-  "feature-cards",
-  "cta-end-screen",
+  "kinetic-title",
+  "animated-bg-text",
+  "app-showcase",
+  "offer-burst",
+  "proof-cards",
+  "final-cta",
 ];
 
 // ---------------------------------------------------------------------------
@@ -265,14 +266,16 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
   return (
     <AbsoluteFill style={sceneShell(base, accent, secondary, frame, durationInFrames, variant)}>
       <SceneChrome accent={accent} index={index} variant={variant} />
+      <MotionBackdrop accent={accent} secondary={secondary} frame={frame} durationInFrames={durationInFrames} />
 
       {/* BASE layer — the template draws its own design. Never removed. */}
-      {template === "split-lottie-text" && <SplitLottieText {...common} />}
-      {template === "dashboard-metrics" && <DashboardMetrics {...common} />}
-      {template === "feature-cards" && <FeatureCards {...common} />}
-      {template === "cta-end-screen" && <CtaEndScreen {...common} />}
-      {template === "hero-title" && <HeroTitle {...common} />}
-      {!templateFallbacks.includes(template) && <HeroTitle {...common} />}
+      {template === "kinetic-title" && <KineticTitle {...common} />}
+      {template === "animated-bg-text" && <AnimatedBgText {...common} />}
+      {template === "app-showcase" && <AppShowcase {...common} />}
+      {template === "offer-burst" && <OfferBurst {...common} />}
+      {template === "proof-cards" && <ProofCards {...common} />}
+      {template === "final-cta" && <FinalCta {...common} />}
+      {!templateFallbacks.includes(template) && <KineticTitle {...common} />}
 
       {/* FOREGROUND layer — user-placed elements render on top of the template. */}
       {hasElements && (
