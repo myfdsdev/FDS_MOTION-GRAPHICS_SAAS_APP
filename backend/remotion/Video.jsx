@@ -544,47 +544,405 @@ function LottiePanel({ scene, accent, secondary }) {
   );
 }
 
-function HeroTitle(props) {
-  const sizeScale = props.variant?.sizeScale ?? 1;
+function MotionBackdrop({ accent, secondary, frame, durationInFrames }) {
+  const drift = interpolate(frame, [0, durationInFrames], [-120, 120], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const slow = Math.sin(frame / 18);
+  const fast = Math.sin(frame / 9);
+
   return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "10%" }}>
-      <div style={{ position: "absolute", opacity: 0.24, transform: "scale(1.16)" }}>
-        {/* Lottie removed from generation; admin uploads now reach the canvas only. */}
-      </div>
-      <TextStack scene={props.scene} style={props.style} align="center" width={1120} large sizeScale={sizeScale} />
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: "-18%",
+          background:
+            `linear-gradient(${112 + drift / 10}deg, transparent 0%, ${accent}22 38%, transparent 56%), ` +
+            `linear-gradient(${34 - drift / 12}deg, transparent 8%, ${secondary}1f 46%, transparent 68%)`,
+          transform: `translateX(${drift * 0.18}px) rotate(${slow * 2}deg)`,
+          opacity: 0.8,
+        }}
+      />
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            width: 260 + i * 120,
+            height: 260 + i * 120,
+            borderRadius: "50%",
+            border: `1px solid ${i % 2 ? secondary : accent}55`,
+            left: `${12 + i * 27 + slow * 2}%`,
+            top: `${14 + i * 17 + fast * 2}%`,
+            transform: `scale(${1 + Math.sin(frame / (22 + i * 6)) * 0.08})`,
+            opacity: 0.22,
+          }}
+        />
+      ))}
+      <div
+        style={{
+          position: "absolute",
+          left: "-10%",
+          right: "-10%",
+          top: `${50 + fast * 8}%`,
+          height: 2,
+          background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
+          boxShadow: `0 0 38px ${accent}`,
+          opacity: 0.48,
+          transform: `rotate(${slow * 5}deg)`,
+        }}
+      />
     </AbsoluteFill>
   );
 }
 
-function SplitLottieText(props) {
-  const flip = !!props.variant?.flip;
-  const sizeScale = props.variant?.sizeScale ?? 1;
-  const lottie = (
-    <div key="lottie" style={{ transform: "translateY(8px)" }}>
-      {/* Lottie removed from generation; admin uploads now reach the canvas only. */}
-    </div>
+function sceneText(scene) {
+  const title = scene.headline || scene.text || "Your idea in motion";
+  const subtext = scene.subtext || scene.visual || "";
+  return { title, subtext };
+}
+
+function reveal(frame, start, duration = 16) {
+  return interpolate(frame, [start, start + duration], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+}
+
+function KineticTitle(props) {
+  const frame = useCurrentFrame();
+  const { title, subtext } = sceneText(props.scene);
+  const words = title.split(/\s+/).filter(Boolean).slice(0, 9);
+
+  return (
+    <AbsoluteFill style={{ justifyContent: "center", padding: "8% 9%" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "18px 28px",
+          maxWidth: 1200,
+          ...props.style,
+        }}
+      >
+        {words.map((word, i) => {
+          const p = reveal(frame, i * 5, 18);
+          return (
+            <span
+              key={`${word}-${i}`}
+              style={{
+                display: "inline-block",
+                color: "#ffffff",
+                fontSize: i === 0 ? 104 : 92,
+                lineHeight: 0.92,
+                fontWeight: 900,
+                textTransform: i % 3 === 0 ? "uppercase" : "none",
+                textShadow: `0 16px 60px ${props.accent}66`,
+                opacity: p,
+                transform: `translateY(${(1 - p) * 72}px) scale(${0.88 + p * 0.12})`,
+              }}
+            >
+              {word}
+            </span>
+          );
+        })}
+      </div>
+      {subtext ? (
+        <div
+          style={{
+            marginTop: 42,
+            maxWidth: 820,
+            color: "rgba(255,255,255,0.78)",
+            fontSize: 30,
+            lineHeight: 1.25,
+            fontWeight: 650,
+            opacity: reveal(frame, 34, 18),
+          }}
+        >
+          {subtext}
+        </div>
+      ) : null}
+    </AbsoluteFill>
   );
-  const text = (
-    <TextStack
-      key="text"
-      scene={props.scene}
-      style={props.style}
-      width={780}
-      align={flip ? "right" : "left"}
-      sizeScale={sizeScale}
-    />
+}
+
+function AnimatedBgText(props) {
+  const frame = useCurrentFrame();
+  const { title, subtext } = sceneText(props.scene);
+  const p = reveal(frame, 4, 22);
+  const line = interpolate(frame, [18, 54], [0, 1], { extrapolateRight: "clamp" });
+
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "9%" }}>
+      <div
+        style={{
+          position: "absolute",
+          width: "72%",
+          height: "46%",
+          borderRadius: 56,
+          background: `linear-gradient(135deg, ${props.accent}18, rgba(255,255,255,0.08), ${props.secondary}18)`,
+          border: "1px solid rgba(255,255,255,0.14)",
+          transform: `rotate(${Math.sin(frame / 24) * 2}deg) scale(${0.96 + p * 0.04})`,
+          boxShadow: "0 44px 120px rgba(0,0,0,0.34)",
+        }}
+      />
+      <div style={{ width: 1100, textAlign: "center", zIndex: 1, ...props.style }}>
+        <div
+          style={{
+            color: "#ffffff",
+            fontSize: 92,
+            lineHeight: 0.98,
+            fontWeight: 900,
+            textShadow: "0 18px 80px rgba(0,0,0,0.48)",
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            width: `${line * 100}%`,
+            height: 5,
+            margin: "34px auto 0",
+            borderRadius: 99,
+            background: `linear-gradient(90deg, ${props.accent}, #ffffff, ${props.secondary})`,
+            boxShadow: `0 0 34px ${props.accent}`,
+          }}
+        />
+        {subtext ? (
+          <div
+            style={{
+              marginTop: 30,
+              color: "rgba(255,255,255,0.78)",
+              fontSize: 28,
+              lineHeight: 1.28,
+              fontWeight: 650,
+            }}
+          >
+            {subtext}
+          </div>
+        ) : null}
+      </div>
+    </AbsoluteFill>
   );
+}
+
+function AppShowcase(props) {
+  const frame = useCurrentFrame();
+  const { title, subtext } = sceneText(props.scene);
+  const phoneIn = reveal(frame, 8, 24);
+  const TextIcon = LucideIcons.MousePointerClick || LucideIcons.Sparkles;
+
   return (
     <AbsoluteFill
       style={{
         display: "grid",
-        gridTemplateColumns: flip ? "1.1fr 0.9fr" : "0.9fr 1.1fr",
+        gridTemplateColumns: props.variant?.flip ? "0.86fr 1.14fr" : "1.14fr 0.86fr",
         alignItems: "center",
-        gap: 80,
-        padding: "8% 9%",
+        gap: 76,
+        padding: "7% 9%",
       }}
     >
-      {flip ? [text, lottie] : [lottie, text]}
+      <div style={{ order: props.variant?.flip ? 2 : 1, ...props.style }}>
+        <div style={{ color: "#ffffff", fontSize: 78, lineHeight: 1, fontWeight: 900 }}>
+          {title}
+        </div>
+        <div style={{ marginTop: 30, color: "rgba(255,255,255,0.76)", fontSize: 27, lineHeight: 1.28, fontWeight: 650 }}>
+          {subtext || "A smooth app experience, built for action."}
+        </div>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 42,
+            padding: "16px 24px",
+            borderRadius: 999,
+            background: "#ffffff",
+            color: "#0b1020",
+            fontSize: 24,
+            fontWeight: 850,
+            boxShadow: `0 22px 70px ${props.accent}55`,
+          }}
+        >
+          <TextIcon size={28} />
+          Tap. Order. Done.
+        </div>
+      </div>
+
+      <div
+        style={{
+          order: props.variant?.flip ? 1 : 2,
+          justifySelf: "center",
+          width: 360,
+          height: 650,
+          borderRadius: 56,
+          padding: 18,
+          background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72))",
+          boxShadow: "0 46px 120px rgba(0,0,0,0.42)",
+          transform: `translateY(${(1 - phoneIn) * 90}px) rotate(${props.variant?.flip ? -4 : 4}deg) scale(${0.9 + phoneIn * 0.1})`,
+          opacity: phoneIn,
+        }}
+      >
+        <div style={{ width: "100%", height: "100%", borderRadius: 42, background: "#0b1020", overflow: "hidden", padding: 24 }}>
+          <div style={{ width: 92, height: 8, borderRadius: 99, background: "rgba(255,255,255,0.22)", margin: "0 auto 32px" }} />
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                marginTop: i ? 18 : 0,
+                height: 118,
+                borderRadius: 26,
+                background: `linear-gradient(135deg, ${i % 2 ? props.secondary : props.accent}44, rgba(255,255,255,0.1))`,
+                border: "1px solid rgba(255,255,255,0.12)",
+                transform: `translateX(${(1 - reveal(frame, 20 + i * 7, 18)) * 48}px)`,
+                opacity: reveal(frame, 20 + i * 7, 18),
+              }}
+            />
+          ))}
+          <div
+            style={{
+              marginTop: 26,
+              height: 66,
+              borderRadius: 999,
+              background: "#ffffff",
+              color: "#0b1020",
+              display: "grid",
+              placeItems: "center",
+              fontSize: 24,
+              fontWeight: 900,
+            }}
+          >
+            Order now
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function OfferBurst(props) {
+  const frame = useCurrentFrame();
+  const { title, subtext } = sceneText(props.scene);
+  const burst = reveal(frame, 6, 18);
+  const pulse = 1 + Math.sin(frame / 8) * 0.035;
+
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%" }}>
+      <div
+        style={{
+          position: "absolute",
+          width: 680,
+          height: 680,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${props.accent}66 0%, ${props.secondary}22 42%, transparent 68%)`,
+          transform: `scale(${(0.65 + burst * 0.35) * pulse})`,
+          opacity: 0.86,
+        }}
+      />
+      <div
+        style={{
+          zIndex: 1,
+          textAlign: "center",
+          color: "#ffffff",
+          maxWidth: 1120,
+          ...props.style,
+        }}
+      >
+        <div style={{ fontSize: 34, fontWeight: 850, textTransform: "uppercase", color: props.accent }}>
+          Limited time
+        </div>
+        <div style={{ marginTop: 18, fontSize: 104, lineHeight: 0.92, fontWeight: 950, textShadow: "0 20px 90px rgba(0,0,0,0.46)" }}>
+          {title}
+        </div>
+        <div style={{ marginTop: 34, fontSize: 31, lineHeight: 1.25, color: "rgba(255,255,255,0.82)", fontWeight: 700 }}>
+          {subtext || "Make the offer impossible to miss."}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function ProofCards(props) {
+  const frame = useCurrentFrame();
+  const Check = LucideIcons.CheckCircle2 || LucideIcons.CircleCheck || LucideIcons.Sparkles;
+  const { title, subtext } = sceneText(props.scene);
+  const items = [
+    title,
+    subtext || "Fast, simple, and ready to share",
+    props.scene.visual || "Built for high-converting ads",
+  ];
+
+  return (
+    <AbsoluteFill style={{ justifyContent: "center", padding: "7% 9%" }}>
+      <div style={{ color: "#ffffff", fontSize: 70, lineHeight: 1, fontWeight: 900, maxWidth: 980, ...props.style }}>
+        {title}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, marginTop: 56 }}>
+        {items.map((item, i) => {
+          const p = reveal(frame, 14 + i * 8, 18);
+          return (
+            <div
+              key={`${item}-${i}`}
+              style={{
+                minHeight: 238,
+                borderRadius: 34,
+                padding: 30,
+                background: "rgba(255,255,255,0.13)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                boxShadow: "0 30px 90px rgba(0,0,0,0.28)",
+                opacity: p,
+                transform: `translateY(${(1 - p) * 54}px)`,
+              }}
+            >
+              <div style={{ color: i % 2 ? props.secondary : props.accent }}>
+                <Check size={42} />
+              </div>
+              <div style={{ marginTop: 28, color: "#ffffff", fontSize: 28, lineHeight: 1.12, fontWeight: 850 }}>
+                {item}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function FinalCta(props) {
+  const frame = useCurrentFrame();
+  const { title, subtext } = sceneText(props.scene);
+  const glow = 0.7 + Math.sin(frame / 10) * 0.3;
+
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "9%" }}>
+      <div style={{ textAlign: "center", maxWidth: 1160, color: "#ffffff", ...props.style }}>
+        <div style={{ fontSize: 96, lineHeight: 0.96, fontWeight: 950, textShadow: `0 18px 90px ${props.accent}66` }}>
+          {title}
+        </div>
+        {subtext ? (
+          <div style={{ marginTop: 30, fontSize: 30, lineHeight: 1.28, color: "rgba(255,255,255,0.78)", fontWeight: 650 }}>
+            {subtext}
+          </div>
+        ) : null}
+        <div
+          style={{
+            display: "inline-flex",
+            marginTop: 48,
+            padding: "20px 34px",
+            borderRadius: 999,
+            background: "#ffffff",
+            color: "#0b1020",
+            fontSize: 28,
+            fontWeight: 900,
+            boxShadow: `0 0 ${Math.round(34 + glow * 38)}px ${props.accent}`,
+            transform: `scale(${1 + Math.sin(frame / 12) * 0.025})`,
+          }}
+        >
+          Get started now
+        </div>
+      </div>
     </AbsoluteFill>
   );
 }
