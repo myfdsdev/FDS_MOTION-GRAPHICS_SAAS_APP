@@ -27,35 +27,17 @@ import {
 
 /** Build canvas elements from a legacy scene's headline/text/subtext fields. */
 export function elementsFromScene(scene: Scene): SceneElement[] {
-  // Lottie attached to a templated scene is hoisted into a draggable element
-  // positioned where SplitLottieText draws its panel. The template's LottiePanel
-  // is suppressed (ensureElements strips lottieAsset/lottieAnimationData on the
-  // cloned scene) so nothing is rendered twice.
-  const lottieEl: SceneElement | null =
-    scene.lottieAsset || scene.lottieAnimationData
-      ? {
-          id: uid("el"),
-          type: "lottie",
-          x: 0.08,
-          y: 0.22,
-          w: 0.34,
-          h: 0.56,
-          rotation: 0,
-          z: 0,
-          assetId: scene.lottieAsset,
-          animationData: scene.lottieAnimationData as Record<string, unknown> | undefined,
-          loop: true,
-          speed: 1,
-        }
-      : null;
+  // Lottie is no longer auto-placed on generated scenes — it overflowed the
+  // canvas and the editor handled it poorly. Admins still upload Lotties to
+  // the library; users can drop them onto the canvas explicitly when desired.
 
   // Templated scenes draw their own headline/subtext as the BASE layer, so the
-  // foreground starts empty (apart from the hoisted lottie). Only legacy scenes
-  // WITHOUT a template fall back to converting their text into elements.
-  if (scene.sceneTemplate) return lottieEl ? [lottieEl] : [];
+  // foreground starts empty. Only legacy scenes WITHOUT a template fall back
+  // to converting their text into elements.
+  if (scene.sceneTemplate) return [];
 
-  const out: SceneElement[] = lottieEl ? [lottieEl] : [];
-  let z = lottieEl ? 1 : 0;
+  const out: SceneElement[] = [];
+  let z = 0;
   const headline = scene.headline || scene.text;
   if (headline) {
     out.push({
@@ -94,20 +76,10 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
   return out;
 }
 
-/** Ensure a scene has an `elements` array (migrate legacy scenes lazily).
- *  Any Lottie attached to the scene is hoisted into an editable element AND
- *  removed from the cloned scene so the template's LottiePanel renders nothing
- *  (avoids drawing the same Lottie twice). The top-level sceneJson.scenes is
- *  untouched — this only affects the timeline clip's scene copy. */
+/** Ensure a scene has an `elements` array (migrate legacy scenes lazily). */
 export function ensureElements(scene: Scene): Scene {
   if (scene.elements && scene.elements.length) return scene;
-  const elements = elementsFromScene(scene);
-  const hadLottie = elements.some((e) => e.type === "lottie");
-  if (!hadLottie) return { ...scene, elements };
-  const { lottieAsset: _a, lottieAnimationData: _d, ...rest } = scene;
-  void _a;
-  void _d;
-  return { ...rest, elements };
+  return { ...scene, elements: elementsFromScene(scene) };
 }
 
 export function currentSceneClipId(

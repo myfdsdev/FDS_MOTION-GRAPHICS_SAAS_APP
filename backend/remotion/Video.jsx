@@ -546,7 +546,7 @@ function HeroTitle(props) {
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "10%" }}>
       <div style={{ position: "absolute", opacity: 0.24, transform: "scale(1.16)" }}>
-        <LottiePanel {...props} />
+        {/* Lottie removed from generation; admin uploads now reach the canvas only. */}
       </div>
       <TextStack scene={props.scene} style={props.style} align="center" width={1120} large sizeScale={sizeScale} />
     </AbsoluteFill>
@@ -558,7 +558,7 @@ function SplitLottieText(props) {
   const sizeScale = props.variant?.sizeScale ?? 1;
   const lottie = (
     <div key="lottie" style={{ transform: "translateY(8px)" }}>
-      <LottiePanel {...props} />
+      {/* Lottie removed from generation; admin uploads now reach the canvas only. */}
     </div>
   );
   const text = (
@@ -610,7 +610,7 @@ function DashboardMetrics(props) {
         boxShadow: "0 36px 90px rgba(0,0,0,0.34)",
       }}
     >
-      <LottiePanel {...props} />
+      {/* Lottie removed from generation; admin uploads now reach the canvas only. */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 24 }}>
         <Metric label="Growth" value={`${value}%`} accent={props.accent} />
         <Metric label="Time saved" value={`${Math.max(1, Math.round(value / 9))}h`} accent={props.secondary} />
@@ -651,8 +651,7 @@ function Metric({ label, value, accent }) {
 
 function FeatureCards(props) {
   const frame = useCurrentFrame();
-  const animationData =
-    props.scene.lottieAnimationData || getLottieAsset(props.scene.lottieAsset)?.animationData;
+  // Lottie no longer auto-placed inside cards — kept clean and text-driven.
   const items = [
     props.scene.headline || props.scene.text,
     props.scene.subtext || "Automated motion design",
@@ -686,17 +685,7 @@ function FeatureCards(props) {
               }),
             }}
           >
-            {animationData ? (
-              <div style={{ width: 62, height: 62 }}>
-                <Lottie
-                  animationData={animationData}
-                  loop
-                  renderer="svg"
-                  style={{ width: 62, height: 62 }}
-                />
-              </div>
-            ) : null}
-            <div style={{ marginTop: 24, fontSize: 27, lineHeight: 1.1, fontWeight: 800 }}>
+            <div style={{ marginTop: 0, fontSize: 27, lineHeight: 1.1, fontWeight: 800 }}>
               {item}
             </div>
           </div>
@@ -716,7 +705,7 @@ function CtaEndScreen(props) {
         padding: "10%",
       }}
     >
-      <LottiePanel {...props} />
+      {/* Lottie removed from generation; admin uploads now reach the canvas only. */}
       <div style={{ marginTop: 42 }}>
         <TextStack scene={props.scene} style={props.style} align="center" width={1100} large sizeScale={sizeScale} />
       </div>
