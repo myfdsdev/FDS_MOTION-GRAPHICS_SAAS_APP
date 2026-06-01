@@ -54,6 +54,8 @@ const projectSchema = new Schema(
     /** Narration MP3 produced by ElevenLabs TTS from `script`. Optional. */
     voiceoverUrl: { type: String, default: null },
     voiceoverDuration: { type: Number, default: null },
+    /** Short reason TTS produced no narration (or null on success). */
+    voiceoverError: { type: String, default: null },
     progress: { type: Number, default: 0 },
     errorMessage: { type: String, default: null },
     deletedAt: { type: Date, default: null },

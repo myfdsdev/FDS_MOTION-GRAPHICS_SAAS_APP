@@ -92,7 +92,11 @@ export const Video = ({ brandColors, scenes, timeline }) => {
 // Multi-track timeline renderer
 // ---------------------------------------------------------------------------
 
-const f = (seconds, fps) => Math.max(1, Math.round((Number(seconds) || 0) * fps));
+// Frame helpers.  `fStart` is for non-negative offsets (Sequence `from`, audio
+// `startFrom`) — must allow 0 so a clip at t=0 actually starts at frame 0.
+// `fDur` is for `durationInFrames`, which Remotion requires to be ≥ 1.
+const fStart = (seconds, fps) => Math.max(0, Math.round((Number(seconds) || 0) * fps));
+const fDur = (seconds, fps) => Math.max(1, Math.round((Number(seconds) || 0) * fps));
 
 function TimelineVideo({ timeline, colors }) {
   const { fps } = useVideoConfig();
@@ -111,8 +115,8 @@ function TimelineVideo({ timeline, colors }) {
           (track.clips ?? []).map((clip, i) => (
             <Sequence
               key={clip.id ?? `${track.id}-${i}`}
-              from={f(clip.start, fps)}
-              durationInFrames={f(clip.duration, fps)}
+              from={fStart(clip.start, fps)}
+              durationInFrames={fDur(clip.duration, fps)}
               layout="none"
             >
               <TimelineClipView clip={clip} colors={colors} index={i} fps={fps} />
@@ -129,12 +133,12 @@ function TimelineVideo({ timeline, colors }) {
           .map((clip, i) => (
             <Sequence
               key={clip.id ?? `${track.id}-a${i}`}
-              from={f(clip.start, fps)}
-              durationInFrames={f(clip.duration, fps)}
+              from={fStart(clip.start, fps)}
+              durationInFrames={fDur(clip.duration, fps)}
             >
               <Audio
                 src={clip.src}
-                startFrom={f(clip.trimStart ?? 0, fps)}
+                startFrom={fStart(clip.trimStart ?? 0, fps)}
                 volume={clip.volume == null ? 1 : clip.volume}
               />
             </Sequence>
@@ -153,8 +157,8 @@ function ZoomCamera({ zoomRegions, fps, children }) {
   let originY = 50;
 
   for (const region of zoomRegions) {
-    const start = f(region.start, fps);
-    const end = f(region.end, fps);
+    const start = fStart(region.start, fps);
+    const end = fStart(region.end, fps);
     if (frame < start || frame > end) continue;
     const span = Math.max(1, end - start);
     const ramp = Math.min(span / 2, Math.round(span * 0.3));
@@ -201,7 +205,7 @@ function TimelineClipView({ clip, colors, index, fps }) {
       scene={scene}
       colors={colors}
       index={index}
-      clipDurationInFrames={f(clip.duration, fps)}
+      clipDurationInFrames={fDur(clip.duration, fps)}
     />
   );
 }

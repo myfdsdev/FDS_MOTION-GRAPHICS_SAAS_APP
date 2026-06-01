@@ -543,20 +543,32 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
     const { script, plan } = await generateVideoPlan(prompt, durationSec, userId);
 
     // Voiceover is additive — TTS failure (or missing key) must NEVER fail the
-    // project. We try, swallow errors, and continue to READY_TO_EDIT.
+    // project. We try, swallow errors, and continue to READY_TO_EDIT. A short
+    // reason is captured on the project so the editor can surface "Narration
+    // unavailable" instead of silently producing a silent video.
     let voiceoverUrl = null;
     let voiceoverDuration = null;
-    if (isTtsConfigured() && script && script.trim()) {
+    let voiceoverError = null;
+    if (!script || !script.trim()) {
+      voiceoverError = "empty_script";
+    } else if (!isTtsConfigured()) {
+      voiceoverError = "missing_key";
+    } else {
       try {
         const mp3 = await synthesizeVoiceover(script);
-        const { url, duration } = await persistVoiceover(projectId, mp3, script);
-        voiceoverUrl = url;
-        voiceoverDuration = duration;
+        if (!mp3 || mp3.length < 256) {
+          voiceoverError = "empty_response";
+        } else {
+          const { url, duration } = await persistVoiceover(projectId, mp3, script);
+          voiceoverUrl = url;
+          voiceoverDuration = duration;
+        }
       } catch (err) {
-        console.warn(
-          `[pipeline] voiceover failed for ${projectId}:`,
-          err instanceof Error ? err.message : err
-        );
+        const msg = err instanceof Error ? err.message : String(err);
+        // Keep the reason short and safe — no API key or full request body.
+        const m = msg.match(/\((\d{3})\)/);
+        voiceoverError = m ? `http_${m[1]}` : msg.slice(0, 80);
+        console.warn(`[pipeline] voiceover failed for ${projectId}: ${voiceoverError}`);
       }
     }
 
@@ -574,6 +586,7 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
         aspectRatio: plan.aspectRatio,
         voiceoverUrl,
         voiceoverDuration,
+        voiceoverError,
       }
     );
   } catch (err) {

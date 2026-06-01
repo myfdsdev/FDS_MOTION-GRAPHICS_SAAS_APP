@@ -239,14 +239,43 @@ export function createInitialState(
   voiceover?: { url: string; duration: number } | null
 ): EditorState {
   if (existing && existing.tracks?.length) {
-    return {
-      tracks: existing.tracks.map((t) => ({
-        ...t,
-        clips: t.clips.map((c) => ({
-          ...c,
-          scene: c.scene ? ensureElements(c.scene) : c.scene,
-        })),
+    const tracks: TimelineTrack[] = existing.tracks.map((t) => ({
+      ...t,
+      clips: t.clips.map((c) => ({
+        ...c,
+        scene: c.scene ? ensureElements(c.scene) : c.scene,
       })),
+    }));
+
+    // Backfill narration on existing timelines that pre-dated voiceover: if a
+    // voiceoverUrl is present and no clip references it, append the Narration
+    // audio track so the renderer has audio to mux into the MP4.
+    if (voiceover && voiceover.url && voiceover.duration > 0) {
+      const alreadyHas = tracks.some((t) =>
+        t.clips.some((c) => c.type === "audio" && c.src === voiceover.url)
+      );
+      if (!alreadyHas) {
+        tracks.push({
+          id: uid("track"),
+          kind: "audio",
+          name: "Narration",
+          clips: [
+            {
+              id: uid("clip"),
+              type: "audio",
+              start: 0,
+              duration: voiceover.duration,
+              src: voiceover.url,
+              volume: 1,
+              label: "Narration",
+            },
+          ],
+        });
+      }
+    }
+
+    return {
+      tracks,
       zoomRegions: (existing.zoomRegions ?? []).map((z) => ({ ...z })),
       selection: [],
       selectedZoomId: null,
