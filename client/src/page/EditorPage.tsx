@@ -367,6 +367,13 @@ export default function EditorPage() {
             </button>
           </Tooltip>
           {updateProject.isPending && <span className="text-[11px] text-faint">Saving…</span>}
+          {!project.voiceoverUrl && project.voiceoverError && (
+            <Tooltip content={`ElevenLabs TTS was skipped: ${project.voiceoverError}`} side="bottom">
+              <span className="rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                Narration unavailable
+              </span>
+            </Tooltip>
+          )}
         </div>
 
         <div className="flex items-center gap-1">

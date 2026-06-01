@@ -112,6 +112,7 @@ export interface Project {
   thumbnailUrl?: string;
   voiceoverUrl?: string;
   voiceoverDuration?: number;
+  voiceoverError?: string;
   progress: number;
   errorMessage?: string;
   createdAt: string;
