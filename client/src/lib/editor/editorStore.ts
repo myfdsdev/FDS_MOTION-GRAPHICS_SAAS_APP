@@ -444,6 +444,11 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   animationData?: Record<string, unknown>;
   speed?: number;
   loop?: boolean;
+  // Karaoke subtitle fields
+  accent?: string;
+  futureOpacity?: number;
+  duration?: number;
+  wordTimings?: { word: string; start: number; end: number }[];
 };
 
 /** Map over the elements of a specific scene clip. */
