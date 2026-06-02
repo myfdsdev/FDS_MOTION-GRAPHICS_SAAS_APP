@@ -62,7 +62,8 @@ export type SceneTemplate =
   | "app-showcase"
   | "offer-burst"
   | "proof-cards"
-  | "final-cta";
+  | "final-cta"
+  | "karaoke-subtitle";
 
 export interface Scene {
   scene: number;

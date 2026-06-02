@@ -22,6 +22,7 @@ const templateFallbacks = [
   "offer-burst",
   "proof-cards",
   "final-cta",
+  "karaoke-subtitle",
 ];
 
 // ---------------------------------------------------------------------------
@@ -275,6 +276,9 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
       {template === "offer-burst" && <OfferBurst {...common} />}
       {template === "proof-cards" && <ProofCards {...common} />}
       {template === "final-cta" && <FinalCta {...common} />}
+      {template === "karaoke-subtitle" && (
+        <KaraokeSubtitle {...common} durationInFrames={durationInFrames} />
+      )}
       {!templateFallbacks.includes(template) && <KineticTitle {...common} />}
 
       {/* FOREGROUND layer — user-placed elements render on top of the template. */}
@@ -609,6 +613,159 @@ function reveal(frame, start, duration = 16) {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+}
+
+// ---------------------------------------------------------------------------
+// Karaoke-style subtitle timing. If the scene supplies real per-word timings
+// (e.g. from forced alignment) we trust them; otherwise we distribute the
+// scene duration across the words weighted by character length so longer
+// words occupy proportionally more time. Good-enough sync without extra deps.
+// ---------------------------------------------------------------------------
+function buildWordTimings(scene, totalSeconds) {
+  const supplied = Array.isArray(scene?.wordTimings) ? scene.wordTimings : null;
+  if (supplied && supplied.length) {
+    return supplied.map((w) => ({
+      word: String(w.word || ""),
+      start: Number(w.start) || 0,
+      end: Number(w.end) || 0,
+    }));
+  }
+  const raw = String(scene?.narration || scene?.text || scene?.headline || "").trim();
+  if (!raw) return [];
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  // Weight = character count + 1 (so a 1-letter word still gets some time).
+  const weights = tokens.map((t) => t.replace(/[^\p{L}\p{N}']/gu, "").length + 1);
+  const sum = weights.reduce((a, b) => a + b, 0) || tokens.length;
+  let cursor = 0;
+  return tokens.map((word, i) => {
+    const slice = (weights[i] / sum) * totalSeconds;
+    const start = cursor;
+    cursor += slice;
+    return { word, start, end: cursor };
+  });
+}
+
+function KaraokeSubtitle(props) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const durationInFrames = props.durationInFrames || 1;
+  const totalSeconds = durationInFrames / fps;
+  const seconds = frame / fps;
+
+  const { title } = sceneText(props.scene);
+  const timings = buildWordTimings(props.scene, totalSeconds);
+
+  // Headline floats above the subtitle band for context. Fade in early.
+  const headlineP = reveal(frame, 4, 18);
+
+  // Find the currently-spoken word index. Past words stay full bright,
+  // future words sit dim, the current word pops to the accent color.
+  let currentIndex = -1;
+  for (let i = 0; i < timings.length; i++) {
+    if (seconds >= timings[i].start && seconds < timings[i].end) {
+      currentIndex = i;
+      break;
+    }
+  }
+  // After the last word's end, treat everything as spoken.
+  if (currentIndex === -1 && timings.length && seconds >= timings[timings.length - 1].end) {
+    currentIndex = timings.length;
+  }
+
+  const fontFamily =
+    "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+  return (
+    <AbsoluteFill style={{ justifyContent: "flex-end", padding: "0 9% 9% 9%", ...props.style }}>
+      {title ? (
+        <div
+          style={{
+            color: "rgba(255,255,255,0.92)",
+            fontSize: 64,
+            lineHeight: 1.02,
+            fontWeight: 900,
+            letterSpacing: "-0.02em",
+            marginBottom: 56,
+            textAlign: "center",
+            textShadow: `0 16px 60px ${props.accent}55`,
+            opacity: headlineP,
+            transform: `translateY(${(1 - headlineP) * 24}px)`,
+            fontFamily,
+          }}
+        >
+          {title}
+        </div>
+      ) : null}
+
+      {/* Subtitle band — a frosted card behind the words for legibility */}
+      <div
+        style={{
+          alignSelf: "center",
+          maxWidth: "92%",
+          padding: "28px 44px",
+          borderRadius: 28,
+          background: "rgba(8, 10, 20, 0.55)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          boxShadow: "0 30px 90px rgba(0,0,0,0.45)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: "10px 22px",
+          fontFamily,
+        }}
+      >
+        {timings.map((t, i) => {
+          const isCurrent = i === currentIndex;
+          const isPast = i < currentIndex;
+          // Smooth color / scale transition around the boundary so the
+          // highlight glides rather than snaps. ~3 frames each side.
+          const boundary = Math.round(t.start * fps);
+          const enter = interpolate(frame, [boundary - 3, boundary + 3], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          const exitBoundary = Math.round(t.end * fps);
+          const exit = interpolate(frame, [exitBoundary - 3, exitBoundary + 3], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          // active = ramped up (entered) but not yet exited
+          const active = enter * (1 - exit);
+
+          const color = isCurrent
+            ? props.accent
+            : isPast
+            ? "#ffffff"
+            : "rgba(255,255,255,0.45)";
+          const scale = 1 + active * 0.10;
+          const glow = isCurrent
+            ? `0 0 30px ${props.accent}aa, 0 6px 24px ${props.accent}55`
+            : "none";
+
+          return (
+            <span
+              key={`${t.word}-${i}`}
+              style={{
+                display: "inline-block",
+                color,
+                fontSize: 56,
+                fontWeight: 800,
+                lineHeight: 1.15,
+                letterSpacing: "-0.01em",
+                transform: `scale(${scale})`,
+                transformOrigin: "center bottom",
+                textShadow: glow,
+                transition: "none",
+              }}
+            >
+              {t.word}
+            </span>
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
 }
 
 function KineticTitle(props) {

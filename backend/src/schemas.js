@@ -125,6 +125,19 @@ export const SceneSchema = z.object({
   subtext: z.string().max(160).optional(),
   visual: z.string(),
   sceneTemplate: SceneTemplate.optional(),
+  // Optional per-word timing for karaoke-subtitle template. When absent the
+  // template falls back to a character-length-weighted even split derived
+  // from `text` + `duration`. Future forced-alignment can populate this.
+  wordTimings: z
+    .array(
+      z.object({
+        word: z.string().min(1).max(80),
+        start: z.number().min(0).max(600),
+        end: z.number().min(0).max(600),
+      })
+    )
+    .max(400)
+    .optional(),
   lottieAsset: LottieAssetId.optional(),
   lottieAnimationData: z.unknown().optional(),
   visualAssetId: z.string().optional(),

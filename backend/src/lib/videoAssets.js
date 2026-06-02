@@ -13,6 +13,7 @@ export const SCENE_TEMPLATES = [
   "offer-burst",
   "proof-cards",
   "final-cta",
+  "karaoke-subtitle",
 ];
 
 // Starter animations removed — the Lottie library is now populated only by
