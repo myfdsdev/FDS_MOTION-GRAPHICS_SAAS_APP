@@ -3,6 +3,7 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   CopyPlus,
+  Captions,
   Image as ImageIcon,
   Search,
   Shapes,
@@ -32,6 +33,7 @@ interface PanelCommon {
 
 const ADD_ITEMS: { type: SceneElement["type"]; label: string; icon: typeof TypeIcon }[] = [
   { type: "text", label: "Text", icon: TypeIcon },
+  { type: "subtitle", label: "Subtitle", icon: Captions },
   { type: "icon", label: "Icon", icon: Sparkles },
   { type: "image", label: "Image", icon: ImageIcon },
   { type: "shape", label: "Shape", icon: Shapes },
@@ -210,6 +212,49 @@ export function PropertiesPanel({
               <SelectField label="Font" value={el.font ?? "Inter"} options={FONTS} onChange={(v) => patch({ font: v })} />
               <NumField label="Line height" value={el.lineHeight ?? 1.05} step={0.05} onChange={(v) => patch({ lineHeight: Math.max(0.5, v) })} />
             </div>
+          </Section>
+        )}
+
+        {el.type === "subtitle" && (
+          <Section title="Subtitle (karaoke)">
+            <label className="block">
+              <span className="mb-1 block text-xs text-muted">Spoken text</span>
+              <textarea
+                rows={3}
+                value={el.text}
+                onChange={(e) => patch({ text: e.target.value })}
+                className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <NumField label="Size %h" value={Math.round((el.size ?? 0.07) * 100)} onChange={(v) => patch({ size: Math.max(0.5, v) / 100 })} />
+              <NumField label="Weight" value={el.weight ?? 800} step={100} onChange={(v) => patch({ weight: v })} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <ColorField label="Past color" value={el.color ?? "#ffffff"} onChange={(v) => patch({ color: v })} />
+              <ColorField label="Current word" value={el.accent ?? "#8b5cf6"} onChange={(v) => patch({ accent: v })} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <NumField
+                label="Future opacity"
+                value={Number(((el.futureOpacity ?? 0.45) * 100).toFixed(0))}
+                step={5}
+                onChange={(v) => patch({ futureOpacity: Math.max(0, Math.min(1, v / 100)) })}
+              />
+              <NumField
+                label="Duration (s)"
+                value={Number((el.duration ?? 0).toFixed(1))}
+                step={0.5}
+                onChange={(v) =>
+                  patch({ duration: v <= 0 ? undefined : Math.min(600, v) })
+                }
+              />
+            </div>
+            <SelectField label="Font" value={el.font ?? "Inter"} options={FONTS} onChange={(v) => patch({ font: v })} />
+            <p className="text-[11px] text-faint">
+              Empty duration = matches the scene length. Words sync by length;
+              scrub the timeline to preview the read-along.
+            </p>
           </Section>
         )}
 

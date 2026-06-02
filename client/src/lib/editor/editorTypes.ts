@@ -35,7 +35,7 @@ export type TrackKind = "scene" | "overlay" | "audio";
 // composition 0..1 so they survive resolution changes).
 // ---------------------------------------------------------------------------
 
-export type ElementType = "text" | "icon" | "image" | "shape" | "lottie";
+export type ElementType = "text" | "icon" | "image" | "shape" | "lottie" | "subtitle";
 export type TextAlign = "left" | "center" | "right";
 
 export interface ElementBase {
@@ -96,12 +96,42 @@ export interface LottieElement extends ElementBase {
   loop?: boolean;
 }
 
+export interface SubtitleWordTiming {
+  word: string;
+  /** Seconds, relative to the subtitle's own start. */
+  start: number;
+  end: number;
+}
+
+export interface SubtitleElement extends ElementBase {
+  type: "subtitle";
+  /** The full narration string. Words split on whitespace. */
+  text: string;
+  font?: string;
+  /** Font size as a fraction of composition HEIGHT. */
+  size?: number;
+  weight?: number;
+  /** Color for past (already-spoken) words. Defaults to white. */
+  color?: string;
+  /** Color of the word currently being spoken. Defaults to the brand accent. */
+  accent?: string;
+  /** Opacity 0..1 for future (not-yet-spoken) words. Defaults to 0.45. */
+  futureOpacity?: number;
+  /** Total spoken duration (seconds). If omitted, the renderer uses the
+   *  parent scene clip's duration. */
+  duration?: number;
+  /** Optional forced-alignment data (seconds relative to subtitle start).
+   *  When absent the renderer falls back to character-weighted even split. */
+  wordTimings?: SubtitleWordTiming[];
+}
+
 export type SceneElement =
   | TextElement
   | IconElement
   | ImageElement
   | ShapeElement
-  | LottieElement;
+  | LottieElement
+  | SubtitleElement;
 
 /** Defaults for newly created elements (centered, sensible size per type). */
 export const DEFAULT_TEXT_SIZE = 0.08;

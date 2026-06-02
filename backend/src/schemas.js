@@ -114,6 +114,37 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
     speed: z.number().min(0.1).max(4).optional(),
     loop: z.boolean().optional(),
   }),
+  z.object({
+    ...ElementBase,
+    // Karaoke-style live subtitles. Each word highlights in `accent` while
+    // it's being read, past words use `color`, future words are dimmed.
+    type: z.literal("subtitle"),
+    text: z.string().max(2000),
+    font: z.string().max(80).optional(),
+    // Font size as a fraction of composition HEIGHT.
+    size: z.number().min(0.005).max(1).optional(),
+    weight: z.number().int().min(100).max(900).optional(),
+    // Color for past (already-spoken) words.
+    color: Hex.optional(),
+    // Color for the word currently being spoken.
+    accent: Hex.optional(),
+    // Opacity 0..1 for future (not-yet-spoken) words.
+    futureOpacity: z.number().min(0).max(1).optional(),
+    // Total spoken duration (seconds). When omitted the renderer falls
+    // back to the containing scene/clip duration.
+    duration: z.number().min(0.1).max(600).optional(),
+    // Optional forced-alignment data (seconds relative to subtitle start).
+    wordTimings: z
+      .array(
+        z.object({
+          word: z.string().min(1).max(80),
+          start: z.number().min(0).max(600),
+          end: z.number().min(0).max(600),
+        })
+      )
+      .max(400)
+      .optional(),
+  }),
 ]);
 
 export const SceneSchema = z.object({

@@ -19,6 +19,12 @@ interface CanvasProps {
   dispatch: React.Dispatch<EditorAction>;
   /** 1-based number of the current scene (drawn in the template backdrop). */
   sceneNumber?: number;
+  /** Seconds elapsed within the current scene clip. Drives karaoke-subtitle
+   *  highlight in real time as the user scrubs the timeline. */
+  sceneTime?: number;
+  /** Total length of the current scene clip in seconds. Used as the subtitle
+   *  duration fallback when an element doesn't specify its own. */
+  sceneDuration?: number;
 }
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
@@ -46,7 +52,10 @@ export function Canvas({
   snapping,
   dispatch,
   sceneNumber,
+  sceneTime = 0,
+  sceneDuration = 0,
 }: CanvasProps) {
+  const brandAccent = brandColors?.[1] ?? brandColors?.[0] ?? "#8b5cf6";
   const stageRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1, h: 1 });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -290,7 +299,9 @@ export function Canvas({
           <div
             key={el.id}
             onPointerDown={beginMove(el)}
-            onDoubleClick={() => el.type === "text" && setEditingId(el.id)}
+            onDoubleClick={() =>
+              (el.type === "text" || el.type === "subtitle") && setEditingId(el.id)
+            }
             style={{
               position: "absolute",
               left: `${el.x * 100}%`,
@@ -304,7 +315,15 @@ export function Canvas({
               outlineOffset: 2,
             }}
           >
-            <ElementBody el={el} stageH={size.h} editing={editing} onCommit={commitText} />
+            <ElementBody
+              el={el}
+              stageH={size.h}
+              editing={editing}
+              onCommit={commitText}
+              sceneTime={sceneTime}
+              sceneDuration={sceneDuration}
+              brandAccent={brandAccent}
+            />
             {selected && single && single.id === el.id && !editing && (
               <>
                 {HANDLES.map((handle) => (
@@ -360,11 +379,17 @@ function ElementBody({
   stageH,
   editing,
   onCommit,
+  sceneTime,
+  sceneDuration,
+  brandAccent,
 }: {
   el: SceneElement;
   stageH: number;
   editing: boolean;
   onCommit: (el: SceneElement, value: string) => void;
+  sceneTime: number;
+  sceneDuration: number;
+  brandAccent: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -379,6 +404,21 @@ function ElementBody({
       sel?.addRange(range);
     }
   }, [editing]);
+
+  if (el.type === "subtitle") {
+    return (
+      <SubtitleBody
+        el={el}
+        stageH={stageH}
+        editing={editing}
+        onCommit={onCommit}
+        sceneTime={sceneTime}
+        sceneDuration={sceneDuration}
+        brandAccent={brandAccent}
+        innerRef={ref}
+      />
+    );
+  }
 
   if (el.type === "text") {
     const fontSize = (el.size ?? 0.08) * stageH;
@@ -450,6 +490,178 @@ function ElementBody({
         borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
       }}
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Karaoke subtitle element. Highlights the word currently being spoken in
+// the brand accent and slightly scales it up; past words stay white, future
+// words sit dim. Mirrors the logic in backend/remotion/Video.jsx so the
+// editor preview matches the final MP4.
+// ---------------------------------------------------------------------------
+function buildSubtitleTimings(
+  el: Extract<SceneElement, { type: "subtitle" }>,
+  totalSeconds: number
+): { word: string; start: number; end: number }[] {
+  if (Array.isArray(el.wordTimings) && el.wordTimings.length) {
+    return el.wordTimings.map((w) => ({
+      word: String(w.word ?? ""),
+      start: Number(w.start) || 0,
+      end: Number(w.end) || 0,
+    }));
+  }
+  const raw = String(el.text ?? "").trim();
+  if (!raw || totalSeconds <= 0) return [];
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const weights = tokens.map(
+    (t) => t.replace(/[^\p{L}\p{N}']/gu, "").length + 1
+  );
+  const sum = weights.reduce((a, b) => a + b, 0) || tokens.length;
+  let cursor = 0;
+  return tokens.map((word, i) => {
+    const slice = (weights[i] / sum) * totalSeconds;
+    const start = cursor;
+    cursor += slice;
+    return { word, start, end: cursor };
+  });
+}
+
+function SubtitleBody({
+  el,
+  stageH,
+  editing,
+  onCommit,
+  sceneTime,
+  sceneDuration,
+  brandAccent,
+  innerRef,
+}: {
+  el: Extract<SceneElement, { type: "subtitle" }>;
+  stageH: number;
+  editing: boolean;
+  onCommit: (el: SceneElement, value: string) => void;
+  sceneTime: number;
+  sceneDuration: number;
+  brandAccent: string;
+  innerRef: React.RefObject<HTMLDivElement>;
+}) {
+  const fontSize = (el.size ?? 0.07) * stageH;
+  const accent = el.accent || brandAccent;
+  const baseColor = el.color || "#ffffff";
+  const future = el.futureOpacity ?? 0.45;
+  const totalSeconds = el.duration ?? sceneDuration ?? 0;
+  const timings = buildSubtitleTimings(el, totalSeconds);
+
+  let currentIndex = -1;
+  for (let i = 0; i < timings.length; i++) {
+    if (sceneTime >= timings[i].start && sceneTime < timings[i].end) {
+      currentIndex = i;
+      break;
+    }
+  }
+  // After the last word ends, treat all as past so the band stays bright.
+  if (
+    currentIndex === -1 &&
+    timings.length &&
+    sceneTime >= timings[timings.length - 1].end
+  ) {
+    currentIndex = timings.length;
+  }
+
+  // When editing, swap to a single contentEditable that owns the raw text.
+  if (editing) {
+    return (
+      <div
+        ref={innerRef}
+        contentEditable
+        suppressContentEditableWarning
+        onBlur={(e) => onCommit(el, e.currentTarget.textContent ?? "")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).blur();
+          }
+          if (e.key === "Escape") (e.currentTarget as HTMLElement).blur();
+        }}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          color: baseColor,
+          fontSize,
+          fontWeight: el.weight ?? 800,
+          fontFamily: el.font ?? "Inter, system-ui, sans-serif",
+          lineHeight: 1.15,
+          outline: "none",
+          padding: "8px 16px",
+          background: "rgba(8, 10, 20, 0.55)",
+          borderRadius: 16,
+          cursor: "text",
+        }}
+      >
+        {el.text}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: `${fontSize * 0.18}px ${fontSize * 0.35}px`,
+        padding: "8px 16px",
+        background: "rgba(8, 10, 20, 0.55)",
+        borderRadius: 16,
+        fontFamily: el.font ?? "Inter, system-ui, sans-serif",
+        fontWeight: el.weight ?? 800,
+        textAlign: "center",
+        overflow: "hidden",
+      }}
+    >
+      {timings.length === 0 ? (
+        <span style={{ color: `${baseColor}99`, fontSize, fontStyle: "italic" }}>
+          {el.text || "Subtitle"}
+        </span>
+      ) : (
+        timings.map((t, i) => {
+          const isCurrent = i === currentIndex;
+          const isPast = i < currentIndex;
+          const color = isCurrent ? accent : isPast ? baseColor : `${baseColor}`;
+          const opacity = isCurrent || isPast ? 1 : future;
+          const scale = isCurrent ? 1.1 : 1;
+          const glow = isCurrent
+            ? `0 0 18px ${accent}aa, 0 4px 14px ${accent}55`
+            : "none";
+          return (
+            <span
+              key={`${t.word}-${i}`}
+              style={{
+                color,
+                opacity,
+                fontSize,
+                lineHeight: 1.15,
+                letterSpacing: "-0.01em",
+                transform: `scale(${scale})`,
+                transformOrigin: "center bottom",
+                textShadow: glow,
+                transition: "color 90ms linear, transform 120ms ease, opacity 120ms linear",
+                whiteSpace: "pre",
+              }}
+            >
+              {t.word}
+            </span>
+          );
+        })
+      )}
+    </div>
   );
 }
 

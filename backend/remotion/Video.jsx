@@ -319,6 +319,9 @@ function ElementsLayer({ elements, width, height }) {
 }
 
 function ElementBody({ el, height }) {
+  if (el.type === "subtitle") {
+    return <SubtitleElementBody el={el} height={height} />;
+  }
   if (el.type === "text") {
     return (
       <div
@@ -382,6 +385,130 @@ function ElementBody({ el, height }) {
         borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
       }}
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Karaoke subtitle element — same logic as the editor's SubtitleBody so a
+// drag in the canvas lines up with the MP4 frame-for-frame. Uses the parent
+// Sequence's local frame, which restarts at 0 for each scene clip.
+// ---------------------------------------------------------------------------
+function buildElementWordTimings(el, totalSeconds) {
+  if (Array.isArray(el?.wordTimings) && el.wordTimings.length) {
+    return el.wordTimings.map((w) => ({
+      word: String(w.word || ""),
+      start: Number(w.start) || 0,
+      end: Number(w.end) || 0,
+    }));
+  }
+  const raw = String(el?.text || "").trim();
+  if (!raw || totalSeconds <= 0) return [];
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const weights = tokens.map((t) => t.replace(/[^\p{L}\p{N}']/gu, "").length + 1);
+  const sum = weights.reduce((a, b) => a + b, 0) || tokens.length;
+  let cursor = 0;
+  return tokens.map((word, i) => {
+    const slice = (weights[i] / sum) * totalSeconds;
+    const start = cursor;
+    cursor += slice;
+    return { word, start, end: cursor };
+  });
+}
+
+function SubtitleElementBody({ el, height }) {
+  const frame = useCurrentFrame();
+  const { fps, durationInFrames } = useVideoConfig();
+  // Prefer the element's own duration; otherwise fall back to the parent
+  // Sequence length (a scene clip in the timeline path, or the comp in the
+  // simple Series path).
+  const totalSeconds = (el.duration && el.duration > 0
+    ? el.duration
+    : durationInFrames / fps) || 0;
+  const seconds = frame / fps;
+
+  const fontSize = (el.size ?? 0.07) * height;
+  const baseColor = el.color || "#ffffff";
+  const accent = el.accent || "#8b5cf6";
+  const future = el.futureOpacity ?? 0.45;
+  const timings = buildElementWordTimings(el, totalSeconds);
+
+  let currentIndex = -1;
+  for (let i = 0; i < timings.length; i++) {
+    if (seconds >= timings[i].start && seconds < timings[i].end) {
+      currentIndex = i;
+      break;
+    }
+  }
+  if (currentIndex === -1 && timings.length && seconds >= timings[timings.length - 1].end) {
+    currentIndex = timings.length;
+  }
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: `${fontSize * 0.18}px ${fontSize * 0.35}px`,
+        padding: "8px 16px",
+        background: "rgba(8, 10, 20, 0.55)",
+        borderRadius: 16,
+        fontFamily: el.font || "Inter, system-ui, sans-serif",
+        fontWeight: el.weight || 800,
+        overflow: "hidden",
+      }}
+    >
+      {timings.length === 0 ? (
+        <span style={{ color: baseColor, fontSize, opacity: 0.6 }}>{el.text || ""}</span>
+      ) : (
+        timings.map((t, i) => {
+          const isCurrent = i === currentIndex;
+          const isPast = i < currentIndex;
+          // Smooth color/scale transition around each word boundary.
+          const enterAt = Math.round(t.start * fps);
+          const exitAt = Math.round(t.end * fps);
+          const enter = interpolate(frame, [enterAt - 3, enterAt + 3], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          const exit = interpolate(frame, [exitAt - 3, exitAt + 3], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          const active = enter * (1 - exit);
+
+          const color = isCurrent ? accent : isPast ? baseColor : baseColor;
+          const opacity = isCurrent || isPast ? 1 : future;
+          const scale = 1 + active * 0.1;
+          const glow = isCurrent
+            ? `0 0 18px ${accent}aa, 0 4px 14px ${accent}55`
+            : "none";
+
+          return (
+            <span
+              key={`${t.word}-${i}`}
+              style={{
+                display: "inline-block",
+                color,
+                opacity,
+                fontSize,
+                lineHeight: 1.15,
+                letterSpacing: "-0.01em",
+                transform: `scale(${scale})`,
+                transformOrigin: "center bottom",
+                textShadow: glow,
+                whiteSpace: "pre",
+              }}
+            >
+              {t.word}
+            </span>
+          );
+        })
+      )}
+    </div>
   );
 }
 

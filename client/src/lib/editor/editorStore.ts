@@ -120,6 +120,22 @@ const NEW_ELEMENT_DEFAULTS = (type: SceneElement["type"]): SceneElement => {
       return { ...base, type: "shape", shape: "rect", fill: "#8b5cf6" };
     case "lottie":
       return { ...base, type: "lottie", w: 0.34, h: 0.56, loop: true, speed: 1 };
+    case "subtitle":
+      // Subtitles default to a wide band along the lower third of the canvas.
+      return {
+        ...base,
+        type: "subtitle",
+        x: 0.08,
+        y: 0.74,
+        w: 0.84,
+        h: 0.18,
+        text: "Type your subtitle here and it will read along",
+        size: 0.07,
+        weight: 800,
+        color: "#ffffff",
+        // accent left undefined -> canvas/renderer fall back to brandColors[1]
+        futureOpacity: 0.45,
+      };
   }
 };
 
