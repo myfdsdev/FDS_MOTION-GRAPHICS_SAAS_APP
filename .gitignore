@@ -25,6 +25,10 @@ out/
 # Rendered MP4s (worker output) and any local upload cache.
 backend/public/videos/*.mp4
 backend/public/videos/*.webm
+backend/public/videos/*.mp3
+backend/public/videos/*.wav
+backend/public/tts/**/*.mp3
+backend/public/tts/**/*.wav
 backend/uploads/
 # In-memory MongoDB binary cache (mongodb-memory-server)
 .cache/
