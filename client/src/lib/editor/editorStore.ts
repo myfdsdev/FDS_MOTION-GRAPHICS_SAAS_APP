@@ -27,15 +27,14 @@ import {
 
 /** Build canvas elements from a legacy scene's headline/text/subtext fields. */
 export function elementsFromScene(scene: Scene): SceneElement[] {
-  // Lottie is no longer auto-placed on generated scenes — it overflowed the
-  // canvas and the editor handled it poorly. Admins still upload Lotties to
-  // the library; users can drop them onto the canvas explicitly when desired.
-
-  // Templated scenes draw their own headline/subtext as the BASE layer, so the
-  // foreground starts empty. Only legacy scenes WITHOUT a template fall back
-  // to converting their text into elements.
-  if (scene.sceneTemplate) return [];
-
+  // Lottie is no longer auto-placed on generated scenes — admins still upload
+  // Lotties to the library; users can drop them onto the canvas explicitly.
+  //
+  // Hoist the scene's headline + subtext into editable text elements so the
+  // user can SEE and EDIT them directly on the canvas. The template's own
+  // TextStack is suppressed in `ensureElements` (it clears headline/subtext/
+  // text/visual on the cloned scene) so the renderer doesn't draw the text
+  // twice — only ElementsLayer does.
   const out: SceneElement[] = [];
   let z = 0;
   const headline = scene.headline || scene.text;
@@ -76,10 +75,24 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
   return out;
 }
 
-/** Ensure a scene has an `elements` array (migrate legacy scenes lazily). */
+/** Ensure a scene has an `elements` array (migrate legacy scenes lazily).
+ *  When we hoist headline/subtext into editable text elements, we ALSO clear
+ *  those fields on the cloned scene so the template's TextStack draws nothing
+ *  — preventing the same text from appearing twice in the final render.
+ *  The top-level sceneJson.scenes is untouched; only the timeline clip's
+ *  scene copy is modified. */
 export function ensureElements(scene: Scene): Scene {
   if (scene.elements && scene.elements.length) return scene;
-  return { ...scene, elements: elementsFromScene(scene) };
+  const elements = elementsFromScene(scene);
+  if (!elements.length) return { ...scene, elements };
+  return {
+    ...scene,
+    elements,
+    headline: "",
+    subtext: "",
+    text: "",
+    visual: "",
+  };
 }
 
 export function currentSceneClipId(
