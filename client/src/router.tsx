@@ -11,6 +11,7 @@ import DownloadPage from "@/page/DownloadPage";
 import BillingPage from "@/page/BillingPage";
 import ProfilePage from "@/page/ProfilePage";
 import AdminPage from "@/page/AdminPage";
+import LocalTtsPage from "@/page/LocalTtsPage";
 import NotFoundPage from "@/page/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
       { path: "/projects", element: <ProjectListPage /> },
       { path: "/projects/:id", element: <ProjectDetailPage /> },
       { path: "/projects/:id/download", element: <DownloadPage /> },
+      { path: "/local-tts", element: <LocalTtsPage /> },
       { path: "/billing", element: <BillingPage /> },
       { path: "/profile", element: <ProfilePage /> },
       { path: "/admin", element: <AdminPage /> },

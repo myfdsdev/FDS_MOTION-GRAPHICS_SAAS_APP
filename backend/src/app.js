@@ -13,12 +13,14 @@ import { assetsRouter } from "./routes/assets.js";
 import { authRouter } from "./routes/auth.js";
 import { billingRouter } from "./routes/billing.js";
 import { enhanceRouter } from "./routes/enhance.js";
+import { localTtsRouter } from "./routes/localTts.js";
 import { profileRouter } from "./routes/profile.js";
 import { projectsRouter } from "./routes/projects.js";
 import { stripeRouter, stripeWebhookHandler } from "./routes/stripe.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIDEOS_DIR = path.join(__dirname, "..", "public", "videos");
+const TTS_DIR = path.join(__dirname, "..", "public", "tts");
 const CLIENT_DIST = path.join(__dirname, "..", "..", "client", "dist");
 const IS_PROD = process.env.NODE_ENV === "production";
 
@@ -62,12 +64,22 @@ export function createApp() {
     express.static(VIDEOS_DIR)
   );
 
+  app.use(
+    "/tts",
+    (_req, res, next) => {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      next();
+    },
+    express.static(TTS_DIR)
+  );
+
   app.use("/api/auth", authRouter);
   app.use("/api/profile", profileRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/lottie-assets", lottieAssetsRouter);
   app.use("/api/projects", projectsRouter);
   app.use("/api/enhance-prompt", enhanceRouter);
+  app.use("/api/local-tts", localTtsRouter);
   app.use("/api/billing", billingRouter);
   app.use("/api/stripe", stripeRouter);
   app.use("/api/assets", assetsRouter);

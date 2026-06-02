@@ -517,21 +517,26 @@ async function generateVideoPlan(prompt, durationSec, userId) {
   };
 }
 
-// Save an MP3 buffer for a project using the same path/bucket pattern as the
-// rendered MP4: written to backend/public/videos/<id>.mp3 (served via /videos
-// when local) and uploaded to voiceovers/<id>.mp3 when object storage is on.
+// Save generated narration using the same path/bucket pattern as rendered MP4s:
+// written to backend/public/videos/<id>.<ext> when local and uploaded to
+// voiceovers/<id>.<ext> when object storage is on.
 const __PIPELINE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const VOICEOVERS_LOCAL_DIR = path.join(__PIPELINE_DIR, "..", "..", "public", "videos");
 const PUBLIC_BASE = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
-async function persistVoiceover(projectId, mp3Buffer, script) {
-  fs.mkdirSync(VOICEOVERS_LOCAL_DIR, { recursive: true });
-  const localPath = path.join(VOICEOVERS_LOCAL_DIR, `${projectId}.mp3`);
-  await fs.promises.writeFile(localPath, mp3Buffer);
+async function persistVoiceover(projectId, audio, script) {
+  const buffer = Buffer.isBuffer(audio) ? audio : audio?.buffer;
+  if (!buffer) throw new Error("Voiceover audio payload is empty");
+  const extension = String(audio?.extension || "mp3").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const contentType = audio?.contentType || (extension === "wav" ? "audio/wav" : "audio/mpeg");
 
-  let url = `${PUBLIC_BASE}/videos/${projectId}.mp3`;
+  fs.mkdirSync(VOICEOVERS_LOCAL_DIR, { recursive: true });
+  const localPath = path.join(VOICEOVERS_LOCAL_DIR, `${projectId}.${extension}`);
+  await fs.promises.writeFile(localPath, buffer);
+
+  let url = `${PUBLIC_BASE}/videos/${projectId}.${extension}`;
   if (isStorageConfigured()) {
-    url = await uploadFile(localPath, `voiceovers/${projectId}.mp3`, "audio/mpeg");
+    url = await uploadFile(localPath, `voiceovers/${projectId}.${extension}`, contentType);
     await fs.promises.rm(localPath, { force: true }).catch(() => {});
   }
   return { url, duration: estimateVoiceoverDuration(script) };
@@ -560,14 +565,15 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
     if (!script || !script.trim()) {
       voiceoverError = "empty_script";
     } else if (!isTtsConfigured()) {
-      voiceoverError = "missing_key";
+      voiceoverError = "missing_piper_script";
     } else {
       try {
-        const mp3 = await synthesizeVoiceover(script);
-        if (!mp3 || mp3.length < 256) {
+        const audio = await synthesizeVoiceover(script);
+        const audioSize = Buffer.isBuffer(audio) ? audio.length : audio?.buffer?.length;
+        if (!audioSize || audioSize < 44) {
           voiceoverError = "empty_response";
         } else {
-          const { url, duration } = await persistVoiceover(projectId, mp3, script);
+          const { url, duration } = await persistVoiceover(projectId, audio, script);
           voiceoverUrl = url;
           voiceoverDuration = duration;
         }

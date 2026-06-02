@@ -4,6 +4,7 @@ import type {
   CreditPack,
   CreditTx,
   LottieAssetSummary,
+  LocalTtsResult,
   ProfileSettings,
   Project,
   UploadLottieAssetInput,
@@ -188,6 +189,15 @@ export async function enhancePrompt(prompt: string): Promise<string> {
     body: JSON.stringify({ prompt }),
   });
   return res.prompt;
+}
+
+// ---------- Local TTS ----------
+
+export async function generateLocalTts(text: string): Promise<LocalTtsResult> {
+  return realFetch<LocalTtsResult>("/api/local-tts/generate", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
 }
 
 // ---------- Billing ----------

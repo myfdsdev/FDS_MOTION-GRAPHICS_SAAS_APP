@@ -149,6 +149,14 @@ export interface ProfileSettings {
   };
 }
 
+export interface LocalTtsResult {
+  provider: "piper";
+  url: string;
+  path: string;
+  fileName: string;
+  size: number;
+}
+
 export interface AdminSettings {
   allowUserApiKeys: boolean;
 }

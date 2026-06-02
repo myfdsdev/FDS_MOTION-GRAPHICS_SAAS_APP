@@ -6,6 +6,7 @@ import {
   LogOut,
   Sparkles,
   Coins,
+  AudioLines,
   UserRound,
   ShieldCheck,
 } from "lucide-react";
@@ -33,6 +34,7 @@ export default function AppLayout() {
   const navItems = [
     { to: "/dashboard", label: "Create with AI", icon: Plus },
     { to: editorTo, label: "Editor", icon: Clapperboard },
+    { to: "/local-tts", label: "Local TTS", icon: AudioLines },
     ...NAV,
   ];
 
@@ -69,6 +71,7 @@ export default function AppLayout() {
             let active = false;
             if (item.label === "Editor") active = onEditor;
             else if (item.to === "/dashboard") active = path === "/dashboard";
+            else if (item.to === "/local-tts") active = path === "/local-tts";
             else if (item.to === "/projects") active = path.startsWith("/projects") && !onEditor;
             else active = path === item.to || path.startsWith(item.to);
             const Icon = item.icon;
