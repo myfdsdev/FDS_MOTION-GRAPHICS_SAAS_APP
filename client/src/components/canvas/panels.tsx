@@ -636,6 +636,137 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+const ANIM_KINDS = [
+  "none",
+  "fade",
+  "slide-left",
+  "slide-right",
+  "slide-up",
+  "slide-down",
+  "zoom-in",
+  "zoom-out",
+  "scale",
+  "pop",
+] as const;
+
+function AnimationSection({
+  el,
+  onChange,
+}: {
+  el: SceneElement;
+  onChange: (animation: SceneElement["animation"]) => void;
+}) {
+  const inAnim = el.animation?.in;
+  const outAnim = el.animation?.out;
+
+  const setIn = (patch: Partial<NonNullable<typeof inAnim>> | null) => {
+    if (patch === null) {
+      const { in: _drop, ...rest } = el.animation ?? {};
+      void _drop;
+      onChange(Object.keys(rest).length ? rest : undefined);
+      return;
+    }
+    onChange({
+      ...el.animation,
+      in: { kind: "fade", at: 0, duration: 0.4, ...inAnim, ...patch },
+    });
+  };
+  const setOut = (patch: Partial<NonNullable<typeof outAnim>> | null) => {
+    if (patch === null) {
+      const { out: _drop, ...rest } = el.animation ?? {};
+      void _drop;
+      onChange(Object.keys(rest).length ? rest : undefined);
+      return;
+    }
+    onChange({
+      ...el.animation,
+      out: { kind: "fade", at: 2, duration: 0.4, ...outAnim, ...patch },
+    });
+  };
+
+  return (
+    <Section title="Animation">
+      <div className="space-y-3">
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-muted">Enter</span>
+            {inAnim && (
+              <button
+                onClick={() => setIn(null)}
+                className="text-[11px] text-faint hover:text-danger"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <SelectField
+            label="Style"
+            value={inAnim?.kind ?? "none"}
+            options={[...ANIM_KINDS]}
+            onChange={(v) => (v === "none" ? setIn(null) : setIn({ kind: v as never }))}
+          />
+          {inAnim && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <NumField
+                label="At (s)"
+                value={Number(inAnim.at.toFixed(2))}
+                step={0.1}
+                onChange={(v) => setIn({ at: Math.max(0, v) })}
+              />
+              <NumField
+                label="Duration (s)"
+                value={Number(inAnim.duration.toFixed(2))}
+                step={0.1}
+                onChange={(v) => setIn({ duration: Math.max(0.05, v) })}
+              />
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-muted">Exit</span>
+            {outAnim && (
+              <button
+                onClick={() => setOut(null)}
+                className="text-[11px] text-faint hover:text-danger"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <SelectField
+            label="Style"
+            value={outAnim?.kind ?? "none"}
+            options={[...ANIM_KINDS]}
+            onChange={(v) => (v === "none" ? setOut(null) : setOut({ kind: v as never }))}
+          />
+          {outAnim && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <NumField
+                label="At (s)"
+                value={Number(outAnim.at.toFixed(2))}
+                step={0.1}
+                onChange={(v) => setOut({ at: Math.max(0, v) })}
+              />
+              <NumField
+                label="Duration (s)"
+                value={Number(outAnim.duration.toFixed(2))}
+                step={0.1}
+                onChange={(v) => setOut({ duration: Math.max(0.05, v) })}
+              />
+            </div>
+          )}
+        </div>
+
+        <p className="text-[11px] text-faint">
+          Times are seconds since the scene starts. Scrub the timeline to preview.
+        </p>
+      </div>
+    </Section>
+  );
+}
+
 function NumField({ label, value, onChange, step = 1 }: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
   // Adobe-style scrubby slider: drag the label left/right to nudge the value.
   // Hold Shift for 10× speed, Alt for 0.1× (fine-tune).

@@ -501,7 +501,6 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   // Base extensions
   hidden?: boolean;
   locked?: boolean;
-  name?: string;
   animation?: import("./editorTypes").ElementAnimation;
   // Bar-chart fields
   title?: string;
