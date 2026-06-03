@@ -423,69 +423,38 @@ export default function EditorPage() {
         </div>
       </header>
 
-      {/* ---- Body ---- */}
+      {/* ---- Body: Chat (left) + Preview (right). No rail, no Properties panel,
+           no on-canvas editing — chat is the only way to change the video. ---- */}
       <div className="flex min-h-0 flex-1">
-        {/* Icon rail */}
-        <nav className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-border-soft bg-bg/60 py-3">
-          {RAIL.map((item) => {
-            const Icon = item.icon;
-            const active = panel === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setPanel(item.id)}
-                className={cn(
-                  "flex w-14 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition",
-                  active ? "bg-surface-2 text-accent" : "text-muted hover:bg-surface-2/60 hover:text-fg"
-                )}
-              >
-                <Icon size={18} />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Left panel */}
+        {/* Chat panel */}
         <aside className="flex w-80 shrink-0 flex-col border-r border-border-soft bg-bg/40">
-          {panel === "chat" && (
-            <ChatPanel
-              credits={me?.credits ?? 0}
-              aspectRatio={project.aspectRatio}
-              defaultDuration={project.durationSec}
-              generating={generating}
-              onGenerate={runGenerate}
-            />
-          )}
-          {panel === "edit" && <ScenePanel state={state} currentTime={currentTime} onSeek={handleSeek} />}
-          {panel === "layers" && (
-            <LayersPanel
-              clipId={sceneClipId}
-              elements={elements}
-              selectedIds={state.selectedElementIds}
-              dispatch={dispatch}
-            />
-          )}
-          {panel !== "chat" && panel !== "edit" && panel !== "layers" && (
-            <PlaceholderPanel id={panel} />
-          )}
+          <ChatPanel
+            credits={me?.credits ?? 0}
+            aspectRatio={project.aspectRatio}
+            defaultDuration={project.durationSec}
+            generating={generating}
+            onGenerate={runGenerate}
+          />
         </aside>
 
-        {/* Canvas */}
+        {/* Preview — pure Remotion <Player>, no editing overlay. */}
         <main className="relative flex min-w-0 flex-1 items-center justify-center bg-[#0a0a0f] p-6">
-          <div ref={previewRef} className="flex w-full items-center justify-center">
-            <Canvas
-              elements={elements}
-              selectedIds={state.selectedElementIds}
-              aspectRatio={project.aspectRatio}
-              brandColors={brand}
-              clipId={sceneClipId}
-              snapping={state.snapping}
-              dispatch={dispatch}
-              sceneNumber={sceneNumber}
+          <div
+            ref={previewRef}
+            className={cn(
+              "relative w-full max-w-full overflow-hidden rounded-xl shadow-2xl",
+              project.aspectRatio === "16:9" && "aspect-video",
+              project.aspectRatio === "9:16" && "mx-auto aspect-[9/16] max-h-full",
+              project.aspectRatio === "1:1" && "mx-auto aspect-square max-h-full"
+            )}
+            style={{ backgroundColor: brand[0] ?? "#0a0a0f" }}
+          >
+            <LivePreview
+              scene={sceneClip?.scene ?? null}
               sceneTime={sceneClip ? Math.max(0, currentTime - sceneClip.start) : 0}
               sceneDuration={sceneClip?.duration ?? 0}
-              scene={sceneClip?.scene ?? null}
+              aspectRatio={project.aspectRatio}
+              brandColors={brand}
               playing={playing}
             />
           </div>
@@ -496,54 +465,19 @@ export default function EditorPage() {
             </div>
           )}
         </main>
-
-        {/* Properties */}
-        <aside className="w-72 shrink-0 border-l border-border-soft bg-bg/40">
-          <PropertiesPanel
-            elements={elements}
-            selectedIds={state.selectedElementIds}
-            clipId={sceneClipId}
-            dispatch={dispatch}
-            selectedClip={(() => {
-              if (state.selection.length !== 1) return null;
-              const id = state.selection[0];
-              for (const t of state.tracks) {
-                const c = t.clips.find((x) => x.id === id);
-                if (c) return c;
-              }
-              return null;
-            })()}
-            sceneClip={sceneClip}
-          />
-        </aside>
       </div>
 
-      {/* ---- Bottom: toolbar + timeline ---- */}
+      {/* ---- Bottom: play controls + timeline view (read-only-ish) ---- */}
       <footer className="shrink-0 border-t border-border-soft bg-bg/80 backdrop-blur">
         <div className="flex items-center justify-between gap-3 px-4 py-2">
-          <div className="flex items-center gap-1">
-            <Tooltip content="Select / move"><IconBtn icon={MousePointer2} active /></Tooltip>
-            <Tooltip content="Split clip at playhead" shortcut="S"><IconBtn icon={Scissors} onClick={split} /></Tooltip>
-            <Tooltip content="Duplicate selection" shortcut="⌘D"><IconBtn icon={CopyPlus} onClick={duplicate} disabled={!hasSelection} /></Tooltip>
-            <Tooltip content="Delete selection" shortcut="⌫"><IconBtn icon={Trash2} onClick={remove} disabled={!hasSelection && !state.selectedZoomId} /></Tooltip>
-            <span className="mx-1 h-5 w-px bg-border-soft" />
-            <Tooltip content="Add overlay track"><ToolbarButton icon={Layers} label="Add track" onClick={addTrack} /></Tooltip>
-            <Tooltip content="Add audio track"><ToolbarButton icon={Music} label="Add audio" onClick={addAudio} /></Tooltip>
-            <Tooltip content="Add cinematic zoom at playhead"><ToolbarButton icon={ZoomIn} label="Add zoom" onClick={addZoom} /></Tooltip>
-            <Tooltip content={`Snapping ${state.snapping ? "on" : "off"}`} shortcut="N"><IconBtn icon={Magnet} active={state.snapping} onClick={() => dispatch({ type: "TOGGLE_SNAP" })} /></Tooltip>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-muted">{fmt(currentTime)}</span>
-            <Tooltip content={playing ? "Pause" : "Play"} shortcut="Space">
-              <button onClick={togglePlay} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-fg hover:bg-surface-3">
-                {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
-              </button>
-            </Tooltip>
-            <span className="font-mono text-xs text-muted">{fmt(total)}</span>
-          </div>
-
-          <div className="flex items-center gap-1">
+          <span className="font-mono text-xs text-muted">{fmt(currentTime)}</span>
+          <Tooltip content={playing ? "Pause" : "Play"} shortcut="Space">
+            <button onClick={togglePlay} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-fg hover:bg-surface-3">
+              {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+            </button>
+          </Tooltip>
+          <span className="font-mono text-xs text-muted">{fmt(total)}</span>
+          <div className="ml-auto flex items-center gap-1">
             <Tooltip content="Zoom out"><IconBtn icon={ZoomOut} onClick={zoomOut} /></Tooltip>
             <span className="w-10 text-center text-xs text-muted">{zoomPct}%</span>
             <Tooltip content="Zoom in"><IconBtn icon={ZoomIn} onClick={zoomIn} /></Tooltip>
