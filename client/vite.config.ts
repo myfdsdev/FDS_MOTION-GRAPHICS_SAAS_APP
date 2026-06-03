@@ -7,6 +7,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Share the Remotion composition source with the backend renderer so
+      // @remotion/player previews the exact same component tree that gets
+      // baked into the final MP4 — no double-implementation.
+      "@remotion-comp": path.resolve(__dirname, "../backend/remotion"),
     },
   },
   server: {
