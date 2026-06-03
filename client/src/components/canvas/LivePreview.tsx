@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Component, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 // The Remotion composition lives in the backend so the renderer can bundle
 // it directly — Vite reaches it via the "@remotion-comp" alias, which means
@@ -94,22 +94,53 @@ export function LivePreview({
 
   return (
     <div className="pointer-events-none absolute inset-0">
-      <Player
-        ref={playerRef}
-        component={Video}
-        compositionWidth={width}
-        compositionHeight={height}
-        durationInFrames={durationInFrames}
-        fps={FPS}
-        inputProps={inputProps}
-        controls={false}
-        loop={false}
-        autoPlay={false}
-        clickToPlay={false}
-        doubleClickToFullscreen={false}
-        spaceKeyToPlayOrPause={false}
-        style={{ width: "100%", height: "100%" }}
-      />
+      <PreviewBoundary>
+        <Player
+          ref={playerRef}
+          component={Video}
+          compositionWidth={width}
+          compositionHeight={height}
+          durationInFrames={durationInFrames}
+          fps={FPS}
+          inputProps={inputProps}
+          controls={false}
+          loop={false}
+          autoPlay={false}
+          clickToPlay={false}
+          doubleClickToFullscreen={false}
+          spaceKeyToPlayOrPause={false}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </PreviewBoundary>
     </div>
   );
+}
+
+/**
+ * Swallows render errors from inside the Remotion composition so a bad scene
+ * payload (or a template bug) doesn't crash the whole editor with a white
+ * screen. The user still sees the editing overlay and can fix the issue.
+ */
+class PreviewBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error) {
+    // eslint-disable-next-line no-console
+    console.error("[LivePreview] composition crashed:", error);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center bg-bg/40 p-6 text-center text-xs text-faint">
+          Live preview hit an error: {this.state.error.message}. Editing still works.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
