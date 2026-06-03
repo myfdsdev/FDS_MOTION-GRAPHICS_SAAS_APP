@@ -37,9 +37,7 @@ import {
 import { toast } from "sonner";
 import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
-import { Canvas } from "@/components/canvas/Canvas";
-import { PropertiesPanel } from "@/components/canvas/panels";
-import { LayersPanel } from "@/components/canvas/LayersPanel";
+import { LivePreview } from "@/components/canvas/LivePreview";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -369,41 +367,49 @@ export default function EditorPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg text-fg">
-      {/* ---- Top bar ---- */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border-soft bg-bg/80 px-3 backdrop-blur">
-        <div className="flex items-center gap-2">
+      {/* ---- Top bar — actions always visible, left side truncates. ---- */}
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border-soft bg-bg/80 px-2 backdrop-blur sm:px-3">
+        {/* Left: back arrow + truncating title. `min-w-0` lets the title
+            actually shrink instead of pushing the action group off-screen. */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Tooltip content="Back to project" side="bottom">
-            <Link to={`/projects/${project.id}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg">
+            <Link to={`/projects/${project.id}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg">
               <ArrowLeft size={16} />
             </Link>
           </Tooltip>
-          <span className="mx-1 h-5 w-px bg-border-soft" />
-          <span className="max-w-[28vw] truncate text-sm font-medium">{project.prompt || "Untitled Project"}</span>
+          <span className="mx-1 hidden h-5 w-px shrink-0 bg-border-soft sm:block" />
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{project.prompt || "Untitled Project"}</span>
+          {/* Aspect ratio badge — hide on narrow screens, shown again from sm. */}
           <Tooltip content="Aspect ratio" side="bottom">
-            <button className="flex items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-xs text-muted hover:text-fg">
+            <span className="hidden shrink-0 items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-xs text-muted sm:flex">
               <Monitor size={13} /> {project.aspectRatio}
-            </button>
+            </span>
           </Tooltip>
-          {updateProject.isPending && <span className="text-[11px] text-faint">Saving…</span>}
+          {updateProject.isPending && (
+            <span className="hidden shrink-0 text-[11px] text-faint md:inline">Saving…</span>
+          )}
           {!project.voiceoverUrl && project.voiceoverError && (
             <Tooltip content={`Voiceover was skipped: ${project.voiceoverError}`} side="bottom">
-              <span className="rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+              <span className="hidden shrink-0 rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning lg:inline">
                 Narration unavailable
               </span>
             </Tooltip>
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Right: download + render + theme. `shrink-0` so it can never be
+            clipped, no matter how long the title is. */}
+        <div className="flex shrink-0 items-center gap-1">
           {project.status === "DONE" && project.outputUrl && (
             <Tooltip content="Download MP4" side="bottom">
               <a
                 href={project.outputUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg hover:border-accent/40"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs font-medium text-fg hover:border-accent/40 sm:px-3"
               >
-                <Download size={13} /> Download
+                <Download size={13} />
+                <span className="hidden sm:inline">Download</span>
               </a>
             </Tooltip>
           )}
@@ -411,23 +417,30 @@ export default function EditorPage() {
             <button
               onClick={handleRender}
               disabled={!editable || rerender.isPending}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-2 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
             >
               <Film size={13} />
-              {project.status === "RENDERING" || project.status === "QUEUED"
-                ? `Rendering ${project.progress}%`
-                : "Render"}
+              <span className="hidden sm:inline">
+                {project.status === "RENDERING" || project.status === "QUEUED"
+                  ? `Rendering ${project.progress}%`
+                  : "Render"}
+              </span>
+              {/* Compact label for narrow screens. */}
+              <span className="sm:hidden">
+                {project.status === "RENDERING" || project.status === "QUEUED"
+                  ? `${project.progress}%`
+                  : ""}
+              </span>
             </button>
           </Tooltip>
           <ThemeToggle className="ml-1 h-7 w-7" />
         </div>
       </header>
 
-      {/* ---- Body: Chat (left) + Preview (right). No rail, no Properties panel,
-           no on-canvas editing — chat is the only way to change the video. ---- */}
-      <div className="flex min-h-0 flex-1">
-        {/* Chat panel */}
-        <aside className="flex w-80 shrink-0 flex-col border-r border-border-soft bg-bg/40">
+      {/* ---- Body — stacks on mobile, side-by-side from md up. ---- */}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {/* Chat: full width / capped height on mobile; side panel on md+. */}
+        <aside className="flex h-56 shrink-0 flex-col border-b border-border-soft bg-bg/40 md:h-auto md:w-72 md:border-b-0 md:border-r lg:w-80">
           <ChatPanel
             credits={me?.credits ?? 0}
             aspectRatio={project.aspectRatio}
@@ -438,14 +451,14 @@ export default function EditorPage() {
         </aside>
 
         {/* Preview — pure Remotion <Player>, no editing overlay. */}
-        <main className="relative flex min-w-0 flex-1 items-center justify-center bg-[#0a0a0f] p-6">
+        <main className="relative flex min-w-0 flex-1 items-center justify-center bg-[#0a0a0f] p-2 sm:p-4 md:p-6">
           <div
             ref={previewRef}
             className={cn(
-              "relative w-full max-w-full overflow-hidden rounded-xl shadow-2xl",
-              project.aspectRatio === "16:9" && "aspect-video",
-              project.aspectRatio === "9:16" && "mx-auto aspect-[9/16] max-h-full",
-              project.aspectRatio === "1:1" && "mx-auto aspect-square max-h-full"
+              "relative overflow-hidden rounded-xl shadow-2xl",
+              project.aspectRatio === "16:9" && "aspect-video w-full max-w-full",
+              project.aspectRatio === "9:16" && "mx-auto aspect-[9/16] h-full max-h-full",
+              project.aspectRatio === "1:1" && "mx-auto aspect-square h-full max-h-full"
             )}
             style={{ backgroundColor: brand[0] ?? "#0a0a0f" }}
           >
@@ -469,7 +482,7 @@ export default function EditorPage() {
 
       {/* ---- Bottom: play controls + timeline view (read-only-ish) ---- */}
       <footer className="shrink-0 border-t border-border-soft bg-bg/80 backdrop-blur">
-        <div className="flex items-center justify-between gap-3 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-2 py-2 sm:px-4">
           <span className="font-mono text-xs text-muted">{fmt(currentTime)}</span>
           <Tooltip content={playing ? "Pause" : "Play"} shortcut="Space">
             <button onClick={togglePlay} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-fg hover:bg-surface-3">
@@ -477,7 +490,7 @@ export default function EditorPage() {
             </button>
           </Tooltip>
           <span className="font-mono text-xs text-muted">{fmt(total)}</span>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto hidden items-center gap-1 sm:flex">
             <Tooltip content="Zoom out"><IconBtn icon={ZoomOut} onClick={zoomOut} /></Tooltip>
             <span className="w-10 text-center text-xs text-muted">{zoomPct}%</span>
             <Tooltip content="Zoom in"><IconBtn icon={ZoomIn} onClick={zoomIn} /></Tooltip>
@@ -485,7 +498,7 @@ export default function EditorPage() {
           </div>
         </div>
 
-        <div className="max-h-60 overflow-y-auto px-4 pb-4">
+        <div className="max-h-60 overflow-auto px-2 pb-3 sm:px-4 sm:pb-4">
           {state.tracks.some((t) => t.clips.length) ? (
             <Timeline state={state} dispatch={dispatch} currentTime={currentTime} onSeek={handleSeek} />
           ) : (

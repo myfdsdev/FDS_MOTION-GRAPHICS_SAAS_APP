@@ -1,14 +1,17 @@
+import { useEffect, useState } from "react";
 import { Outlet, Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import {
   Clapperboard,
   Plus,
   FolderClock,
   LogOut,
+  Menu,
   Sparkles,
   Coins,
   AudioLines,
   UserRound,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { useMe, useLogout, useProjects } from "@/lib/queries";
 import { cn } from "@/lib/utils";
@@ -55,13 +58,57 @@ export default function AppLayout() {
     navigate("/");
   };
 
+  // Mobile drawer — open via the hamburger; auto-close when the route changes.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-64 shrink-0 border-r border-border-soft bg-bg/60 backdrop-blur-xl flex flex-col">
-        <div className="h-16 px-5 flex items-center gap-2 border-b border-border-soft">
-          <Sparkles className="text-accent" size={20} />
-          <span className="font-bold">Miltos</span>
+      {/* Mobile top bar — only visible below md. */}
+      <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border-soft bg-bg/85 px-3 backdrop-blur md:hidden">
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg"
+          aria-label="Open menu"
+        >
+          <Menu size={18} />
+        </button>
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="text-accent" size={16} />
+          Miltos
+        </div>
+        <span className="w-9" />
+      </div>
+
+      {/* Drawer scrim — closes the drawer when clicked. */}
+      {drawerOpen && (
+        <div
+          onClick={() => setDrawerOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+        />
+      )}
+
+      {/* Sidebar — slides in on mobile, persistent on md+. */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-border-soft bg-bg/95 backdrop-blur-xl transition-transform md:static md:translate-x-0 md:bg-bg/60",
+          drawerOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        <div className="flex h-16 items-center justify-between gap-2 border-b border-border-soft px-5">
+          <span className="flex items-center gap-2">
+            <Sparkles className="text-accent" size={20} />
+            <span className="font-bold">Miltos</span>
+          </span>
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg md:hidden"
+            aria-label="Close menu"
+          >
+            <X size={16} />
+          </button>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -108,7 +155,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Main */}
-      <main className="relative flex-1 min-w-0">
+      <main className="relative flex-1 min-w-0 pt-14 md:pt-0">
         {/* Top-right account menu */}
         <div className="absolute right-4 top-3 z-30">
           <Popover>
