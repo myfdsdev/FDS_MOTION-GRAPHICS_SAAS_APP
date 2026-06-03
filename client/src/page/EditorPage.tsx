@@ -395,12 +395,6 @@ export default function EditorPage() {
         </div>
 
         <div className="flex items-center gap-1">
-          <AddElementMenu onAdd={addElement} disabled={!sceneClipId} />
-          <span className="mx-1 h-5 w-px bg-border-soft" />
-          <Tooltip content="Undo" shortcut="⌘Z" side="bottom"><IconBtn icon={Undo2} onClick={undo} disabled={!canUndo(state)} /></Tooltip>
-          <Tooltip content="Redo" shortcut="⌘⇧Z" side="bottom"><IconBtn icon={Redo2} onClick={redo} disabled={!canRedo(state)} /></Tooltip>
-          <Tooltip content="Version history" side="bottom"><IconBtn icon={History} /></Tooltip>
-          <span className="mx-1 h-5 w-px bg-border-soft" />
           {project.status === "DONE" && project.outputUrl && (
             <Tooltip content="Download MP4" side="bottom">
               <a
