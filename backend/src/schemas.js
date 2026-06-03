@@ -116,6 +116,34 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...ElementBase,
+    // Animated horizontal bar chart. Bars grow from 0 to their target value
+    // in sequence, title/subtitle fade in, percentages count up alongside.
+    type: z.literal("bar-chart"),
+    title: z.string().max(160).optional(),
+    subtitle: z.string().max(300).optional(),
+    rows: z
+      .array(
+        z.object({
+          label: z.string().max(120),
+          value: z.number().min(0).max(10000),
+        })
+      )
+      .min(1)
+      .max(12),
+    bg: Hex.optional(),
+    fg: Hex.optional(),
+    bar: Hex.optional(),
+    axisMax: z.number().min(1).max(10000).optional(),
+    showAxis: z.boolean().optional(),
+    showValues: z.boolean().optional(),
+    valueSuffix: z.string().max(8).optional(),
+    titleFont: z.string().max(80).optional(),
+    labelFont: z.string().max(80).optional(),
+    animationDuration: z.number().min(0.2).max(60).optional(),
+    startDelay: z.number().min(0).max(60).optional(),
+  }),
+  z.object({
+    ...ElementBase,
     // Karaoke-style live subtitles. Each word highlights in `accent` while
     // it's being read, past words use `color`, future words are dimmed.
     type: z.literal("subtitle"),

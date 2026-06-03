@@ -35,7 +35,14 @@ export type TrackKind = "scene" | "overlay" | "audio";
 // composition 0..1 so they survive resolution changes).
 // ---------------------------------------------------------------------------
 
-export type ElementType = "text" | "icon" | "image" | "shape" | "lottie" | "subtitle";
+export type ElementType =
+  | "text"
+  | "icon"
+  | "image"
+  | "shape"
+  | "lottie"
+  | "subtitle"
+  | "bar-chart";
 export type TextAlign = "left" | "center" | "right";
 
 export interface ElementBase {
@@ -125,13 +132,47 @@ export interface SubtitleElement extends ElementBase {
   wordTimings?: SubtitleWordTiming[];
 }
 
+export interface BarChartRow {
+  label: string;
+  /** 0..axisMax (defaults to 100). */
+  value: number;
+}
+
+export interface BarChartElement extends ElementBase {
+  type: "bar-chart";
+  title?: string;
+  subtitle?: string;
+  rows: BarChartRow[];
+  /** Card background color (defaults to a warm cream). */
+  bg?: string;
+  /** Text color for title / labels / axis. */
+  fg?: string;
+  /** Bar fill color. */
+  bar?: string;
+  /** Top of the scale, default 100. */
+  axisMax?: number;
+  /** Show 0%..100% axis at the bottom. Default true. */
+  showAxis?: boolean;
+  /** Show the numeric value to the right of each bar. Default true. */
+  showValues?: boolean;
+  /** Appended to each value, e.g. "%". Default "%". */
+  valueSuffix?: string;
+  titleFont?: string;
+  labelFont?: string;
+  /** Total intro-animation duration in seconds. Default 2.4s. */
+  animationDuration?: number;
+  /** Delay before the intro animation starts, seconds. Default 0. */
+  startDelay?: number;
+}
+
 export type SceneElement =
   | TextElement
   | IconElement
   | ImageElement
   | ShapeElement
   | LottieElement
-  | SubtitleElement;
+  | SubtitleElement
+  | BarChartElement;
 
 /** Defaults for newly created elements (centered, sensible size per type). */
 export const DEFAULT_TEXT_SIZE = 0.08;

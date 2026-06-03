@@ -319,6 +319,9 @@ function ElementsLayer({ elements, width, height }) {
 }
 
 function ElementBody({ el, height }) {
+  if (el.type === "bar-chart") {
+    return <BarChartElementBody el={el} height={height} />;
+  }
   if (el.type === "subtitle") {
     return <SubtitleElementBody el={el} height={height} />;
   }
@@ -385,6 +388,216 @@ function ElementBody({ el, height }) {
         borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
       }}
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Animated bar-chart element — mirrors client SubtitleBody/BarChartBody so
+// the editor preview matches the MP4 exactly. Uses the parent Sequence's
+// local frame, which restarts at 0 for each scene clip.
+// ---------------------------------------------------------------------------
+function easeOutCubic(t) {
+  const c = Math.min(1, Math.max(0, t));
+  return 1 - Math.pow(1 - c, 3);
+}
+
+function computeBarChartProgressNode(el, sceneTime) {
+  const total = el.animationDuration ?? 2.4;
+  const delay = el.startDelay ?? 0;
+  const t = Math.max(0, sceneTime - delay);
+
+  const titleP = easeOutCubic(Math.min(1, t / (total * 0.15)));
+  const subtitleP = easeOutCubic(
+    Math.min(1, Math.max(0, t - total * 0.1) / (total * 0.18))
+  );
+
+  const rowsCount = (el.rows && el.rows.length) || 0;
+  const barsStart = total * 0.3;
+  const barsEnd = total * 0.95;
+  const span = Math.max(0.0001, barsEnd - barsStart);
+  const perRow = rowsCount > 0 ? span / (rowsCount + 1.2) : span;
+  const rowsP = [];
+  for (let i = 0; i < rowsCount; i++) {
+    const rowStart = barsStart + i * (perRow * 0.55);
+    const rowEnd = rowStart + perRow;
+    const p = (t - rowStart) / Math.max(0.0001, rowEnd - rowStart);
+    rowsP.push(easeOutCubic(Math.min(1, Math.max(0, p))));
+  }
+
+  const axisP = easeOutCubic(
+    Math.min(1, Math.max(0, t - total * 0.55) / (total * 0.3))
+  );
+
+  return { titleP, subtitleP, axisP, rowsP };
+}
+
+function BarChartElementBody({ el, height }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const sceneTime = frame / fps;
+
+  const bg = el.bg || "#f5efe6";
+  const fg = el.fg || "#2a1f17";
+  const bar = el.bar || "#d97b1a";
+  const axisMax = el.axisMax || 100;
+  const suffix = el.valueSuffix ?? "%";
+  const showAxis = el.showAxis !== false;
+  const showValues = el.showValues !== false;
+
+  const titleFont = el.titleFont || "Georgia, 'Times New Roman', serif";
+  const labelFont = el.labelFont || "Inter, system-ui, sans-serif";
+
+  const cardH = el.h * height;
+  const titleSize = Math.max(14, cardH * 0.085);
+  const subtitleSize = Math.max(10, cardH * 0.04);
+  const labelSize = Math.max(8, cardH * 0.033);
+  const valueSize = Math.max(8, cardH * 0.04);
+  const axisSize = Math.max(8, cardH * 0.032);
+
+  const progress = computeBarChartProgressNode(el, sceneTime);
+  const rows = Array.isArray(el.rows) ? el.rows : [];
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: bg,
+        color: fg,
+        padding: `${cardH * 0.06}px ${cardH * 0.07}px`,
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        gap: cardH * 0.025,
+        overflow: "hidden",
+        borderRadius: 6,
+        fontFamily: labelFont,
+      }}
+    >
+      {el.title ? (
+        <div
+          style={{
+            fontFamily: titleFont,
+            fontSize: titleSize,
+            fontWeight: 800,
+            lineHeight: 1.1,
+            opacity: progress.titleP,
+            transform: `translateY(${(1 - progress.titleP) * 16}px)`,
+          }}
+        >
+          {el.title}
+        </div>
+      ) : null}
+
+      {el.subtitle ? (
+        <div
+          style={{
+            fontFamily: labelFont,
+            fontStyle: "italic",
+            fontSize: subtitleSize,
+            opacity: progress.subtitleP * 0.85,
+            transform: `translateY(${(1 - progress.subtitleP) * 10}px)`,
+            lineHeight: 1.3,
+            maxWidth: "92%",
+          }}
+        >
+          {el.subtitle}
+        </div>
+      ) : null}
+
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: cardH * 0.045,
+          paddingTop: cardH * 0.02,
+        }}
+      >
+        {rows.map((row, i) => {
+          const p = progress.rowsP[i] || 0;
+          const target = Math.max(0, Math.min(axisMax, Number(row.value) || 0));
+          const widthFrac = (target / axisMax) * p;
+          const display = Math.round(target * p);
+
+          return (
+            <div
+              key={`${i}-${row.label}`}
+              style={{ display: "flex", flexDirection: "column", gap: cardH * 0.012 }}
+            >
+              <div
+                style={{
+                  fontSize: labelSize,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  opacity: 0.95,
+                }}
+              >
+                {row.label}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: cardH * 0.02 }}>
+                <div
+                  style={{
+                    flex: 1,
+                    height: cardH * 0.05,
+                    background: "transparent",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${widthFrac * 100}%`,
+                      background: bar,
+                    }}
+                  />
+                </div>
+                {showValues && (
+                  <div
+                    style={{
+                      minWidth: cardH * 0.09,
+                      textAlign: "right",
+                      fontSize: valueSize,
+                      fontWeight: 600,
+                      opacity: p,
+                    }}
+                  >
+                    {display}
+                    {suffix}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {showAxis && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            paddingRight: showValues ? cardH * 0.11 : 0,
+            fontSize: axisSize,
+            opacity: progress.axisP * 0.65,
+            fontWeight: 500,
+            marginTop: cardH * 0.01,
+          }}
+        >
+          {[0, 0.2, 0.4, 0.6, 0.8, 1].map((step) => (
+            <span key={step}>
+              {Math.round(step * axisMax)}
+              {suffix}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

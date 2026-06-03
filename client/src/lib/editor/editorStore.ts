@@ -120,6 +120,36 @@ const NEW_ELEMENT_DEFAULTS = (type: SceneElement["type"]): SceneElement => {
       return { ...base, type: "shape", shape: "rect", fill: "#8b5cf6" };
     case "lottie":
       return { ...base, type: "lottie", w: 0.34, h: 0.56, loop: true, speed: 1 };
+    case "bar-chart":
+      // Default to a chart that fills most of the canvas and looks like the
+      // reference image (cream card, dark serif title, orange bars).
+      return {
+        ...base,
+        type: "bar-chart",
+        x: 0.06,
+        y: 0.08,
+        w: 0.88,
+        h: 0.84,
+        title: "U.S Economy after the Great Depression",
+        subtitle:
+          "The chart below shows recovery statistics. Each line represents the official rate reported that month.",
+        rows: [
+          { label: "UNEMPLOYMENT", value: 85 },
+          { label: "BANKS THAT FAILED", value: 43 },
+          { label: "GROWTH OF GOVERNMENT SPENDING", value: 72 },
+        ],
+        bg: "#f5efe6",
+        fg: "#2a1f17",
+        bar: "#d97b1a",
+        axisMax: 100,
+        showAxis: true,
+        showValues: true,
+        valueSuffix: "%",
+        titleFont: "Georgia",
+        labelFont: "Inter",
+        animationDuration: 2.4,
+        startDelay: 0,
+      };
     case "subtitle":
       // Subtitles default to a wide band along the lower third of the canvas.
       return {
@@ -449,6 +479,21 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   futureOpacity?: number;
   duration?: number;
   wordTimings?: { word: string; start: number; end: number }[];
+  // Bar-chart fields
+  title?: string;
+  subtitle?: string;
+  rows?: { label: string; value: number }[];
+  bg?: string;
+  fg?: string;
+  bar?: string;
+  axisMax?: number;
+  showAxis?: boolean;
+  showValues?: boolean;
+  valueSuffix?: string;
+  titleFont?: string;
+  labelFont?: string;
+  animationDuration?: number;
+  startDelay?: number;
 };
 
 /** Map over the elements of a specific scene clip. */

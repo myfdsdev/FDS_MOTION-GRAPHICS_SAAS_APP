@@ -2,14 +2,17 @@ import { useMemo, useState, type ComponentType } from "react";
 import {
   ArrowDownToLine,
   ArrowUpToLine,
+  BarChart3,
   CopyPlus,
   Captions,
   Image as ImageIcon,
+  Plus,
   Search,
   Shapes,
   Sparkles,
   Trash2,
   Type as TypeIcon,
+  X,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import type { SceneElement, TimelineClip } from "@/types";
@@ -34,6 +37,7 @@ interface PanelCommon {
 const ADD_ITEMS: { type: SceneElement["type"]; label: string; icon: typeof TypeIcon }[] = [
   { type: "text", label: "Text", icon: TypeIcon },
   { type: "subtitle", label: "Subtitle", icon: Captions },
+  { type: "bar-chart", label: "Bar chart", icon: BarChart3 },
   { type: "icon", label: "Icon", icon: Sparkles },
   { type: "image", label: "Image", icon: ImageIcon },
   { type: "shape", label: "Shape", icon: Shapes },
@@ -256,6 +260,141 @@ export function PropertiesPanel({
               scrub the timeline to preview the read-along.
             </p>
           </Section>
+        )}
+
+        {el.type === "bar-chart" && (
+          <>
+            <Section title="Bar chart — header">
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted">Title</span>
+                <textarea
+                  rows={2}
+                  value={el.title ?? ""}
+                  onChange={(e) => patch({ title: e.target.value })}
+                  className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted">Subtitle</span>
+                <textarea
+                  rows={2}
+                  value={el.subtitle ?? ""}
+                  onChange={(e) => patch({ subtitle: e.target.value })}
+                  className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <SelectField label="Title font" value={el.titleFont ?? "Georgia"} options={FONTS} onChange={(v) => patch({ titleFont: v })} />
+                <SelectField label="Body font" value={el.labelFont ?? "Inter"} options={FONTS} onChange={(v) => patch({ labelFont: v })} />
+              </div>
+            </Section>
+
+            <Section title="Rows">
+              <div className="space-y-2">
+                {(el.rows ?? []).map((row, i) => (
+                  <div key={i} className="rounded-lg border border-border bg-surface-2/50 p-2">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-[10px] uppercase tracking-wider text-faint">Row {i + 1}</span>
+                      <button
+                        onClick={() => {
+                          const next = [...(el.rows ?? [])];
+                          next.splice(i, 1);
+                          if (next.length) patch({ rows: next });
+                        }}
+                        disabled={(el.rows ?? []).length <= 1}
+                        className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-danger disabled:opacity-30"
+                        title="Remove row"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <input
+                      value={row.label}
+                      onChange={(e) => {
+                        const next = [...(el.rows ?? [])];
+                        next[i] = { ...row, label: e.target.value };
+                        patch({ rows: next });
+                      }}
+                      placeholder="Label"
+                      className="mb-1.5 w-full rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg outline-none focus:border-accent/50"
+                    />
+                    <NumField
+                      label={`Value (0–${el.axisMax ?? 100})`}
+                      value={row.value}
+                      onChange={(v) => {
+                        const next = [...(el.rows ?? [])];
+                        next[i] = { ...row, value: Math.max(0, Math.min(el.axisMax ?? 100, v)) };
+                        patch({ rows: next });
+                      }}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={() =>
+                    patch({
+                      rows: [...(el.rows ?? []), { label: "NEW METRIC", value: 50 }],
+                    })
+                  }
+                  disabled={(el.rows ?? []).length >= 12}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted hover:border-accent/40 hover:text-fg disabled:opacity-40"
+                >
+                  <Plus size={13} /> Add row
+                </button>
+              </div>
+            </Section>
+
+            <Section title="Style">
+              <div className="grid grid-cols-2 gap-2">
+                <ColorField label="Card bg" value={el.bg ?? "#f5efe6"} onChange={(v) => patch({ bg: v })} />
+                <ColorField label="Text" value={el.fg ?? "#2a1f17"} onChange={(v) => patch({ fg: v })} />
+                <ColorField label="Bar" value={el.bar ?? "#d97b1a"} onChange={(v) => patch({ bar: v })} />
+                <NumField
+                  label="Axis max"
+                  value={el.axisMax ?? 100}
+                  onChange={(v) => patch({ axisMax: Math.max(1, v) })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <SelectField
+                  label="Show axis"
+                  value={el.showAxis === false ? "no" : "yes"}
+                  options={["yes", "no"]}
+                  onChange={(v) => patch({ showAxis: v === "yes" })}
+                />
+                <SelectField
+                  label="Show values"
+                  value={el.showValues === false ? "no" : "yes"}
+                  options={["yes", "no"]}
+                  onChange={(v) => patch({ showValues: v === "yes" })}
+                />
+              </div>
+              <TextField
+                label="Value suffix"
+                value={el.valueSuffix ?? "%"}
+                onChange={(v) => patch({ valueSuffix: v.slice(0, 8) })}
+              />
+            </Section>
+
+            <Section title="Animation">
+              <div className="grid grid-cols-2 gap-2">
+                <NumField
+                  label="Duration (s)"
+                  value={Number((el.animationDuration ?? 2.4).toFixed(2))}
+                  step={0.2}
+                  onChange={(v) => patch({ animationDuration: Math.max(0.2, Math.min(60, v)) })}
+                />
+                <NumField
+                  label="Start delay (s)"
+                  value={Number((el.startDelay ?? 0).toFixed(2))}
+                  step={0.1}
+                  onChange={(v) => patch({ startDelay: Math.max(0, Math.min(60, v)) })}
+                />
+              </div>
+              <p className="text-[11px] text-faint">
+                Scrub the timeline to preview the bars growing live.
+              </p>
+            </Section>
+          </>
         )}
 
         {el.type === "icon" && (
