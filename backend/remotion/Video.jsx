@@ -12,6 +12,7 @@ import {
 } from "remotion";
 import { getSceneStyle } from "./animations.js";
 import { getLottieAsset } from "./lottieCatalog.js";
+import { getElementMotion } from "./elementMotion.js";
 
 const DEFAULT_COLORS = ["#0f172a", "#8b5cf6", "#38bdf8", "#34d399"];
 
@@ -283,7 +284,14 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
 
       {/* FOREGROUND layer — user-placed elements render on top of the template. */}
       {hasElements && (
-        <ElementsLayer elements={scene.elements} width={width} height={height} style={style} />
+        <ElementsLayer
+          elements={scene.elements}
+          width={width}
+          height={height}
+          style={style}
+          sceneTime={frame / fps}
+          sceneDuration={durationInFrames / fps}
+        />
       )}
     </AbsoluteFill>
   );
@@ -292,21 +300,23 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
 // Renders direct-manipulation elements at their fractional positions. Mirrors
 // client/src/components/canvas/Canvas.tsx exactly so a drag in the editor lands
 // in the same spot in the MP4.
-function ElementsLayer({ elements, width, height }) {
-  const ordered = [...elements].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
-  // No entrance transform here — elements sit at exact fractional positions so
-  // the render matches the editor canvas pixel-for-pixel.
+function ElementsLayer({ elements, width, height, sceneTime, sceneDuration }) {
+  const ordered = [...elements]
+    .filter((e) => !e.hidden)
+    .sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
   return (
     <AbsoluteFill>
       {ordered.map((el) => {
+        const motion = getElementMotion(el.animation, sceneTime, sceneDuration);
         const box = {
           position: "absolute",
           left: el.x * width,
           top: el.y * height,
           width: el.w * width,
           height: el.h * height,
-          transform: `rotate(${el.rotation || 0}deg)`,
+          transform: `rotate(${el.rotation || 0}deg) ${motion.transform}`,
           transformOrigin: "center",
+          opacity: motion.opacity,
         };
         return (
           <div key={el.id} style={box}>

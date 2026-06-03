@@ -45,6 +45,30 @@ export type ElementType =
   | "bar-chart";
 export type TextAlign = "left" | "center" | "right";
 
+export type ElementAnimationKind =
+  | "fade"
+  | "slide-left"
+  | "slide-right"
+  | "slide-up"
+  | "slide-down"
+  | "zoom-in"
+  | "zoom-out"
+  | "scale"
+  | "pop";
+
+export interface ElementAnimationStep {
+  kind: ElementAnimationKind;
+  /** Seconds since the parent scene clip's start. */
+  at: number;
+  /** How long the entrance / exit lasts, seconds. */
+  duration: number;
+}
+
+export interface ElementAnimation {
+  in?: ElementAnimationStep;
+  out?: ElementAnimationStep;
+}
+
 export interface ElementBase {
   id: string;
   x: number;
@@ -55,6 +79,14 @@ export interface ElementBase {
   rotation: number;
   /** Stacking order; higher renders on top. */
   z: number;
+  /** Optional human-readable name used by the Layers panel. */
+  name?: string;
+  /** Skip rendering & ignore pointer events when true. */
+  hidden?: boolean;
+  /** Block drag / resize / rotate / inline-edit when true. */
+  locked?: boolean;
+  /** Per-element entrance / exit animation (relative to scene start). */
+  animation?: ElementAnimation;
 }
 
 export interface TextElement extends ElementBase {

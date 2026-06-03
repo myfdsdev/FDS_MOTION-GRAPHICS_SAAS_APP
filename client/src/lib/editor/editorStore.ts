@@ -108,7 +108,19 @@ export function currentSceneClipId(
 }
 
 const NEW_ELEMENT_DEFAULTS = (type: SceneElement["type"]): SceneElement => {
-  const base = { id: uid("el"), x: 0.35, y: 0.4, w: 0.3, h: 0.2, rotation: 0, z: 0 };
+  // Default every new element to a short fade-in. Users can change or remove
+  // from the Properties → Animation section.
+  const animation = { in: { kind: "fade" as const, at: 0, duration: 0.4 } };
+  const base = {
+    id: uid("el"),
+    x: 0.35,
+    y: 0.4,
+    w: 0.3,
+    h: 0.2,
+    rotation: 0,
+    z: 0,
+    animation,
+  };
   switch (type) {
     case "text":
       return { ...base, type: "text", text: "New text", size: DEFAULT_TEXT_SIZE, weight: 700, color: DEFAULT_ELEMENT_COLOR, align: "center" };
@@ -399,6 +411,9 @@ export type EditorAction =
   | { type: "REORDER_TRACK"; trackId: string; toIndex: number }
   | { type: "UPDATE_TRACK"; trackId: string; patch: Partial<TimelineTrack> }
   | { type: "UPDATE_CLIP"; clipId: string; patch: Partial<TimelineClip> }
+  // Scene-level edit on a scene clip (headline / text / subtext / template / …).
+  // Touches `clip.scene` only — the clip's own timing/track stays untouched.
+  | { type: "UPDATE_SCENE"; clipId: string; patch: Partial<Scene> }
   // scene elements (canvas). clipId is the current scene clip (derived from playhead)
   | { type: "ADD_ELEMENT"; clipId: string; elementType: SceneElement["type"]; element?: Partial<SceneElement> }
   | { type: "UPDATE_ELEMENT"; clipId: string; elementId: string; patch: ElementPatch }
@@ -406,6 +421,10 @@ export type EditorAction =
   | { type: "RESIZE_ELEMENT"; clipId: string; elementId: string; patch: ElementPatch } // ephemeral
   | { type: "DELETE_ELEMENT"; clipId: string; elementIds?: string[] }
   | { type: "REORDER_Z"; clipId: string; elementId: string; dir: "front" | "back" | "forward" | "backward" }
+  | { type: "SET_ELEMENT_ORDER"; clipId: string; orderedIds: string[] }
+  | { type: "TOGGLE_ELEMENT_HIDDEN"; clipId: string; elementId: string }
+  | { type: "TOGGLE_ELEMENT_LOCKED"; clipId: string; elementId: string }
+  | { type: "RENAME_ELEMENT"; clipId: string; elementId: string; name: string }
   | { type: "SELECT_ELEMENTS"; ids: string[]; additive?: boolean }
   // selection / view (no history)
   | { type: "SELECT"; ids: string[]; additive?: boolean }
@@ -479,6 +498,11 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   futureOpacity?: number;
   duration?: number;
   wordTimings?: { word: string; start: number; end: number }[];
+  // Base extensions
+  hidden?: boolean;
+  locked?: boolean;
+  name?: string;
+  animation?: import("./editorTypes").ElementAnimation;
   // Bar-chart fields
   title?: string;
   subtitle?: string;
@@ -602,6 +626,16 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       });
     }
 
+    case "UPDATE_SCENE": {
+      return withHistory({
+        ...state,
+        tracks: mapClip(state.tracks, action.clipId, (c) => {
+          if (!c.scene) return c;
+          return { ...c, scene: { ...c.scene, ...action.patch } };
+        }),
+      });
+    }
+
     case "UPDATE_TRACK": {
       return withHistory({
         ...state,
@@ -677,6 +711,62 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...next,
         tracks: mapElements(next.tracks, action.clipId, (els) =>
           reorderZ(els, action.elementId, action.dir)
+        ),
+      };
+    }
+
+    case "SET_ELEMENT_ORDER": {
+      const next = withHistory(state);
+      return {
+        ...next,
+        tracks: mapElements(next.tracks, action.clipId, (els) => {
+          // Layers panel top row = highest z. Map ordered list to z values.
+          const byId = new Map(els.map((e) => [e.id, e]));
+          const n = action.orderedIds.length;
+          const remapped: SceneElement[] = [];
+          action.orderedIds.forEach((id, i) => {
+            const e = byId.get(id);
+            if (e) remapped.push({ ...e, z: n - 1 - i });
+          });
+          // Append any element not in the ordered list at the back (shouldn't happen).
+          for (const e of els) if (!action.orderedIds.includes(e.id)) remapped.push(e);
+          return remapped;
+        }),
+      };
+    }
+
+    case "TOGGLE_ELEMENT_HIDDEN": {
+      const next = withHistory(state);
+      return {
+        ...next,
+        tracks: mapElements(next.tracks, action.clipId, (els) =>
+          els.map((e) =>
+            e.id === action.elementId ? { ...e, hidden: !e.hidden } : e
+          )
+        ),
+      };
+    }
+
+    case "TOGGLE_ELEMENT_LOCKED": {
+      const next = withHistory(state);
+      return {
+        ...next,
+        tracks: mapElements(next.tracks, action.clipId, (els) =>
+          els.map((e) =>
+            e.id === action.elementId ? { ...e, locked: !e.locked } : e
+          )
+        ),
+      };
+    }
+
+    case "RENAME_ELEMENT": {
+      const next = withHistory(state);
+      return {
+        ...next,
+        tracks: mapElements(next.tracks, action.clipId, (els) =>
+          els.map((e) =>
+            e.id === action.elementId ? { ...e, name: action.name } : e
+          )
         ),
       };
     }

@@ -75,7 +75,32 @@ interface PropertiesProps extends PanelCommon {
   /** Single selected non-element clip (e.g. audio narration) — shown when no
    *  element is selected. */
   selectedClip?: TimelineClip | null;
+  /** The current scene clip (under the playhead). When no element is
+   *  selected, the panel falls back to editing the scene's headline /
+   *  subtext / template — that text is drawn by the scene template, not
+   *  as an element, so it has no on-canvas selection target. */
+  sceneClip?: TimelineClip | null;
 }
+
+const SCENE_TEMPLATES = [
+  "kinetic-title",
+  "animated-bg-text",
+  "app-showcase",
+  "offer-burst",
+  "proof-cards",
+  "final-cta",
+  "karaoke-subtitle",
+] as const;
+
+const ANIMATIONS = [
+  "fade-in",
+  "fade-out",
+  "slide-left",
+  "slide-right",
+  "slide-up",
+  "zoom-in",
+  "zoom-out",
+] as const;
 
 export function PropertiesPanel({
   elements,
@@ -83,6 +108,7 @@ export function PropertiesPanel({
   clipId,
   dispatch,
   selectedClip,
+  sceneClip,
 }: PropertiesProps) {
   const selected = elements.filter((e) => selectedIds.includes(e.id));
   const el = selected[0] ?? null;
@@ -125,12 +151,114 @@ export function PropertiesPanel({
     );
   }
 
-  if (!el || !clipId) {
+  // Nothing selected → fall back to scene-level editing. The scene template's
+  // headline / subtext / template choice can't be selected on the canvas
+  // (they're drawn by the Player, not as elements), so this is the only way
+  // to edit them. Always visible when a scene clip is under the playhead.
+  if (!el) {
+    if (sceneClip && sceneClip.scene && sceneClip.type === "scene") {
+      const scene = sceneClip.scene;
+      const patchScene = (p: Partial<typeof scene>) =>
+        dispatch({ type: "UPDATE_SCENE", clipId: sceneClip.id, patch: p });
+      const patchClip = (p: Partial<TimelineClip>) =>
+        dispatch({ type: "UPDATE_CLIP", clipId: sceneClip.id, patch: p });
+
+      return (
+        <div className="flex h-full flex-col">
+          <div className="border-b border-border-soft px-4 py-3">
+            <div className="text-sm font-semibold">Scene</div>
+            <div className="text-[11px] text-faint">
+              Edits the template text behind your elements
+            </div>
+          </div>
+          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            <Section title="Text">
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted">Headline</span>
+                <textarea
+                  rows={2}
+                  value={scene.headline ?? ""}
+                  onChange={(e) => patchScene({ headline: e.target.value })}
+                  placeholder="The big title shown by the template"
+                  className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted">Subtext</span>
+                <textarea
+                  rows={2}
+                  value={scene.subtext ?? ""}
+                  onChange={(e) => patchScene({ subtext: e.target.value })}
+                  placeholder="Smaller line under the headline"
+                  className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted">Narration script</span>
+                <textarea
+                  rows={3}
+                  value={scene.text ?? ""}
+                  onChange={(e) => patchScene({ text: e.target.value })}
+                  placeholder="What the voiceover says"
+                  className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
+                />
+              </label>
+            </Section>
+
+            <Section title="Template">
+              <SelectField
+                label="Scene template"
+                value={scene.sceneTemplate ?? "kinetic-title"}
+                options={[...SCENE_TEMPLATES]}
+                onChange={(v) =>
+                  patchScene({ sceneTemplate: v as typeof SCENE_TEMPLATES[number] })
+                }
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <SelectField
+                  label="Entrance"
+                  value={scene.animation ?? "fade-in"}
+                  options={[...ANIMATIONS]}
+                  onChange={(v) =>
+                    patchScene({ animation: v as typeof ANIMATIONS[number] })
+                  }
+                />
+                <NumField
+                  label="Duration (s)"
+                  value={Number(sceneClip.duration.toFixed(2))}
+                  step={0.5}
+                  onChange={(v) => patchClip({ duration: Math.max(0.2, v) })}
+                />
+              </div>
+            </Section>
+
+            <p className="text-[11px] text-faint">
+              Tip: add <span className="font-medium text-muted">Text</span>,{" "}
+              <span className="font-medium text-muted">Subtitle</span>, or{" "}
+              <span className="font-medium text-muted">Bar chart</span> from the
+              left panel to layer custom, draggable pieces on top of this template.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex h-full flex-col">
         <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">Properties</div>
         <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted">
           Select an element on the canvas to edit it.
+        </div>
+      </div>
+    );
+  }
+
+  if (!clipId) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">Properties</div>
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted">
+          No scene under the playhead.
         </div>
       </div>
     );

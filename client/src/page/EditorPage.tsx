@@ -39,6 +39,7 @@ import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender } 
 import { Timeline } from "@/components/project/Timeline";
 import { Canvas } from "@/components/canvas/Canvas";
 import { PropertiesPanel } from "@/components/canvas/panels";
+import { LayersPanel } from "@/components/canvas/LayersPanel";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -57,11 +58,12 @@ import { DEFAULT_PX_PER_SECOND, FPS, type SceneElement } from "@/lib/editor/edit
 import { cn } from "@/lib/utils";
 import type { VideoPlan } from "@/types";
 
-type PanelId = "chat" | "edit" | "media" | "fonts" | "colors" | "projects" | "templates";
+type PanelId = "chat" | "edit" | "layers" | "media" | "fonts" | "colors" | "projects" | "templates";
 
 const RAIL: { id: PanelId; label: string; icon: typeof MessageSquare }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "edit", label: "Edit", icon: SlidersHorizontal },
+  { id: "layers", label: "Layers", icon: Layers },
   { id: "media", label: "Media", icon: Library },
   { id: "fonts", label: "Fonts", icon: TypeIcon },
   { id: "colors", label: "Colors", icon: Palette },
@@ -294,6 +296,22 @@ export default function EditorPage() {
     remove,
     togglePlay,
     toggleSnap: () => dispatch({ type: "TOGGLE_SNAP" }),
+    stepFrame: (frames) => {
+      // 30 fps matches backend/remotion/Root.jsx.
+      const FPS = 30;
+      setCurrentTime((t) =>
+        Math.max(0, Math.min(total, t + frames / FPS))
+      );
+      setPlaying(false);
+    },
+    jumpToStart: () => {
+      setCurrentTime(0);
+      setPlaying(false);
+    },
+    jumpToEnd: () => {
+      setCurrentTime(total);
+      setPlaying(false);
+    },
   });
 
   const runGenerate = async (prompt: string, durationSec: number) => {
@@ -446,7 +464,17 @@ export default function EditorPage() {
             />
           )}
           {panel === "edit" && <ScenePanel state={state} currentTime={currentTime} onSeek={handleSeek} />}
-          {panel !== "chat" && panel !== "edit" && <PlaceholderPanel id={panel} />}
+          {panel === "layers" && (
+            <LayersPanel
+              clipId={sceneClipId}
+              elements={elements}
+              selectedIds={state.selectedElementIds}
+              dispatch={dispatch}
+            />
+          )}
+          {panel !== "chat" && panel !== "edit" && panel !== "layers" && (
+            <PlaceholderPanel id={panel} />
+          )}
         </aside>
 
         {/* Canvas */}
@@ -491,6 +519,7 @@ export default function EditorPage() {
               }
               return null;
             })()}
+            sceneClip={sceneClip}
           />
         </aside>
       </div>

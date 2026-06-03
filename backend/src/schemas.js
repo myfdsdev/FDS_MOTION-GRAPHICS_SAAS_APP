@@ -63,6 +63,27 @@ export const TemplateName = z.enum([
 const Hex = z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/);
 const Frac = z.number().min(-1).max(2); // allow slight off-canvas overflow
 
+const ElementAnimationKind = z.enum([
+  "fade",
+  "slide-left",
+  "slide-right",
+  "slide-up",
+  "slide-down",
+  "zoom-in",
+  "zoom-out",
+  "scale",
+  "pop",
+]);
+const ElementAnimationStep = z.object({
+  kind: ElementAnimationKind,
+  at: z.number().min(0).max(600),
+  duration: z.number().min(0.05).max(60),
+});
+const ElementAnimationSchema = z.object({
+  in: ElementAnimationStep.optional(),
+  out: ElementAnimationStep.optional(),
+});
+
 const ElementBase = {
   id: z.string().min(1).max(80),
   x: Frac,
@@ -71,6 +92,10 @@ const ElementBase = {
   h: z.number().min(0).max(3),
   rotation: z.number().min(-360).max(360).default(0),
   z: z.number().int().min(0).max(9999).default(0),
+  name: z.string().max(120).optional(),
+  hidden: z.boolean().optional(),
+  locked: z.boolean().optional(),
+  animation: ElementAnimationSchema.optional(),
 };
 
 export const SceneElementSchema = z.discriminatedUnion("type", [

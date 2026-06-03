@@ -8,6 +8,9 @@ import type { EditorAction } from "@/lib/editor/editorStore";
 import { SNAP_THRESHOLD_PX } from "@/lib/editor/editorTypes";
 import { getLottieAnimation } from "@/lib/api";
 import { LivePreview } from "./LivePreview";
+import { ElementBoundary } from "./ElementBoundary";
+// @ts-expect-error — .js module
+import { getElementMotion } from "@remotion-comp/elementMotion.js";
 
 interface CanvasProps {
   elements: SceneElement[];
@@ -285,14 +288,21 @@ export function Canvas({
       {/* (Scene-number badge + accent bar are drawn by the Player above.) */}
 
       {ordered.map((el) => {
+        if (el.hidden) return null;
         const selected = selectedIds.includes(el.id);
         const editing = editingId === el.id;
+        const locked = !!el.locked;
+        // Live entrance / exit motion — same helper used by the renderer so
+        // editor preview and MP4 match exactly.
+        const motion = getElementMotion(el.animation, sceneTime, sceneDuration);
         return (
           <div
             key={el.id}
-            onPointerDown={beginMove(el)}
+            onPointerDown={locked ? undefined : beginMove(el)}
             onDoubleClick={() =>
-              (el.type === "text" || el.type === "subtitle") && setEditingId(el.id)
+              !locked &&
+              (el.type === "text" || el.type === "subtitle") &&
+              setEditingId(el.id)
             }
             style={{
               position: "absolute",
@@ -300,9 +310,10 @@ export function Canvas({
               top: `${el.y * 100}%`,
               width: `${el.w * 100}%`,
               height: `${el.h * 100}%`,
-              transform: `rotate(${el.rotation}deg)`,
+              transform: `rotate(${el.rotation}deg) ${motion.transform}`,
               transformOrigin: "center",
-              cursor: editing ? "text" : "grab",
+              opacity: motion.opacity,
+              cursor: locked ? "not-allowed" : editing ? "text" : "grab",
               outline: selected ? "1.5px solid #a78bfa" : "none",
               outlineOffset: 2,
             }}
@@ -311,23 +322,27 @@ export function Canvas({
             // selectable + editable, not just text.
             onMouseEnter={(e) => {
               if (selected) return;
-              e.currentTarget.style.outline = "1.5px dashed rgba(167, 139, 250, 0.55)";
+              e.currentTarget.style.outline = locked
+                ? "1.5px dashed rgba(255, 99, 132, 0.45)"
+                : "1.5px dashed rgba(167, 139, 250, 0.55)";
             }}
             onMouseLeave={(e) => {
               if (selected) return;
               e.currentTarget.style.outline = "none";
             }}
           >
-            <ElementBody
-              el={el}
-              stageH={size.h}
-              editing={editing}
-              onCommit={commitText}
-              sceneTime={sceneTime}
-              sceneDuration={sceneDuration}
-              brandAccent={brandAccent}
-            />
-            {selected && single && single.id === el.id && !editing && (
+            <ElementBoundary label={el.name || el.type}>
+              <ElementBody
+                el={el}
+                stageH={size.h}
+                editing={editing}
+                onCommit={commitText}
+                sceneTime={sceneTime}
+                sceneDuration={sceneDuration}
+                brandAccent={brandAccent}
+              />
+            </ElementBoundary>
+            {selected && single && single.id === el.id && !editing && !locked && (
               <>
                 {HANDLES.map((handle) => (
                   <span

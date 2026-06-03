@@ -8,6 +8,12 @@ export interface EditorShortcutHandlers {
   remove: () => void;
   togglePlay?: () => void;
   toggleSnap?: () => void;
+  /** Step the playhead by N frames (positive = forward, negative = back). */
+  stepFrame?: (frames: number) => void;
+  /** Jump the playhead to the very start (0). */
+  jumpToStart?: () => void;
+  /** Jump the playhead to the end of the timeline. */
+  jumpToEnd?: () => void;
 }
 
 function isTypingTarget(el: EventTarget | null): boolean {
@@ -62,6 +68,34 @@ export function useEditorShortcuts(handlers: EditorShortcutHandlers): void {
       if (!mod && e.key.toLowerCase() === "n" && handlers.toggleSnap) {
         e.preventDefault();
         handlers.toggleSnap();
+        return;
+      }
+
+      // Frame-step navigation — Adobe / Premiere / FCP convention:
+      //   ← / →            step 1 frame
+      //   Shift+← / Shift+→ step 10 frames
+      //   Home / End       jump to start / end
+      //   , / .            also 1-frame step (DaVinci convention)
+      if (handlers.stepFrame && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        const dir = e.key === "ArrowRight" ? 1 : -1;
+        handlers.stepFrame(dir * (e.shiftKey ? 10 : 1));
+        return;
+      }
+      if (handlers.stepFrame && (e.key === "," || e.key === ".")) {
+        e.preventDefault();
+        handlers.stepFrame(e.key === "." ? 1 : -1);
+        return;
+      }
+      if (e.key === "Home" && handlers.jumpToStart) {
+        e.preventDefault();
+        handlers.jumpToStart();
+        return;
+      }
+      if (e.key === "End" && handlers.jumpToEnd) {
+        e.preventDefault();
+        handlers.jumpToEnd();
+        return;
       }
     };
 
