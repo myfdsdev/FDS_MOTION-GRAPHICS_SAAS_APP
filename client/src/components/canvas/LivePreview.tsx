@@ -26,6 +26,9 @@ interface LivePreviewProps {
   sceneDuration: number;
   aspectRatio: AspectRatio;
   brandColors: string[];
+  /** Editor playback state — when true, hand the Player its own clock so the
+   *  animation runs natively instead of being seeked one frame at a time. */
+  playing?: boolean;
 }
 
 /**
@@ -43,6 +46,7 @@ export function LivePreview({
   sceneDuration,
   aspectRatio,
   brandColors,
+  playing = false,
 }: LivePreviewProps) {
   const playerRef = useRef<PlayerRef>(null);
   const [width, height] = DIMENSIONS[aspectRatio] ?? DIMENSIONS["16:9"];
@@ -71,18 +75,49 @@ export function LivePreview({
     };
   }, [scene, sceneDuration, aspectRatio, brandColors]);
 
-  // Mirror the editor playhead onto the Player. seekTo is frame-accurate.
+  // Mirror the editor playhead onto the Player when paused — frame accurate.
+  // While playing, we let the Player run its own clock (see effect below)
+  // so the animation looks smooth instead of being seeked every rAF tick.
   useEffect(() => {
+    if (playing) return;
     const p = playerRef.current;
     if (!p) return;
     const targetFrame = Math.min(
       durationInFrames - 1,
       Math.max(0, Math.round(sceneTime * FPS))
     );
-    // Avoid spamming seekTo when we're already on the right frame.
     const current = p.getCurrentFrame?.() ?? -1;
     if (current !== targetFrame) p.seekTo(targetFrame);
-  }, [sceneTime, durationInFrames]);
+  }, [sceneTime, durationInFrames, playing]);
+
+  // Hand play/pause control to the Player so frames flow at the composition's
+  // native 30 fps rather than at whatever the editor's rAF happens to deliver.
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    if (playing) {
+      // Align to the current playhead before starting so we don't jump.
+      const targetFrame = Math.min(
+        durationInFrames - 1,
+        Math.max(0, Math.round(sceneTime * FPS))
+      );
+      try {
+        p.seekTo(targetFrame);
+        p.play();
+      } catch {
+        // Player not ready yet — the next render will retry.
+      }
+    } else {
+      try {
+        p.pause();
+      } catch {
+        /* ignore */
+      }
+    }
+    // We intentionally don't include sceneTime here — re-running play() on
+    // every frame would yank the Player back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, durationInFrames]);
 
   if (!scene) {
     return (

@@ -30,6 +30,8 @@ interface CanvasProps {
    *  …). Passed to the embedded <Player> so it can render the same scene
    *  template you'll see in the final MP4. */
   scene?: Scene | null;
+  /** Editor playback state — forwarded to the Player so play/pause flow. */
+  playing?: boolean;
 }
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
@@ -60,6 +62,7 @@ export function Canvas({
   sceneTime = 0,
   sceneDuration = 0,
   scene = null,
+  playing = false,
 }: CanvasProps) {
   const brandAccent = brandColors?.[1] ?? brandColors?.[0] ?? "#8b5cf6";
   const stageRef = useRef<HTMLDivElement>(null);
@@ -277,6 +280,7 @@ export function Canvas({
         sceneDuration={sceneDuration}
         aspectRatio={aspectRatio}
         brandColors={brandColors}
+        playing={playing}
       />
       {/* (Scene-number badge + accent bar are drawn by the Player above.) */}
 
@@ -301,6 +305,17 @@ export function Canvas({
               cursor: editing ? "text" : "grab",
               outline: selected ? "1.5px solid #a78bfa" : "none",
               outlineOffset: 2,
+            }}
+            // Hover ring so every element type — text, icon, image, shape,
+            // bar-chart, subtitle, lottie — visibly advertises itself as
+            // selectable + editable, not just text.
+            onMouseEnter={(e) => {
+              if (selected) return;
+              e.currentTarget.style.outline = "1.5px dashed rgba(167, 139, 250, 0.55)";
+            }}
+            onMouseLeave={(e) => {
+              if (selected) return;
+              e.currentTarget.style.outline = "none";
             }}
           >
             <ElementBody
