@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from "react";
+import { useMemo, useRef, useState, type ComponentType } from "react";
 import {
   ArrowDownToLine,
   ArrowUpToLine,
@@ -321,6 +321,11 @@ export function PropertiesPanel({
           </div>
         </Section>
 
+        <AnimationSection
+          el={el}
+          onChange={(animation) => patch({ animation })}
+        />
+
         {el.type === "text" && (
           <Section title="Typography">
             <label className="block">
@@ -632,9 +637,36 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function NumField({ label, value, onChange, step = 1 }: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
+  // Adobe-style scrubby slider: drag the label left/right to nudge the value.
+  // Hold Shift for 10× speed, Alt for 0.1× (fine-tune).
+  const dragRef = useRef<{ startX: number; startVal: number } | null>(null);
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragRef.current = { startX: e.clientX, startVal: value };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const mult = e.shiftKey ? 10 : e.altKey ? 0.1 : 1;
+    const next = dragRef.current.startVal + Math.round(dx / 2) * step * mult;
+    onChange(Number(next.toFixed(4)));
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    dragRef.current = null;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        title="Drag to scrub · Shift = 10× · Alt = fine"
+        className="mb-1 block cursor-ew-resize select-none text-xs text-muted hover:text-fg"
+      >
+        {label}
+      </span>
       <input
         type="number"
         step={step}
