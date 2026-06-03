@@ -369,7 +369,7 @@ export default function EditorPage() {
   const zoomPct = Math.round((state.pxPerSecond / DEFAULT_PX_PER_SECOND) * 100);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-bg text-fg">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg text-fg">
       {/* ---- Top bar — actions always visible, left side truncates. ---- */}
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border-soft bg-bg/80 px-2 backdrop-blur sm:px-3">
         {/* Left: back arrow + truncating title. `min-w-0` lets the title
@@ -381,7 +381,7 @@ export default function EditorPage() {
             </Link>
           </Tooltip>
           <span className="mx-1 hidden h-5 w-px shrink-0 bg-border-soft sm:block" />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{project.prompt || "Untitled Project"}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium md:max-w-[40vw]">{project.prompt || "Untitled Project"}</span>
           {/* Aspect ratio badge — hide on narrow screens, shown again from sm. */}
           <Tooltip content="Aspect ratio" side="bottom">
             <span className="hidden shrink-0 items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-xs text-muted sm:flex">
@@ -459,8 +459,11 @@ export default function EditorPage() {
         {/* Chat: full-screen on mobile (when selected); fixed side panel on md+. */}
         <aside
           className={cn(
-            "flex shrink-0 flex-col border-r border-border-soft bg-bg/40 md:flex md:h-auto md:w-72 lg:w-80",
-            mobileView === "chat" ? "flex flex-1" : "hidden"
+            // Desktop: fixed-width side panel that never grows. We use
+            // `md:!flex-none` so the `flex-1` we add for mobile can't leak
+            // into desktop and push the preview off-screen.
+            "flex-col border-r border-border-soft bg-bg/40 md:flex md:!flex-none md:h-auto md:w-64 md:shrink-0 lg:w-72 xl:w-80",
+            mobileView === "chat" ? "flex flex-1" : "hidden md:flex"
           )}
         >
           <ChatPanel
@@ -475,8 +478,8 @@ export default function EditorPage() {
         {/* Preview — pure Remotion <Player>, no editing overlay. */}
         <main
           className={cn(
-            "relative min-w-0 flex-1 items-center justify-center bg-[#0a0a0f] p-2 sm:p-4 md:flex md:p-6",
-            mobileView === "preview" ? "flex" : "hidden"
+            "relative min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#0a0a0f] p-2 sm:p-4 md:flex md:p-6",
+            mobileView === "preview" ? "flex" : "hidden md:flex"
           )}
         >
           <div
