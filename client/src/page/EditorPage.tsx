@@ -463,6 +463,7 @@ export default function EditorPage() {
               sceneNumber={sceneNumber}
               sceneTime={sceneClip ? Math.max(0, currentTime - sceneClip.start) : 0}
               sceneDuration={sceneClip?.duration ?? 0}
+              scene={sceneClip?.scene ?? null}
             />
           </div>
           {generating && (

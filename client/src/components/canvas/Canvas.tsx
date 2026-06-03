@@ -2,11 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as LucideIcons from "lucide-react";
 import Lottie from "lottie-react";
 import { useQuery } from "@tanstack/react-query";
-import type { AspectRatio, SceneElement } from "@/types";
+import type { AspectRatio, Scene, SceneElement } from "@/types";
 import { snapValue } from "@/lib/editor/editorStore";
 import type { EditorAction } from "@/lib/editor/editorStore";
 import { SNAP_THRESHOLD_PX } from "@/lib/editor/editorTypes";
 import { getLottieAnimation } from "@/lib/api";
+import { LivePreview } from "./LivePreview";
 
 interface CanvasProps {
   elements: SceneElement[];
@@ -25,6 +26,10 @@ interface CanvasProps {
   /** Total length of the current scene clip in seconds. Used as the subtitle
    *  duration fallback when an element doesn't specify its own. */
   sceneDuration?: number;
+  /** The current scene payload (text, headline, sceneTemplate, animation,
+   *  …). Passed to the embedded <Player> so it can render the same scene
+   *  template you'll see in the final MP4. */
+  scene?: Scene | null;
 }
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
@@ -54,6 +59,7 @@ export function Canvas({
   sceneNumber,
   sceneTime = 0,
   sceneDuration = 0,
+  scene = null,
 }: CanvasProps) {
   const brandAccent = brandColors?.[1] ?? brandColors?.[0] ?? "#8b5cf6";
   const stageRef = useRef<HTMLDivElement>(null);
@@ -262,35 +268,17 @@ export function Canvas({
           `linear-gradient(135deg, ${brandColors[0] ?? "#0f172a"} 0%, #0b1020 100%)`,
       }}
     >
-      {/* Template backdrop approximation (matches sceneShell + SceneChrome).
-          Non-interactive — only foreground elements are selectable. */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
-          backgroundSize: "8% 14%",
-          opacity: 0.28,
-        }}
+      {/* Live Remotion <Player> backdrop — renders the actual scene template
+          (kinetic-title, animated-bg-text, …) and its animations in real time
+          as the user scrubs. Element overlays sit on top for editing. */}
+      <LivePreview
+        scene={scene}
+        sceneTime={sceneTime}
+        sceneDuration={sceneDuration}
+        aspectRatio={aspectRatio}
+        brandColors={brandColors}
       />
-      <div
-        className="pointer-events-none absolute"
-        style={{
-          top: "10%",
-          left: "8%",
-          width: 84,
-          height: 6,
-          borderRadius: 99,
-          backgroundColor: brandColors[1] ?? "#8b5cf6",
-          boxShadow: `0 0 28px ${brandColors[1] ?? "#8b5cf6"}`,
-        }}
-      />
-      <div
-        className="pointer-events-none absolute font-extrabold tracking-widest text-white/20"
-        style={{ right: "7%", bottom: "8%", fontSize: "min(5vw,30px)" }}
-      >
-        {String(sceneNumber ?? 1).padStart(2, "0")}
-      </div>
+      {/* (Scene-number badge + accent bar are drawn by the Player above.) */}
 
       {ordered.map((el) => {
         const selected = selectedIds.includes(el.id);
