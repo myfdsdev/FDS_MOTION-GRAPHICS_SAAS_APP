@@ -199,6 +199,44 @@ export interface BarChartElement extends ElementBase {
   startDelay?: number;
 }
 
+export interface LineChartPoint {
+  label?: string;
+  value: number;
+}
+
+export interface LineChartElement extends ElementBase {
+  type: "line-chart";
+  title?: string;
+  subtitle?: string;
+  points: LineChartPoint[];
+  bg?: string;
+  fg?: string;
+  line?: string;
+  fill?: string;
+  showGrid?: boolean;
+  showAxis?: boolean;
+  valuePrefix?: string;
+  valueSuffix?: string;
+  finalValue?: number;
+  finalLabel?: string;
+  animationDuration?: number;
+}
+
+export interface StatElement extends ElementBase {
+  type: "stat";
+  value: number;
+  valuePrefix?: string;
+  valueSuffix?: string;
+  label?: string;
+  caption?: string;
+  bg?: string;
+  fg?: string;
+  accent?: string;
+  sparkline?: number[];
+  countUp?: boolean;
+  animationDuration?: number;
+}
+
 export type SceneElement =
   | TextElement
   | IconElement
@@ -206,7 +244,9 @@ export type SceneElement =
   | ShapeElement
   | LottieElement
   | SubtitleElement
-  | BarChartElement;
+  | BarChartElement
+  | LineChartElement
+  | StatElement;
 
 /** Defaults for newly created elements (centered, sensible size per type). */
 export const DEFAULT_TEXT_SIZE = 0.08;

@@ -506,6 +506,18 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   title?: string;
   subtitle?: string;
   rows?: { label: string; value: number }[];
+  // Line-chart fields
+  points?: { label?: string; value: number }[];
+  line?: string;
+  finalValue?: number;
+  finalLabel?: string;
+  valuePrefix?: string;
+  showGrid?: boolean;
+  // Stat fields
+  value?: number;
+  caption?: string;
+  sparkline?: number[];
+  countUp?: boolean;
   bg?: string;
   fg?: string;
   bar?: string;
