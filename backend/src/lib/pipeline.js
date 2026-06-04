@@ -52,6 +52,81 @@ const templates = [
   "local-business",
 ];
 
+// Allow-list of lucide-react icon names the renderer will reliably draw.
+// Keep it broad enough to cover most product/topic vibes but explicit so the
+// AI never invents a name the renderer can't resolve.
+const ICON_VOCAB = [
+  "Sparkles","Zap","Rocket","Clock","Timer","Calendar","Star","Heart",
+  "ThumbsUp","Award","Trophy","Target","Lightbulb","TrendingUp","BarChart3",
+  "PieChart","LineChart","ShieldCheck","Lock","Unlock","Eye","EyeOff",
+  "Users","UserCheck","UserPlus","MessageSquare","Mail","Phone","Bell",
+  "Globe","Map","Compass","Smartphone","Monitor","Laptop","Tablet",
+  "Camera","Video","Image","Music","Play","Pause","Download","Upload",
+  "Share2","Send","Link","Copy","Search","Settings","Wrench","Cog",
+  "ShoppingCart","CreditCard","Wallet","DollarSign","Tag","Gift",
+  "FileText","Folder","Database","Server","Cloud","Wifi","Bluetooth",
+  "Check","CheckCircle2","X","XCircle","Plus","Minus","ArrowRight",
+  "ArrowUp","ArrowDown","ArrowLeft","ChevronRight","ChevronUp",
+  "Smile","Coffee","Pizza","Briefcase","Building2","Home","Car",
+  "Plane","Truck","Calculator","Code","Terminal","Cpu","Bot","Brain",
+];
+
+// Element shape used in the structured-output schema. Loose-but-typed: every
+// element MUST have a `type` (drives discriminated rendering) plus fractional
+// box coordinates (x, y, w, h in 0..1). Optional fields cover the union of
+// every element type — Zod tightens this up after parsing. Keeping the schema
+// flat (not oneOf-per-type) maximises compatibility with both OpenAI's strict
+// JSON Schema and Gemini's restricted subset.
+function elementSchemaJson() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["type", "x", "y", "w", "h"],
+    properties: {
+      type: { type: "string", enum: ["text", "icon", "image", "shape", "bar-chart", "subtitle"] },
+      x: { type: "number", minimum: 0, maximum: 1 },
+      y: { type: "number", minimum: 0, maximum: 1 },
+      w: { type: "number", minimum: 0.02, maximum: 1 },
+      h: { type: "number", minimum: 0.02, maximum: 1 },
+      rotation: { type: "number", minimum: -180, maximum: 180 },
+      // Text / subtitle
+      text: { type: "string", maxLength: 200 },
+      color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      size: { type: "number", minimum: 0.02, maximum: 0.4 },
+      weight: { type: "integer", minimum: 100, maximum: 900 },
+      align: { type: "string", enum: ["left", "center", "right"] },
+      // Icon
+      name: { type: "string", enum: ICON_VOCAB },
+      // Image
+      src: { type: "string", maxLength: 600 },
+      fit: { type: "string", enum: ["cover", "contain"] },
+      // Shape
+      shape: { type: "string", enum: ["rect", "ellipse"] },
+      fill: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      stroke: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      strokeWidth: { type: "number", minimum: 0, maximum: 24 },
+      radius: { type: "number", minimum: 0, maximum: 200 },
+      // Bar chart
+      title: { type: "string", maxLength: 80 },
+      subtitle: { type: "string", maxLength: 200 },
+      rows: {
+        type: "array",
+        minItems: 1,
+        maxItems: 6,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["label", "value"],
+          properties: {
+            label: { type: "string", maxLength: 60 },
+            value: { type: "number", minimum: 0, maximum: 100 },
+          },
+        },
+      },
+    },
+  };
+}
+
 function createGeneratedPayloadSchema(lottieAssetIds) {
   return {
     type: "object",
@@ -94,6 +169,7 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
                 "sceneTemplate",
                 "animation",
                 "transition",
+                "elements",
               ],
               properties: {
                 scene: { type: "integer", minimum: 1 },
@@ -105,6 +181,15 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
                 sceneTemplate: { type: "string", enum: SCENE_TEMPLATES },
                 animation: { type: "string", enum: animations },
                 transition: { type: "string", enum: transitions },
+                // *** THE FIX *** — schema now allows (and requires!) the AI to
+                // emit graphical elements. Without this entry, structured-output
+                // mode strips them and you get text-only videos.
+                elements: {
+                  type: "array",
+                  minItems: 2,
+                  maxItems: 6,
+                  items: elementSchemaJson(),
+                },
               },
             },
           },
@@ -144,6 +229,53 @@ function createGeminiResponseSchema(lottieAssetIds) {
                 sceneTemplate: { type: "STRING", enum: SCENE_TEMPLATES },
                 animation: { type: "STRING", enum: animations },
                 transition: { type: "STRING", enum: transitions },
+                // *** THE FIX *** — same root cause as OpenAI: without this
+                // entry, Gemini's structured output drops every element and
+                // you get text-only videos.
+                elements: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      type: {
+                        type: "STRING",
+                        enum: ["text", "icon", "image", "shape", "bar-chart", "subtitle"],
+                      },
+                      x: { type: "NUMBER" },
+                      y: { type: "NUMBER" },
+                      w: { type: "NUMBER" },
+                      h: { type: "NUMBER" },
+                      rotation: { type: "NUMBER" },
+                      text: { type: "STRING" },
+                      color: { type: "STRING" },
+                      size: { type: "NUMBER" },
+                      weight: { type: "INTEGER" },
+                      align: { type: "STRING", enum: ["left", "center", "right"] },
+                      name: { type: "STRING", enum: ICON_VOCAB },
+                      src: { type: "STRING" },
+                      fit: { type: "STRING", enum: ["cover", "contain"] },
+                      shape: { type: "STRING", enum: ["rect", "ellipse"] },
+                      fill: { type: "STRING" },
+                      stroke: { type: "STRING" },
+                      strokeWidth: { type: "NUMBER" },
+                      radius: { type: "NUMBER" },
+                      title: { type: "STRING" },
+                      subtitle: { type: "STRING" },
+                      rows: {
+                        type: "ARRAY",
+                        items: {
+                          type: "OBJECT",
+                          properties: {
+                            label: { type: "STRING" },
+                            value: { type: "NUMBER" },
+                          },
+                          required: ["label", "value"],
+                        },
+                      },
+                    },
+                    required: ["type", "x", "y", "w", "h"],
+                  },
+                },
               },
               required: [
                 "scene",
@@ -155,6 +287,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
                 "sceneTemplate",
                 "animation",
                 "transition",
+                "elements",
               ],
             },
           },
@@ -527,16 +660,68 @@ function sanitizePlan(plan) {
   }
 
   if (Array.isArray(out.scenes)) {
-    out.scenes = out.scenes.slice(0, 6).map((s, i) => ({
-      ...s,
-      scene: Number.isInteger(s?.scene) && s.scene > 0 ? s.scene : i + 1,
-      duration: Math.min(15, Math.max(1, Number(s?.duration) || 4)),
-      headline: s?.headline || s?.text || "",
-      subtext: s?.subtext || s?.visual || "",
-    }));
+    out.scenes = out.scenes.slice(0, 6).map((s, i) => {
+      const scene = {
+        ...s,
+        scene: Number.isInteger(s?.scene) && s.scene > 0 ? s.scene : i + 1,
+        duration: Math.min(15, Math.max(1, Number(s?.duration) || 4)),
+        headline: s?.headline || s?.text || "",
+        subtext: s?.subtext || s?.visual || "",
+      };
+
+      // Stamp ids + z + sensible defaults onto every AI-generated element.
+      // The structured-output schema can't require fields the AI shouldn't
+      // worry about (random ids, stacking order), so we add them here.
+      if (Array.isArray(s?.elements)) {
+        scene.elements = s.elements.slice(0, 8).map((el, j) => {
+          const base = {
+            id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
+            x: clampFrac(el?.x, 0.1),
+            y: clampFrac(el?.y, 0.5),
+            w: clampFrac(el?.w, 0.2),
+            h: clampFrac(el?.h, 0.1),
+            rotation: Number(el?.rotation) || 0,
+            z: j,
+            // Give every element a gentle fade-in by default so videos stop
+            // feeling static. The AI can override by emitting its own
+            // animation field, but with elements being new in the schema it
+            // mostly won't.
+            animation: { in: { kind: "fade", at: 0, duration: 0.4 } },
+          };
+          // Pass through type-specific fields the schema collected.
+          const passthrough = [
+            "type", "text", "color", "size", "weight", "align",
+            "name", "src", "fit",
+            "shape", "fill", "stroke", "strokeWidth", "radius",
+            "title", "subtitle", "rows", "accent", "axisMax",
+            "showAxis", "showValues", "valueSuffix", "bg", "fg", "bar",
+          ];
+          for (const key of passthrough) {
+            if (el?.[key] !== undefined) base[key] = el[key];
+          }
+          // Sensible per-type defaults so Zod doesn't reject minimal elements.
+          if (base.type === "bar-chart") {
+            if (!Array.isArray(base.rows) || !base.rows.length) {
+              base.rows = [{ label: "Item", value: 50 }];
+            }
+          }
+          if (base.type === "shape" && !base.shape) base.shape = "rect";
+          if (base.type === "icon" && !base.name) base.name = "Sparkles";
+          return base;
+        });
+      }
+
+      return scene;
+    });
   }
 
   return out;
+}
+
+function clampFrac(n, fallback) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.max(0, Math.min(1, v));
 }
 
 function assertNoPlaceholders(plan) {
