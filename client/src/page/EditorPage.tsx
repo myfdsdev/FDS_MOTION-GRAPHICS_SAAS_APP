@@ -376,8 +376,8 @@ export default function EditorPage() {
         {/* Left: back arrow + truncating title. `min-w-0` lets the title
             actually shrink instead of pushing the action group off-screen. */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Tooltip content="Back to project" side="bottom">
-            <Link to={`/projects/${project.id}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg">
+          <Tooltip content="Back to projects" side="bottom">
+            <Link to="/projects" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg">
               <ArrowLeft size={16} />
             </Link>
           </Tooltip>

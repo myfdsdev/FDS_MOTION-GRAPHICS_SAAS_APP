@@ -34,8 +34,8 @@ export default function DownloadPage() {
         <h1 className="text-xl font-semibold mb-2">Not ready yet</h1>
         <p className="text-muted mb-4">This video is still being generated.</p>
         <Button asChild>
-          <Link to={`/projects/${id}`}>
-            <ArrowLeft size={14} /> Back to project
+          <Link to={`/projects/${id}/edit`}>
+            <ArrowLeft size={14} /> Back to editor
           </Link>
         </Button>
       </div>
@@ -58,11 +58,11 @@ export default function DownloadPage() {
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <Link
-        to={`/projects/${id}`}
+        to={`/projects/${id}/edit`}
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg mb-6 transition-colors"
       >
         <ArrowLeft size={14} />
-        Back to project
+        Back to editor
       </Link>
 
       <div className="bg-surface border border-border rounded-2xl p-8 shadow-card">

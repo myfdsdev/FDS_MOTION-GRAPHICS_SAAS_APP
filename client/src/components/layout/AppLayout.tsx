@@ -41,6 +41,15 @@ export default function AppLayout() {
     ...NAV,
   ];
 
+  // Mobile drawer — open via the hamburger; auto-close when the route changes.
+  // IMPORTANT: hooks must run on every render, BEFORE any conditional return,
+  // or React's hook-order check throws "Rendered more hooks than during the
+  // previous render".
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -57,12 +66,6 @@ export default function AppLayout() {
     await logout.mutateAsync();
     navigate("/");
   };
-
-  // Mobile drawer — open via the hamburger; auto-close when the route changes.
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  useEffect(() => {
-    setDrawerOpen(false);
-  }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex">

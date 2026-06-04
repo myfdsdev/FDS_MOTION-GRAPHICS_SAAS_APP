@@ -15,7 +15,7 @@ export function ProjectCard({ project }: { project: Project }) {
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.4 }}
       whileHover={{ y: -4 }}
-      to={`/projects/${project.id}`}
+      to={`/projects/${project.id}/edit`}
       className="group block rounded-xl border border-border bg-surface overflow-hidden hover:border-accent/40 transition-colors"
     >
       {/* Thumbnail */}
