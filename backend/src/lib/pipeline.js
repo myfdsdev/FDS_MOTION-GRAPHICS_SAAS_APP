@@ -207,11 +207,21 @@ export async function generationConfigError(userId) {
 }
 
 function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
+  // Narration pace target — 150 words per minute = 2.5 words/sec. Real
+  // explainer-video VOs land around 140-160 wpm, so 2.5 is a safe middle.
+  // We give the model a hard target window so the script length actually
+  // matches the rendered video instead of finishing 6 seconds early.
+  const targetWords = Math.round(durationSec * 2.5);
+  const minWords = Math.round(durationSec * 2.2);
+  const maxWords = Math.round(durationSec * 2.8);
+
   const lines = [
-    "You are a motion-graphics director for a SaaS video generator.",
+    "You are a motion-graphics director AND explainer-video copywriter.",
     "Return only valid JSON that matches the requested schema.",
     `Create a ${durationSec}-second video plan from the user's prompt.`,
     "Use 3 to 5 scenes. Each scene text must be short and suitable for on-screen typography.",
+    // ---- NARRATION TIMING (fixes "narration shorter/longer than video") ---
+    `NARRATION SCRIPT LENGTH IS A HARD REQUIREMENT. The combined narration must take ${durationSec} seconds to read aloud at 150 words per minute. Target: ${targetWords} words total. Acceptable range: ${minWords}-${maxWords} words. Count your words before returning — if you're outside the range, rewrite. Distribute words across scenes proportional to each scene's duration (a 6-second scene gets ~${Math.round(6 * 2.5)} words; a 3-second scene gets ~${Math.round(3 * 2.5)} words).`,
     `Available templates: ${templates.join(", ")}.`,
     `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
     `Available scene templates: ${SCENE_TEMPLATES.join(", ")}.`,
