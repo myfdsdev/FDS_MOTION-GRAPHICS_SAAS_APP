@@ -117,7 +117,7 @@ export const Video = ({ brandColors, scenes, timeline, structureSeed = 0 }) => {
             key={i}
             durationInFrames={Math.max(1, Math.round((Number(scene.duration) || 4) * fps))}
           >
-            <Scene scene={scene} colors={colors} index={i} />
+            <Scene scene={scene} colors={colors} index={i} structureSeed={structureSeed} />
           </Series.Sequence>
         ))}
       </Series>
