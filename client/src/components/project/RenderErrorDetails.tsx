@@ -81,9 +81,17 @@ export function RenderErrorDetails({ project, onRetry }: Props) {
       </Tooltip>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-bg shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border-soft px-5 py-3">
+        // Click outside to close. The flex container guarantees the modal
+        // can't grow taller than the viewport — header/footer pin, body scrolls.
+        <div
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/60 p-3 backdrop-blur-sm sm:p-6"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-bg shadow-2xl"
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-border-soft px-5 py-3">
               <div className="flex items-center gap-2">
                 <AlertTriangle
                   size={16}
@@ -102,7 +110,7 @@ export function RenderErrorDetails({ project, onRetry }: Props) {
               </button>
             </div>
 
-            <div className="max-h-[60vh] space-y-4 overflow-y-auto px-5 py-4 text-sm">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
               {hasError && (
                 <section>
                   <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">
@@ -162,7 +170,7 @@ export function RenderErrorDetails({ project, onRetry }: Props) {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-border-soft bg-bg/60 px-5 py-3">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border-soft bg-bg/60 px-5 py-3">
               <button
                 onClick={copy}
                 className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg hover:border-accent/40"

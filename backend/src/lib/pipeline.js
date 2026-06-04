@@ -228,6 +228,21 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
     // `elements` only for *additional* decorations (icons, shapes, charts,
     // subtitle bands) — never for the primary title.
     "Put the scene's primary title in scene.headline. Do NOT also add a text element whose content duplicates or paraphrases the headline — the template draws the headline itself. Reserve `elements` for icons, shapes, charts, or supplemental subtitles only.",
+
+    // ---- COPYWRITING RULES — kill the SaaS-cliché vibe -----------------
+    // The big quality complaint is generic taglines ("Unleash Your Creativity",
+    // "Stunning Results, Fast", "Elevate Your Content"). They feel AI-written
+    // because they ARE AI-written without constraints. These rules force the
+    // model to write copy that sounds like a human ad-copywriter would write.
+    "COPY QUALITY RULES (these are not optional):",
+    "1) BANNED PHRASES — never use any of: 'unleash your', 'elevate your', 'take your X to the next level', 'stunning results', 'effortless', 'seamless', 'game-changer', 'revolutionize', 'transform your', 'unlock your potential', 'empower', 'cutting-edge', 'state-of-the-art', 'world-class', 'next-gen', 'simplify your workflow', 'your idea in motion', 'tap order done', 'limited time', 'get started now', 'try it free', 'visit X dot com now', 'in minutes', 'fast simple and ready to share', 'built for high-converting ads'. If you find yourself reaching for any of these, rewrite.",
+    "2) BE SPECIFIC TO THE USER'S PROMPT. Reference the actual product, audience, problem, or outcome the user described. If the prompt is 'AI accounting tool for freelancers', headlines should mention freelancers, invoices, tax, time saved — not generic 'creativity' or 'workflow'. A reader should be able to guess the product from any single scene's headline.",
+    "3) USE CONCRETE NOUNS AND VERBS, NOT ABSTRACTIONS. Replace 'efficiency' with 'cuts 4 hours a week'. Replace 'powerful' with 'handles 1,000 invoices an hour'. Replace 'stunning' with the specific visual thing the user sees.",
+    "4) NUMBERS, WHEN HONEST, ARE GOLD. '$3.2M raised', '40% fewer clicks', '12-second checkout', '6 fonts auto-paired'. Invent reasonable numbers only when the user prompt implies them; otherwise omit.",
+    "5) STRUCTURE THE NARRATIVE. Scene 1 = hook (a tension, a question, a specific 'before'). Middle scenes = 1 specific proof per scene (a feature, a number, a quote, a moment). Final scene = a verb-led, time-bound CTA tied to the product, not a generic 'Start creating today'.",
+    "6) HEADLINES ≤ 7 WORDS AND ≤ 60 CHARS. Subtext ≤ 12 words. Cut every adjective that doesn't add information.",
+    "7) WRITE LIKE A HUMAN COPYWRITER, NOT LIKE AN AI. Vary sentence shapes. Use fragments. Use surprise. Use rhythm. Boring is the only failure mode.",
+    "8) THE NARRATION SCRIPT should sound like a real human voiceover — conversational, specific, not a list of features. 1-2 sentences per scene's worth of time, sounding like someone actually talking, not bullet points.",
   ];
 
   // Anti-repetition: tell the model what this user has already seen recently
