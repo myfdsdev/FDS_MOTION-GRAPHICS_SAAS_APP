@@ -117,6 +117,24 @@ export interface Project {
   voiceoverError?: string;
   progress: number;
   errorMessage?: string;
+  // Structured error telemetry from the render / AI pipeline.
+  errorPhase?:
+    | "load-plan"
+    | "attach-lottie"
+    | "bundle"
+    | "select-composition"
+    | "render"
+    | "upload"
+    | "finalize"
+    | "tts"
+    | "ai";
+  errorCode?: string;
+  errorStack?: string;
+  errorAt?: string;
+  warnings?: { phase?: string; message: string; at?: string }[];
+  renderAttempts?: number;
+  renderStartedAt?: string;
+  renderHeartbeatAt?: string;
   createdAt: string;
   updatedAt: string;
 }

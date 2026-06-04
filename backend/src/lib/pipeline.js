@@ -585,6 +585,27 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
         console.warn(`[pipeline] voiceover failed for ${projectId}: ${voiceoverError}`);
       }
     }
+    // Surface non-fatal voiceover failures into the structured warnings list
+    // so the UI can show the root cause alongside "Narration unavailable".
+    if (voiceoverError) {
+      await Project.updateOne(
+        { _id: projectId },
+        {
+          $push: {
+            warnings: {
+              $each: [
+                {
+                  phase: "tts",
+                  message: `Voiceover skipped: ${voiceoverError}`,
+                  at: new Date(),
+                },
+              ],
+              $slice: -10,
+            },
+          },
+        }
+      ).catch(() => {});
+    }
 
     await Project.updateOne(
       { _id: projectId },
@@ -605,6 +626,8 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Pipeline error";
+    const code = err instanceof Error ? err.code || err.name || null : null;
+    const stack = err instanceof Error ? err.stack || null : null;
     console.error(`[pipeline] project ${projectId} failed:`, err);
     await Project.updateOne(
       { _id: projectId },
@@ -612,6 +635,10 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
         status: "FAILED",
         progress: 0,
         errorMessage: message,
+        errorPhase: "ai",
+        errorCode: code,
+        errorStack: stack,
+        errorAt: new Date(),
         outputUrl: null,
         thumbnailUrl: null,
       }

@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
 import { LivePreview } from "@/components/canvas/LivePreview";
+import { RenderErrorDetails } from "@/components/project/RenderErrorDetails";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -416,6 +417,7 @@ export default function EditorPage() {
               </span>
             </button>
           </Tooltip>
+          <RenderErrorDetails project={project} onRetry={handleRender} />
           {project.status === "DONE" && project.outputUrl && (
             <Tooltip content="Download MP4" side="bottom">
               <a
