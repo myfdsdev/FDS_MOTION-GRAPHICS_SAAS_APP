@@ -58,6 +58,51 @@ const projectSchema = new Schema(
     voiceoverError: { type: String, default: null },
     progress: { type: Number, default: 0 },
     errorMessage: { type: String, default: null },
+    // ---- Structured error / pipeline telemetry ---------------------------
+    // Filled by the render worker whenever a job fails or a non-fatal warning
+    // occurs. Lets the UI explain *where* (phase) and *why* (stack + code)
+    // it broke instead of showing a vague single line.
+    errorPhase: {
+      type: String,
+      enum: [
+        null,
+        "load-plan",
+        "attach-lottie",
+        "bundle",
+        "select-composition",
+        "render",
+        "upload",
+        "finalize",
+        "tts",
+        "ai",
+      ],
+      default: null,
+    },
+    errorCode: { type: String, default: null },
+    errorStack: { type: String, default: null },
+    errorAt: { type: Date, default: null },
+    // Non-fatal warnings collected during this project's lifecycle (e.g.
+    // "narration script truncated", "lottie asset missing, scene rendered
+    // without it"). Capped to last 10 to keep doc size sane.
+    warnings: {
+      type: [
+        {
+          phase: String,
+          message: String,
+          at: { type: Date, default: () => new Date() },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+    // Render attempt counter — incremented every time the worker claims the
+    // project. The watchdog uses this to give up after too many auto-retries.
+    renderAttempts: { type: Number, default: 0 },
+    // When the worker claimed the job, used by the stuck-render watchdog.
+    renderStartedAt: { type: Date, default: null },
+    // Set when the worker last reported progress; watchdog uses it to
+    // detect a worker that died silently mid-render.
+    renderHeartbeatAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
