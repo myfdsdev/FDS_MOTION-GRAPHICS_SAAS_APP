@@ -384,6 +384,12 @@ function ElementBody({ el, height }) {
   if (el.type === "bar-chart") {
     return <BarChartElementBody el={el} height={height} />;
   }
+  if (el.type === "line-chart") {
+    return <LineChartElementBody el={el} height={height} />;
+  }
+  if (el.type === "stat") {
+    return <StatElementBody el={el} height={height} />;
+  }
   if (el.type === "subtitle") {
     return <SubtitleElementBody el={el} height={height} />;
   }
@@ -491,6 +497,243 @@ function computeBarChartProgressNode(el, sceneTime) {
   );
 
   return { titleP, subtitleP, axisP, rowsP };
+}
+
+// ---------------------------------------------------------------------------
+// Growth / line chart. Draws an SVG polyline + filled area that progressively
+// "draws itself" left-to-right (stroke-dasharray trick); a number badge at
+// the end counts up to `finalValue` once the line reaches it. Perfect for
+// "Revenue grew 4×" explainer scenes.
+// ---------------------------------------------------------------------------
+function LineChartElementBody({ el, height }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const totalDur = Math.max(0.4, Number(el.animationDuration) || 1.6);
+  const seconds = frame / fps;
+  const p = Math.max(0, Math.min(1, seconds / totalDur));
+  const fontSize = (Number(el.size) || 0.05) * height;
+
+  const points = Array.isArray(el.points) ? el.points : [];
+  if (points.length < 2) {
+    return <div style={{ width: "100%", height: "100%", color: "#f88" }}>line-chart needs ≥ 2 points</div>;
+  }
+  const values = points.map((pt) => Number(pt.value) || 0);
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+
+  // Inner padding inside the card so axis labels never touch the edge.
+  const PAD = 0.08;
+  const xy = points.map((_, i) => {
+    const x = PAD + (i / (points.length - 1)) * (1 - 2 * PAD);
+    const y = PAD + (1 - (values[i] - min) / range) * (1 - 2 * PAD);
+    return { x: x * 100, y: y * 100 };
+  });
+  const linePath = xy.reduce(
+    (acc, pt, i) => acc + (i === 0 ? `M${pt.x},${pt.y}` : ` L${pt.x},${pt.y}`),
+    ""
+  );
+  const areaPath =
+    linePath +
+    ` L${xy[xy.length - 1].x},${100 - PAD * 100}` +
+    ` L${xy[0].x},${100 - PAD * 100} Z`;
+
+  const lineColor = el.line || el.accent || "#34d399";
+  const fillColor = el.fill || `${lineColor}33`;
+  const bg = el.bg || "rgba(8, 10, 20, 0.55)";
+  const fg = el.fg || "#ffffff";
+
+  // Smooth count-up for the final value badge — starts at 65% of total dur.
+  const animatedFinal =
+    (Number(el.finalValue) || values[values.length - 1]) *
+    Math.max(0, Math.min(1, (p - 0.65) / 0.35));
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: bg,
+        borderRadius: 16,
+        padding: "5%",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        color: fg,
+        fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      }}
+    >
+      {(el.title || el.subtitle) && (
+        <div style={{ flex: "0 0 auto" }}>
+          {el.title && (
+            <div style={{ fontSize: fontSize * 1.4, fontWeight: 800, letterSpacing: "-0.02em" }}>
+              {el.title}
+            </div>
+          )}
+          {el.subtitle && (
+            <div style={{ fontSize: fontSize * 0.75, opacity: 0.7, marginTop: 2 }}>
+              {el.subtitle}
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{ flex: 1, position: "relative" }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+          {el.showGrid !== false && (
+            <g stroke={`${fg}22`} strokeWidth={0.2}>
+              {[0, 25, 50, 75, 100].map((y) => (
+                <line key={y} x1={PAD * 100} x2={(1 - PAD) * 100} y1={y} y2={y} />
+              ))}
+            </g>
+          )}
+          {/* Filled area under the line, revealed left-to-right. */}
+          <clipPath id={`clip-${el.id}`}>
+            <rect x={0} y={0} width={p * 100} height={100} />
+          </clipPath>
+          <path d={areaPath} fill={fillColor} clipPath={`url(#clip-${el.id})`} />
+          <path
+            d={linePath}
+            fill="none"
+            stroke={lineColor}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            clipPath={`url(#clip-${el.id})`}
+          />
+          {/* End-dot glow */}
+          {p > 0.05 && (
+            <circle
+              cx={xy[Math.floor(p * (xy.length - 1))]?.x ?? xy[xy.length - 1].x}
+              cy={xy[Math.floor(p * (xy.length - 1))]?.y ?? xy[xy.length - 1].y}
+              r={1.4}
+              fill={lineColor}
+              style={{ filter: `drop-shadow(0 0 4px ${lineColor})` }}
+            />
+          )}
+        </svg>
+      </div>
+      {/* Final value badge — appears as the line completes. */}
+      {p > 0.65 && (
+        <div
+          style={{
+            alignSelf: "flex-start",
+            fontSize: fontSize * 1.8,
+            fontWeight: 900,
+            color: lineColor,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {el.valuePrefix || ""}
+          {Math.round(animatedFinal).toLocaleString()}
+          {el.valueSuffix || ""}
+          {el.finalLabel && (
+            <span style={{ fontSize: fontSize * 0.7, color: `${fg}99`, marginLeft: 8, fontWeight: 500 }}>
+              {el.finalLabel}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Stat tile — big animated number + label + optional caption + optional
+// sparkline. Used for "$1.2M ARR", "98% retention", "4× faster" beats.
+// ---------------------------------------------------------------------------
+function StatElementBody({ el, height }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const totalDur = Math.max(0.3, Number(el.animationDuration) || 1.2);
+  const seconds = frame / fps;
+  const ease = (t) => 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
+  const p = ease(seconds / totalDur);
+
+  const fontSize = (Number(el.size) || 0.08) * height;
+  const bg = el.bg || "rgba(8, 10, 20, 0.55)";
+  const fg = el.fg || "#ffffff";
+  const accent = el.accent || "#fbbf24";
+
+  const finalValue = Number(el.value) || 0;
+  const shown =
+    el.countUp === false ? finalValue : Math.round(finalValue * p * 1000) / 1000;
+  const formatted =
+    Math.abs(shown) >= 1000
+      ? Math.round(shown).toLocaleString()
+      : Number.isInteger(finalValue)
+      ? String(Math.round(shown))
+      : shown.toFixed(1);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: bg,
+        borderRadius: 16,
+        padding: "8% 10%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        gap: 8,
+        color: fg,
+        fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      }}
+    >
+      {el.label && (
+        <div style={{ fontSize: fontSize * 0.5, letterSpacing: "0.12em", textTransform: "uppercase", opacity: 0.65 }}>
+          {el.label}
+        </div>
+      )}
+      <div
+        style={{
+          fontSize: fontSize * 2.6,
+          fontWeight: 900,
+          letterSpacing: "-0.03em",
+          color: accent,
+          textShadow: `0 8px 40px ${accent}55`,
+          lineHeight: 1,
+        }}
+      >
+        {el.valuePrefix || ""}
+        {formatted}
+        {el.valueSuffix || ""}
+      </div>
+      {Array.isArray(el.sparkline) && el.sparkline.length >= 2 && (
+        <svg
+          viewBox="0 0 100 24"
+          preserveAspectRatio="none"
+          style={{ width: "60%", height: fontSize * 1.1, opacity: 0.85 }}
+        >
+          {(() => {
+            const vs = el.sparkline.map((n) => Number(n) || 0);
+            const max = Math.max(...vs);
+            const min = Math.min(...vs);
+            const range = max - min || 1;
+            const xy = vs.map((v, i) => ({
+              x: (i / (vs.length - 1)) * 100,
+              y: 22 - ((v - min) / range) * 20,
+            }));
+            const d = xy.reduce(
+              (a, pt, i) => a + (i === 0 ? `M${pt.x},${pt.y}` : ` L${pt.x},${pt.y}`),
+              ""
+            );
+            return (
+              <>
+                <path d={d + ` L100,24 L0,24 Z`} fill={`${accent}33`} />
+                <path d={d} fill="none" stroke={accent} strokeWidth={1.4} strokeLinecap="round" />
+              </>
+            );
+          })()}
+        </svg>
+      )}
+      {el.caption && (
+        <div style={{ fontSize: fontSize * 0.55, opacity: 0.75, marginTop: 4 }}>
+          {el.caption}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function BarChartElementBody({ el, height }) {

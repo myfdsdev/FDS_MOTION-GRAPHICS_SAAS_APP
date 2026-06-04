@@ -83,7 +83,7 @@ function elementSchemaJson() {
     additionalProperties: false,
     required: ["type", "x", "y", "w", "h"],
     properties: {
-      type: { type: "string", enum: ["text", "icon", "image", "shape", "bar-chart", "subtitle"] },
+      type: { type: "string", enum: ["text", "icon", "image", "shape", "bar-chart", "line-chart", "stat", "subtitle"] },
       x: { type: "number", minimum: 0, maximum: 1 },
       y: { type: "number", minimum: 0, maximum: 1 },
       w: { type: "number", minimum: 0.02, maximum: 1 },
@@ -123,6 +123,32 @@ function elementSchemaJson() {
           },
         },
       },
+      // Line / growth chart
+      points: {
+        type: "array",
+        minItems: 2,
+        maxItems: 12,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["value"],
+          properties: {
+            label: { type: "string", maxLength: 24 },
+            value: { type: "number", minimum: 0, maximum: 10000 },
+          },
+        },
+      },
+      line: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      finalValue: { type: "number" },
+      finalLabel: { type: "string", maxLength: 40 },
+      valuePrefix: { type: "string", maxLength: 8 },
+      valueSuffix: { type: "string", maxLength: 8 },
+      // Stat tile
+      value: { type: "number" },
+      label: { type: "string", maxLength: 80 },
+      caption: { type: "string", maxLength: 160 },
+      accent: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      sparkline: { type: "array", minItems: 2, maxItems: 20, items: { type: "number" } },
     },
   };
 }
@@ -239,7 +265,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
                     properties: {
                       type: {
                         type: "STRING",
-                        enum: ["text", "icon", "image", "shape", "bar-chart", "subtitle"],
+                        enum: ["text", "icon", "image", "shape", "bar-chart", "line-chart", "stat", "subtitle"],
                       },
                       x: { type: "NUMBER" },
                       y: { type: "NUMBER" },
@@ -272,6 +298,27 @@ function createGeminiResponseSchema(lottieAssetIds) {
                           required: ["label", "value"],
                         },
                       },
+                      points: {
+                        type: "ARRAY",
+                        items: {
+                          type: "OBJECT",
+                          properties: {
+                            label: { type: "STRING" },
+                            value: { type: "NUMBER" },
+                          },
+                          required: ["value"],
+                        },
+                      },
+                      line: { type: "STRING" },
+                      finalValue: { type: "NUMBER" },
+                      finalLabel: { type: "STRING" },
+                      valuePrefix: { type: "STRING" },
+                      valueSuffix: { type: "STRING" },
+                      value: { type: "NUMBER" },
+                      label: { type: "STRING" },
+                      caption: { type: "STRING" },
+                      accent: { type: "STRING" },
+                      sparkline: { type: "ARRAY", items: { type: "NUMBER" } },
                     },
                     required: ["type", "x", "y", "w", "h"],
                   },
@@ -401,7 +448,10 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
     "  - The scene template already draws scene.headline and scene.subtext as the main on-screen text. You do NOT add text elements for the title.",
     "  - Every scene MUST include 2-4 graphical elements in `elements[]`: icons (lucide-react names), shapes (rect/ellipse), images (when relevant), or bar-charts (for data scenes).",
     "  - Use icons aggressively. Good lucide names to draw from: Sparkles, Zap, Clock, BarChart3, TrendingUp, ShieldCheck, Users, ArrowRight, Check, CheckCircle2, Star, Heart, Rocket, Target, Lightbulb, MessageSquare, Mail, Calendar, CreditCard, ShoppingCart, Smartphone, Monitor, Globe, Lock, Unlock, Search, Settings, Bell, Eye, EyeOff, Play, Pause, Download, Upload, Share2, Award, Trophy, ThumbsUp, Smile.",
-    "  - For a scene about data or numbers: include a `bar-chart` element with 2-4 real-looking rows.",
+    "  - For a scene about data or numbers, pick the RIGHT chart type:",
+    "    · 'bar-chart' — comparing 2-6 categories (e.g. before/after, by team, by region). Rows are {label, value 0-100}.",
+    "    · 'line-chart' — showing GROWTH over time. Points are {label?, value}; 4-10 points produce a great curve. Always include `finalValue`, `finalLabel`, and the latest value also in the last `points[].value`. Use this whenever the topic is 'growth', 'trend', 'over time', 'X to Y', 'progress'.",
+    "    · 'stat' — ONE headline number you want to brag about ($1.2M, 98%, 4×, 312 users). Set `value`, `valuePrefix`/`valueSuffix` (e.g. '$', '%', 'x', 'K'), `label` (short uppercase context), and optional `caption` (sub-line). Include a 6-12 point `sparkline` array of background-trend numbers to make the stat feel alive.",
     "  - For a scene about features or steps: include 2-4 icon elements arranged horizontally or in a grid, each with a tiny text label (≤ 3 words).",
     "  - For a scene about people / testimonials: include a circular shape (profile placeholder) + a quote-style subtitle element.",
     "  - For a CTA scene: include a button-like rounded rect shape + an arrow icon.",
