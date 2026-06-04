@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowUp,
@@ -35,7 +35,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender } from "@/lib/queries";
+import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender, useDeleteProject } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
 import { RenderedPreview } from "@/components/canvas/RenderedPreview";
 import { RenderErrorDetails } from "@/components/project/RenderErrorDetails";
@@ -85,6 +85,24 @@ export default function EditorPage() {
   const updateProject = useUpdateProject(id);
   const generate = useGenerateProject(id);
   const rerender = useRerender();
+  const deleteProject = useDeleteProject();
+  const navigate = useNavigate();
+
+  const handleDelete = () => {
+    if (!project) return;
+    const label = project.prompt
+      ? project.prompt.slice(0, 80) + (project.prompt.length > 80 ? "…" : "")
+      : "this project";
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    deleteProject.mutate(project.id, {
+      onSuccess: () => {
+        toast.success("Project deleted");
+        navigate("/projects");
+      },
+      onError: (err) =>
+        toast.error(err instanceof Error ? err.message : "Delete failed"),
+    });
+  };
 
   const [state, dispatch] = useReducer(editorReducer, EMPTY_STATE);
   const [panel, setPanel] = useState<PanelId>("chat");
@@ -418,6 +436,19 @@ export default function EditorPage() {
             </button>
           </Tooltip>
           <RenderErrorDetails project={project} onRetry={handleRender} />
+          <Tooltip content="Delete project" side="bottom">
+            <button
+              onClick={handleDelete}
+              disabled={deleteProject.isPending}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2 text-xs font-medium text-fg hover:border-danger/50 hover:bg-danger/10 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
+              aria-label="Delete project"
+            >
+              <Trash2 size={13} />
+              <span className="hidden sm:inline">
+                {deleteProject.isPending ? "Deleting…" : "Delete"}
+              </span>
+            </button>
+          </Tooltip>
           {project.status === "DONE" && project.outputUrl && (
             <Tooltip content="Download MP4" side="bottom">
               <a

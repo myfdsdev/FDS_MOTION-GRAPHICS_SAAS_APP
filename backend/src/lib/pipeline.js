@@ -546,6 +546,78 @@ function assertNoPlaceholders(plan) {
   if (match) throw new Error(`AI response included placeholder copy: ${match}`);
 }
 
+// Light client-side quality checks. The AI is told to follow these rules in
+// the system prompt; this catches the cases where it ignores them. We DON'T
+// throw — instead we record warnings on the project so the user can see why
+// a render might feel off and we can regenerate if needed.
+function gradePlanQuality(plan, script, durationSec) {
+  const warnings = [];
+
+  // 1. Narration length should match video runtime at ~150 wpm.
+  if (script && typeof script === "string") {
+    const wordCount = script.trim().split(/\s+/).filter(Boolean).length;
+    const target = Math.round(durationSec * 2.5);
+    const min = Math.round(durationSec * 2.0);
+    const max = Math.round(durationSec * 3.0);
+    if (wordCount < min) {
+      warnings.push(
+        `Narration is too short: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will finish early.`
+      );
+    } else if (wordCount > max) {
+      warnings.push(
+        `Narration is too long: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will run past the video.`
+      );
+    }
+  }
+
+  // 2. Every scene should have at least one visual (icon/shape/image/chart).
+  const scenes = Array.isArray(plan?.scenes) ? plan.scenes : [];
+  const textOnlyScenes = scenes.filter((s) => {
+    const els = Array.isArray(s.elements) ? s.elements : [];
+    return !els.some((el) => ["icon", "image", "shape", "lottie", "bar-chart"].includes(el.type));
+  });
+  if (textOnlyScenes.length) {
+    warnings.push(
+      `${textOnlyScenes.length} of ${scenes.length} scene(s) have no graphical elements — they'll feel text-heavy.`
+    );
+  }
+
+  // 3. Headline length sanity.
+  const longHeadlines = scenes.filter(
+    (s) => typeof s.headline === "string" && s.headline.length > 70
+  );
+  if (longHeadlines.length) {
+    warnings.push(
+      `${longHeadlines.length} scene headline(s) exceed 70 characters and may wrap awkwardly on screen.`
+    );
+  }
+
+  // 4. Banned-phrase check (post-hoc, in case the model ignored the rule).
+  const bannedPhrases = [
+    "unleash your",
+    "elevate your",
+    "stunning results",
+    "effortless",
+    "seamless",
+    "your idea in motion",
+    "limited time",
+    "tap. order. done",
+    "try it free",
+    "get started now",
+    "simplify your workflow",
+    "next level",
+  ];
+  const flat = JSON.stringify(plan || {}).toLowerCase() + " " + (script || "").toLowerCase();
+  const hit = bannedPhrases.filter((p) => flat.includes(p));
+  if (hit.length) {
+    warnings.push(
+      `Plan contains cliché phrase(s) the prompt told the AI to avoid: ${hit.join(", ")}.`
+    );
+  }
+
+  return warnings;
+}
+
 async function generateVideoPlan(prompt, durationSec, userId) {
   const config = await resolveAiConfig(userId);
   if (!config) throw new Error(await generationConfigError(userId));
@@ -649,6 +721,32 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
     // Persist this video's structural signature on the user so the NEXT
     // generation knows what to avoid. Power-user variety engine.
     await recordVideoSignature(userId, projectId, plan).catch(() => {});
+
+    // Quality grading — surface warnings about narration length, missing
+    // graphics, headline length, and cliché phrases so the user sees the
+    // root cause when a video feels off. Never fails the project.
+    try {
+      const qualityWarnings = gradePlanQuality(plan, script, durationSec);
+      if (qualityWarnings.length) {
+        await Project.updateOne(
+          { _id: projectId },
+          {
+            $push: {
+              warnings: {
+                $each: qualityWarnings.map((message) => ({
+                  phase: "ai",
+                  message,
+                  at: new Date(),
+                })),
+                $slice: -10,
+              },
+            },
+          }
+        );
+      }
+    } catch (gradeErr) {
+      console.warn(`[pipeline] quality grading failed for ${projectId}:`, gradeErr);
+    }
 
     // Voiceover is additive — TTS failure (or missing key) must NEVER fail the
     // project. We try, swallow errors, and continue to READY_TO_EDIT. A short
