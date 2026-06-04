@@ -252,7 +252,29 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
     "5) STRUCTURE THE NARRATIVE. Scene 1 = hook (a tension, a question, a specific 'before'). Middle scenes = 1 specific proof per scene (a feature, a number, a quote, a moment). Final scene = a verb-led, time-bound CTA tied to the product, not a generic 'Start creating today'.",
     "6) HEADLINES ≤ 7 WORDS AND ≤ 60 CHARS. Subtext ≤ 12 words. Cut every adjective that doesn't add information.",
     "7) WRITE LIKE A HUMAN COPYWRITER, NOT LIKE AN AI. Vary sentence shapes. Use fragments. Use surprise. Use rhythm. Boring is the only failure mode.",
-    "8) THE NARRATION SCRIPT should sound like a real human voiceover — conversational, specific, not a list of features. 1-2 sentences per scene's worth of time, sounding like someone actually talking, not bullet points.",
+
+    // ---- EXPLAINER-VIDEO NARRATION STYLE (fixes "narration is generic") ----
+    "NARRATION SCRIPT STYLE — write a true explainer-video voiceover, not a list of marketing taglines:",
+    "  - Address the viewer directly as 'you'. Use contractions ('you're', 'we'll', 'it's').",
+    "  - Open with a relatable problem, a curiosity hook, or a specific 'before' state — not the product name.",
+    "  - Each middle scene's narration EXPLAINS one feature or benefit in plain language, not lists it.",
+    "  - End with a clear, low-friction next step ('Sign up free at <domain>', 'Open the app and try it today', 'Book a 10-minute demo this week').",
+    "  - Sentences flow like speech: short, varied length, occasionally a fragment for emphasis.",
+    "  - NO bullet-point feel. NO lists of three adjectives ('fast, simple, powerful'). NO 'introducing X'.",
+    "  - The narration should make sense played alone with the screen black — it should TELL the whole story even without the visuals.",
+
+    // ---- VISUAL DENSITY (fixes "too much text, few graphics") ----
+    "VISUAL ELEMENTS — every scene MUST be visually rich, not text-only:",
+    "  - The scene template already draws scene.headline and scene.subtext as the main on-screen text. You do NOT add text elements for the title.",
+    "  - Every scene MUST include 2-4 graphical elements in `elements[]`: icons (lucide-react names), shapes (rect/ellipse), images (when relevant), or bar-charts (for data scenes).",
+    "  - Use icons aggressively. Good lucide names to draw from: Sparkles, Zap, Clock, BarChart3, TrendingUp, ShieldCheck, Users, ArrowRight, Check, CheckCircle2, Star, Heart, Rocket, Target, Lightbulb, MessageSquare, Mail, Calendar, CreditCard, ShoppingCart, Smartphone, Monitor, Globe, Lock, Unlock, Search, Settings, Bell, Eye, EyeOff, Play, Pause, Download, Upload, Share2, Award, Trophy, ThumbsUp, Smile.",
+    "  - For a scene about data or numbers: include a `bar-chart` element with 2-4 real-looking rows.",
+    "  - For a scene about features or steps: include 2-4 icon elements arranged horizontally or in a grid, each with a tiny text label (≤ 3 words).",
+    "  - For a scene about people / testimonials: include a circular shape (profile placeholder) + a quote-style subtitle element.",
+    "  - For a CTA scene: include a button-like rounded rect shape + an arrow icon.",
+    "  - Text elements in `elements[]` are ONLY for tiny labels (≤ 3 words) sitting next to an icon or shape — NEVER for the scene title.",
+    "  - Place elements at fractional coordinates (x, y, w, h all in 0..1). Avoid overlapping. Use the lower half / sides of the canvas so they don't collide with the template's centered headline.",
+    "  - A scene with 0 elements is REJECTED. A scene with only text elements is REJECTED. Mix at least one icon or shape into every scene.",
   ];
 
   // Anti-repetition: tell the model what this user has already seen recently
