@@ -167,6 +167,58 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
     animationDuration: z.number().min(0.2).max(60).optional(),
     startDelay: z.number().min(0).max(60).optional(),
   }),
+  // ---- Growth / line chart ----------------------------------------------
+  // An animated line trace + filled area going up-and-to-the-right (or any
+  // shape, but the AI prompt steers it toward growth). Each point is drawn
+  // as the line "draws itself" left-to-right; the value badge counts up at
+  // the end.
+  z.object({
+    ...ElementBase,
+    type: z.literal("line-chart"),
+    title: z.string().max(160).optional(),
+    subtitle: z.string().max(300).optional(),
+    points: z
+      .array(
+        z.object({
+          label: z.string().max(40).optional(),
+          value: z.number().min(0).max(10000),
+        })
+      )
+      .min(2)
+      .max(20),
+    bg: Hex.optional(),
+    fg: Hex.optional(),
+    line: Hex.optional(),
+    fill: Hex.optional(),
+    showGrid: z.boolean().optional(),
+    showAxis: z.boolean().optional(),
+    valueSuffix: z.string().max(8).optional(),
+    valuePrefix: z.string().max(8).optional(),
+    finalValue: z.number().min(0).max(1e9).optional(),
+    finalLabel: z.string().max(40).optional(),
+    animationDuration: z.number().min(0.2).max(60).optional(),
+  }),
+  // ---- Stat tile --------------------------------------------------------
+  // Big number + label + optional caption + optional tiny sparkline. The
+  // single most reused element in explainer videos ("$1.2M ARR", "98%
+  // retention", "4× faster").
+  z.object({
+    ...ElementBase,
+    type: z.literal("stat"),
+    value: z.number().min(-1e9).max(1e9),
+    valuePrefix: z.string().max(8).optional(),
+    valueSuffix: z.string().max(8).optional(),
+    label: z.string().max(120).optional(),
+    caption: z.string().max(160).optional(),
+    bg: Hex.optional(),
+    fg: Hex.optional(),
+    accent: Hex.optional(),
+    // Optional inline sparkline data — drawn under the number.
+    sparkline: z.array(z.number()).min(2).max(40).optional(),
+    /** Animate the number counting up from 0 to value. Default true. */
+    countUp: z.boolean().optional(),
+    animationDuration: z.number().min(0.2).max(60).optional(),
+  }),
   z.object({
     ...ElementBase,
     // Karaoke-style live subtitles. Each word highlights in `accent` while
