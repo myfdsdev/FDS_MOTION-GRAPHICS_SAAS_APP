@@ -88,18 +88,22 @@ async function recordWarning(projectId, phase, message) {
 
 /**
  * On boot, any project still marked RENDERING is an orphan from a worker
- * that died (crash, OOM kill, restart). Requeue it so the next claim picks
- * it up — unless it has hit MAX_AUTO_RETRIES, in which case fail it
- * deterministically instead of letting it loop.
+ * that died (crash, OOM kill, restart, deploy). The honest read is "we
+ * can't tell if the project is broken or the worker just restarted", so
+ * we err on the side of the project: requeue WITHOUT counting it as a
+ * retry. Only fail an orphan if it had actually made real render progress
+ * (progress > 30, meaning renderMedia was producing frames) AND already
+ * burned its retries — that's a strong signal the project itself is bad.
  */
 async function reclaimOrphans() {
   const orphans = await Project.find({ status: "RENDERING", deletedAt: null }).select(
-    "_id renderAttempts userId durationSec"
+    "_id renderAttempts userId durationSec progress"
   );
   if (!orphans.length) return;
   console.log(`[worker] reclaiming ${orphans.length} orphan(s) from previous run`);
   for (const o of orphans) {
-    if ((o.renderAttempts ?? 0) >= MAX_AUTO_RETRIES) {
+    const madeRealProgress = (o.progress ?? 0) > 30;
+    if (madeRealProgress && (o.renderAttempts ?? 0) >= MAX_AUTO_RETRIES) {
       await Project.updateOne(
         { _id: o._id },
         {
@@ -108,20 +112,24 @@ async function reclaimOrphans() {
           errorPhase: "render",
           errorCode: "ORPHAN_MAX_RETRIES",
           errorMessage:
-            "Worker restarted while rendering and the job already exhausted its automatic retries.",
+            "Render started, made real progress, then crashed twice. Marking failed so it doesn't loop. Click Retry to try again with a fresh attempt counter.",
           errorAt: new Date(),
         }
       );
       await refundCredits(String(o.userId), costForDuration(o.durationSec), String(o._id)).catch(
         () => {}
       );
-      console.warn(`[worker] orphan ${o._id} exhausted retries → FAILED`);
+      console.warn(`[worker] orphan ${o._id} truly exhausted (progress=${o.progress}) → FAILED`);
     } else {
+      // Restart-only or progress-less orphan: requeue WITHOUT incrementing
+      // attempts. A worker restart isn't the project's fault.
       await Project.updateOne(
         { _id: o._id },
         { status: "QUEUED", progress: 0, renderStartedAt: null, renderHeartbeatAt: null }
       );
-      console.log(`[worker] orphan ${o._id} → re-QUEUED`);
+      console.log(
+        `[worker] orphan ${o._id} re-QUEUED (no attempt charged, progress was ${o.progress ?? 0})`
+      );
     }
   }
 }

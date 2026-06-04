@@ -174,9 +174,19 @@ projectsRouter.post("/:id/rerender", async (req, res, next) => {
     const cost = costForDuration(project.durationSec);
     await deductCredits(req.user.id, cost, String(project._id));
 
+    // User-initiated retry — wipe the failure state AND reset the orphan/
+    // watchdog counters. A retry from the UI is a fresh start; we shouldn't
+    // count the prior auto-attempts against the new try.
     project.progress = 0;
     project.errorMessage = null;
+    project.errorPhase = null;
+    project.errorCode = null;
+    project.errorStack = null;
+    project.errorAt = null;
     project.outputUrl = null;
+    project.renderAttempts = 0;
+    project.renderStartedAt = null;
+    project.renderHeartbeatAt = null;
 
     // If the project has an edited timeline, render it directly (skip the AI
     // pipeline so manual edits are preserved). The worker claims QUEUED jobs.
