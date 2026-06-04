@@ -745,6 +745,10 @@ function sanitizePlan(plan) {
             "shape", "fill", "stroke", "strokeWidth", "radius",
             "title", "subtitle", "rows", "accent", "axisMax",
             "showAxis", "showValues", "valueSuffix", "bg", "fg", "bar",
+            // New chart types
+            "points", "line", "finalValue", "finalLabel", "valuePrefix",
+            "value", "label", "caption", "sparkline", "countUp", "showGrid",
+            "animationDuration",
           ];
           for (const key of passthrough) {
             if (el?.[key] !== undefined) base[key] = el[key];
