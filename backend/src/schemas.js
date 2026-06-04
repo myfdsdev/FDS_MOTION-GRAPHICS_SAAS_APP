@@ -280,6 +280,11 @@ export const VideoPlanSchema = z.object({
   brandColors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional(),
   scenes: z.array(SceneSchema).min(1).max(50),
   timeline: TimelineSchema.optional(),
+  // Per-video deterministic seed (random at creation) mixed into the
+  // renderer's structural variant picker. Same plan + same seed = identical
+  // output; same prompt + new seed = visibly different structure. Critical
+  // for power-user variety.
+  structureSeed: z.number().int().optional(),
 });
 
 export const UpdateProjectInput = z.object({

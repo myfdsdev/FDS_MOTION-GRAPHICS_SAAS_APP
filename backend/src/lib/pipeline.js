@@ -586,6 +586,17 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
 
     const { script, plan } = await generateVideoPlan(prompt, durationSec, userId);
 
+    // Stamp the project's structureSeed (random per-video) and the user's
+    // structureSeed onto the plan so the renderer's variant picker derives a
+    // unique chrome/grid/align combo every time, even for repeat prompts.
+    const projectDoc = await Project.findById(projectId).select("structureSeed");
+    const userDoc = await User.findById(userId).select("structureSeed");
+    plan.structureSeed = (projectDoc?.structureSeed ?? 0) ^ (userDoc?.structureSeed ?? 0);
+
+    // Persist this video's structural signature on the user so the NEXT
+    // generation knows what to avoid. Power-user variety engine.
+    await recordVideoSignature(userId, projectId, plan).catch(() => {});
+
     // Voiceover is additive — TTS failure (or missing key) must NEVER fail the
     // project. We try, swallow errors, and continue to READY_TO_EDIT. A short
     // reason is captured on the project so the editor can surface "Narration
