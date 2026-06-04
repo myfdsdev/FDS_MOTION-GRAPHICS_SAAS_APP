@@ -89,6 +89,8 @@ export interface VideoPlan {
   brandColors?: string[];
   scenes: Scene[];
   timeline?: Timeline;
+  /** Per-video deterministic seed mixed into structural variant picks. */
+  structureSeed?: number;
 }
 
 export interface User {

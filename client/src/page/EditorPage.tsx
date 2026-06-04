@@ -501,6 +501,7 @@ export default function EditorPage() {
               aspectRatio={project.aspectRatio}
               brandColors={brand}
               playing={playing}
+              structureSeed={project.sceneJson?.structureSeed ?? 0}
             />
           </div>
           {generating && (

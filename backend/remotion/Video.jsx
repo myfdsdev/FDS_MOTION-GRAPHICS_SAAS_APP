@@ -790,6 +790,24 @@ function sceneShell(base, accent, secondary, frame, durationInFrames, variant) {
     background =
       `radial-gradient(circle at ${spot[0]}% ${spot[1]}%, ${accent}77 0%, transparent 38%), ` +
       `linear-gradient(180deg, ${base} 0%, #0b1020 100%)`;
+  } else if (variant?.bg === "mesh") {
+    // Gradient mesh — 3 overlapping radial blobs drifting in opposite
+    // directions. Looks distinct from radial-glow because of the second
+    // accent ring and the off-axis drift on each blob.
+    background =
+      `radial-gradient(circle at ${20 + drift / 6}% ${30 - drift / 10}%, ${accent}55 0%, transparent 38%), ` +
+      `radial-gradient(circle at ${80 - drift / 8}% ${28 + drift / 14}%, ${secondary}55 0%, transparent 36%), ` +
+      `radial-gradient(circle at ${50 + drift / 10}% ${82 - drift / 18}%, ${accent}33 0%, transparent 42%), ` +
+      `linear-gradient(135deg, ${base} 0%, #0b1020 100%)`;
+  } else if (variant?.bg === "noise") {
+    // Subtle scanline + dot-noise pattern over a flat gradient. Layered
+    // with SVG data-uri so it stays crisp at any resolution.
+    const noise =
+      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
+    background =
+      `${noise}, ` +
+      `linear-gradient(220deg, ${accent}25 0%, transparent 35%), ` +
+      `linear-gradient(135deg, ${base} 0%, #0b1020 100%)`;
   } else {
     // "radial-glow" (the original look)
     background =

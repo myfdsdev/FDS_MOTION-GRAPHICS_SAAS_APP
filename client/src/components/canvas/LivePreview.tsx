@@ -20,6 +20,10 @@ interface LivePreviewProps {
    *  overlay elements — the editor draws those itself on top). Typed loose
    *  because Remotion treats it as opaque inputProps. */
   scene: object | null;
+  /** Random per-video seed mixed into the renderer's structural variant
+   *  picker (chrome corner, layout grid, alignment, bg treatment, …). When
+   *  this changes, the same scene picks a visibly different look. */
+  structureSeed?: number;
   /** Seconds elapsed within the current scene clip. Drives the Player frame. */
   sceneTime: number;
   /** Length of the current scene clip in seconds. */
@@ -47,6 +51,7 @@ export function LivePreview({
   aspectRatio,
   brandColors,
   playing = false,
+  structureSeed = 0,
 }: LivePreviewProps) {
   const playerRef = useRef<PlayerRef>(null);
   const [width, height] = DIMENSIONS[aspectRatio] ?? DIMENSIONS["16:9"];
@@ -72,8 +77,9 @@ export function LivePreview({
       brandColors,
       duration: sceneDuration,
       scenes: cleaned ? [cleaned] : [],
+      structureSeed,
     };
-  }, [scene, sceneDuration, aspectRatio, brandColors]);
+  }, [scene, sceneDuration, aspectRatio, brandColors, structureSeed]);
 
   // Mirror the editor playhead onto the Player when paused — frame accurate.
   // While playing, we let the Player run its own clock (see effect below)
