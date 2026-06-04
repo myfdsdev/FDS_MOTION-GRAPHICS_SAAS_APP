@@ -222,6 +222,12 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
     "Favor modern ad motion: white kinetic typography, animated dark backgrounds, glowing accent shapes, punchy offer reveals, and clear app/product callouts.",
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
     "No labels inside the script. No markdown.",
+    // Anti-overlap rule. The scene template ALWAYS draws scene.headline as the
+    // big title; any text element you also add will draw on top of it and the
+    // two will collide. Put the title in scene.headline (one place), and use
+    // `elements` only for *additional* decorations (icons, shapes, charts,
+    // subtitle bands) — never for the primary title.
+    "Put the scene's primary title in scene.headline. Do NOT also add a text element whose content duplicates or paraphrases the headline — the template draws the headline itself. Reserve `elements` for icons, shapes, charts, or supplemental subtitles only.",
   ];
 
   // Anti-repetition: tell the model what this user has already seen recently

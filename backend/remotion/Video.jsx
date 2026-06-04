@@ -298,23 +298,41 @@ const Scene = ({ scene, colors, index, clipDurationInFrames, structureSeed = 0 }
   };
 
   const hasElements = Array.isArray(scene.elements) && scene.elements.length > 0;
+  // Does the foreground elements layer carry the scene's title? If so, we
+  // skip the template's own headline drawing so we don't render two titles
+  // on top of each other (the bug the user spotted: AI-written copy + the
+  // template's hardcoded fallback "Your idea in motion" both showing at once).
+  const elementsCarryText =
+    hasElements &&
+    scene.elements.some(
+      (el) =>
+        (el.type === "text" || el.type === "subtitle") &&
+        typeof el.text === "string" &&
+        el.text.trim().length > 0
+    );
+  // Render the template only when there's a scene-level headline/subtext to
+  // show, OR when there are no text-bearing elements about to draw a title.
+  const { title, subtext } = sceneText(scene);
+  const renderTemplate = (title || subtext) && !elementsCarryText;
 
   return (
     <AbsoluteFill style={sceneShell(base, accent, secondary, frame, durationInFrames, variant)}>
       <SceneChrome accent={accent} index={index} variant={variant} />
       <MotionBackdrop accent={accent} secondary={secondary} frame={frame} durationInFrames={durationInFrames} />
 
-      {/* BASE layer — the template draws its own design. Never removed. */}
-      {template === "kinetic-title" && <KineticTitle {...common} />}
-      {template === "animated-bg-text" && <AnimatedBgText {...common} />}
-      {template === "app-showcase" && <AppShowcase {...common} />}
-      {template === "offer-burst" && <OfferBurst {...common} />}
-      {template === "proof-cards" && <ProofCards {...common} />}
-      {template === "final-cta" && <FinalCta {...common} />}
-      {template === "karaoke-subtitle" && (
+      {/* BASE layer — only drawn when the scene template actually owns the
+          title. When the AI puts text in elements instead, we let the
+          elements layer be the sole source of truth so nothing overlaps. */}
+      {renderTemplate && template === "kinetic-title" && <KineticTitle {...common} />}
+      {renderTemplate && template === "animated-bg-text" && <AnimatedBgText {...common} />}
+      {renderTemplate && template === "app-showcase" && <AppShowcase {...common} />}
+      {renderTemplate && template === "offer-burst" && <OfferBurst {...common} />}
+      {renderTemplate && template === "proof-cards" && <ProofCards {...common} />}
+      {renderTemplate && template === "final-cta" && <FinalCta {...common} />}
+      {renderTemplate && template === "karaoke-subtitle" && (
         <KaraokeSubtitle {...common} durationInFrames={durationInFrames} />
       )}
-      {!templateFallbacks.includes(template) && <KineticTitle {...common} />}
+      {renderTemplate && !templateFallbacks.includes(template) && <KineticTitle {...common} />}
 
       {/* FOREGROUND layer — user-placed elements render on top of the template. */}
       {hasElements && (
@@ -1005,8 +1023,12 @@ function MotionBackdrop({ accent, secondary, frame, durationInFrames }) {
 }
 
 function sceneText(scene) {
-  const title = scene.headline || scene.text || "Your idea in motion";
-  const subtext = scene.subtext || scene.visual || "";
+  // Empty string (not a fallback) when the AI left the headline blank — the
+  // foreground elements layer will provide the real title in that case.
+  // The old "Your idea in motion" fallback was causing both the template's
+  // headline AND the element-layer title to render at once and overlap.
+  const title = (scene.headline || scene.text || "").trim();
+  const subtext = (scene.subtext || scene.visual || "").trim();
   return { title, subtext };
 }
 
