@@ -761,6 +761,22 @@ function sanitizePlan(plan) {
           }
           if (base.type === "shape" && !base.shape) base.shape = "rect";
           if (base.type === "icon" && !base.name) base.name = "Sparkles";
+          if (base.type === "line-chart") {
+            if (!Array.isArray(base.points) || base.points.length < 2) {
+              base.points = [
+                { label: "Q1", value: 20 },
+                { label: "Q2", value: 35 },
+                { label: "Q3", value: 60 },
+                { label: "Q4", value: 92 },
+              ];
+            }
+            if (typeof base.finalValue !== "number") {
+              base.finalValue = base.points[base.points.length - 1].value;
+            }
+          }
+          if (base.type === "stat") {
+            if (typeof base.value !== "number") base.value = 0;
+          }
           return base;
         });
       }

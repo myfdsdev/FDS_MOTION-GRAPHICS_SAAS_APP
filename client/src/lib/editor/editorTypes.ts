@@ -42,7 +42,9 @@ export type ElementType =
   | "shape"
   | "lottie"
   | "subtitle"
-  | "bar-chart";
+  | "bar-chart"
+  | "line-chart"
+  | "stat";
 export type TextAlign = "left" | "center" | "right";
 
 export type ElementAnimationKind =
