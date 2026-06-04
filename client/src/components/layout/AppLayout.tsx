@@ -30,13 +30,13 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // The "Editor" link opens the most recent project (or the dashboard if none).
+  // The "Preview" link opens the most recent project (or the dashboard if none).
   const latestProjectId = projects?.[0]?.id;
-  const editorTo = latestProjectId ? `/projects/${latestProjectId}/edit` : "/dashboard";
+  const previewTo = latestProjectId ? `/projects/${latestProjectId}/edit` : "/dashboard";
 
   const navItems = [
     { to: "/dashboard", label: "Create with AI", icon: Plus },
-    { to: editorTo, label: "Editor", icon: Clapperboard },
+    { to: previewTo, label: "Preview", icon: Clapperboard },
     { to: "/local-tts", label: "Local TTS", icon: AudioLines },
     ...NAV,
   ];
