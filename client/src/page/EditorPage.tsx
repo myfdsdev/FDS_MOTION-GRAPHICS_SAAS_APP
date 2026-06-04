@@ -37,7 +37,7 @@ import {
 import { toast } from "sonner";
 import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
-import { LivePreview } from "@/components/canvas/LivePreview";
+import { RenderedPreview } from "@/components/canvas/RenderedPreview";
 import { RenderErrorDetails } from "@/components/project/RenderErrorDetails";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -494,14 +494,11 @@ export default function EditorPage() {
             )}
             style={{ backgroundColor: brand[0] ?? "#0a0a0f" }}
           >
-            <LivePreview
-              scene={sceneClip?.scene ?? null}
-              sceneTime={sceneClip ? Math.max(0, currentTime - sceneClip.start) : 0}
-              sceneDuration={sceneClip?.duration ?? 0}
-              aspectRatio={project.aspectRatio}
-              brandColors={brand}
+            <RenderedPreview
+              project={project}
+              currentTime={currentTime}
               playing={playing}
-              structureSeed={project.sceneJson?.structureSeed ?? 0}
+              onTimeUpdate={(t) => setCurrentTime(t)}
             />
           </div>
           {generating && (
