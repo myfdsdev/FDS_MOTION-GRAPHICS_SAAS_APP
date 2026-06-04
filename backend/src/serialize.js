@@ -29,6 +29,25 @@ export function toProjectDTO(p) {
     voiceoverError: p.voiceoverError ?? undefined,
     progress: p.progress,
     errorMessage: p.errorMessage ?? undefined,
+    // Structured error telemetry for the UI's "Why did this fail?" panel.
+    errorPhase: p.errorPhase ?? undefined,
+    errorCode: p.errorCode ?? undefined,
+    errorStack: p.errorStack ?? undefined,
+    errorAt: p.errorAt ? new Date(p.errorAt).toISOString() : undefined,
+    warnings: Array.isArray(p.warnings) && p.warnings.length
+      ? p.warnings.map((w) => ({
+          phase: w.phase ?? undefined,
+          message: w.message,
+          at: w.at ? new Date(w.at).toISOString() : undefined,
+        }))
+      : undefined,
+    renderAttempts: p.renderAttempts ?? undefined,
+    renderStartedAt: p.renderStartedAt
+      ? new Date(p.renderStartedAt).toISOString()
+      : undefined,
+    renderHeartbeatAt: p.renderHeartbeatAt
+      ? new Date(p.renderHeartbeatAt).toISOString()
+      : undefined,
     createdAt: new Date(p.createdAt).toISOString(),
     updatedAt: new Date(p.updatedAt).toISOString(),
   };
