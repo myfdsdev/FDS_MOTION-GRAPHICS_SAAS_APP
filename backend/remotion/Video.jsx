@@ -117,7 +117,7 @@ export const Video = ({ brandColors, scenes, timeline, structureSeed = 0 }) => {
             key={i}
             durationInFrames={Math.max(1, Math.round((Number(scene.duration) || 4) * fps))}
           >
-            <Scene scene={scene} colors={colors} index={i} />
+            <Scene scene={scene} colors={colors} index={i} structureSeed={structureSeed} />
           </Series.Sequence>
         ))}
       </Series>
@@ -271,7 +271,7 @@ function TextOverlay({ text, accent }) {
   );
 }
 
-const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
+const Scene = ({ scene, colors, index, clipDurationInFrames, structureSeed = 0 }) => {
   const frame = useCurrentFrame();
   const cfg = useVideoConfig();
   const { fps, width, height } = cfg;
@@ -282,7 +282,7 @@ const Scene = ({ scene, colors, index, clipDurationInFrames }) => {
   const base = colors[0] ?? DEFAULT_COLORS[0];
   const accent = colors[(index % Math.max(1, colors.length - 1)) + 1] ?? colors[1] ?? DEFAULT_COLORS[1];
   const secondary = colors[(index + 2) % colors.length] ?? DEFAULT_COLORS[2];
-  const variant = pickSceneVariant(scene, index);
+  const variant = pickSceneVariant(scene, index, structureSeed);
 
   const common = {
     scene,
