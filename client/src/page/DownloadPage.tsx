@@ -35,7 +35,7 @@ export default function DownloadPage() {
         <p className="text-muted mb-4">This video is still being generated.</p>
         <Button asChild>
           <Link to={`/projects/${id}/edit`}>
-            <ArrowLeft size={14} /> Back to editor
+            <ArrowLeft size={14} /> Back to preview
           </Link>
         </Button>
       </div>
@@ -62,7 +62,7 @@ export default function DownloadPage() {
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg mb-6 transition-colors"
       >
         <ArrowLeft size={14} />
-        Back to editor
+        Back to preview
       </Link>
 
       <div className="bg-surface border border-border rounded-2xl p-8 shadow-card">

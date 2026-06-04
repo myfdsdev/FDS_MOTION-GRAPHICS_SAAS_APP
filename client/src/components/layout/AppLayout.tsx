@@ -119,7 +119,7 @@ export default function AppLayout() {
             const path = location.pathname;
             const onEditor = path.endsWith("/edit");
             let active = false;
-            if (item.label === "Editor") active = onEditor;
+            if (item.label === "Preview") active = onEditor;
             else if (item.to === "/dashboard") active = path === "/dashboard";
             else if (item.to === "/local-tts") active = path === "/local-tts";
             else if (item.to === "/projects") active = path.startsWith("/projects") && !onEditor;
