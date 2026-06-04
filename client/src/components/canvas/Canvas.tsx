@@ -501,18 +501,47 @@ function ElementBody({
     return <LottieView el={el} />;
   }
 
-  // shape
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        background: el.fill ?? "#8b5cf6",
-        border: el.stroke ? `${el.strokeWidth ?? 2}px solid ${el.stroke}` : "none",
-        borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
-      }}
-    />
-  );
+  // For new chart types (line-chart, stat) the editor doesn't yet have a
+  // live preview component — they render in the MP4 only. Show a tagged
+  // placeholder on the canvas so the user knows something IS there.
+  if (el.type === "line-chart" || el.type === "stat") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: "rgba(8, 10, 20, 0.55)",
+          borderRadius: 16,
+          border: "1px dashed rgba(255,255,255,0.18)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(255,255,255,0.55)",
+          fontSize: 11,
+          fontStyle: "italic",
+        }}
+      >
+        {el.type === "line-chart" ? "Growth chart" : "Stat tile"} (renders in MP4)
+      </div>
+    );
+  }
+
+  // shape (must be last — TS narrows el to ShapeElement here)
+  if (el.type === "shape") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: el.fill ?? "#8b5cf6",
+          border: el.stroke ? `${el.strokeWidth ?? 2}px solid ${el.stroke}` : "none",
+          borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
+        }}
+      />
+    );
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
