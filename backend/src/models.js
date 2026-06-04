@@ -26,6 +26,25 @@ const userSchema = new Schema(
       gemini: { type: String, default: null },
       fal: { type: String, default: null },
     },
+    // Stable random per-user seed mixed into every video's structure picks.
+    // Means a given user has subtly recognizable variations across their
+    // videos without ever generating the same layout twice in a row.
+    structureSeed: { type: Number, default: () => Math.floor(Math.random() * 1e9) },
+    // Last 20 generated-video signatures. Used by the AI prompt + the
+    // variant picker to actively avoid repeating recent structures for the
+    // same user — solves the "power user spots the pattern" problem.
+    recentSignatures: {
+      type: [
+        {
+          projectId: String,
+          templates: [String],          // scene templates used, in order
+          variants: [String],           // structural variant ids (bg, corners, grid…)
+          createdAt: { type: Date, default: () => new Date() },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
@@ -56,6 +75,10 @@ const projectSchema = new Schema(
     voiceoverDuration: { type: Number, default: null },
     /** Short reason TTS produced no narration (or null on success). */
     voiceoverError: { type: String, default: null },
+    /** Per-video random number mixed into every structural pick
+     *  (chrome corner, layout grid, alignment, weight scale, …). Means same
+     *  prompt twice = visibly different structure. */
+    structureSeed: { type: Number, default: () => Math.floor(Math.random() * 1e9) },
     progress: { type: Number, default: 0 },
     errorMessage: { type: String, default: null },
     // ---- Structured error / pipeline telemetry ---------------------------

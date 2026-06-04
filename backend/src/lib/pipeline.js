@@ -23,6 +23,7 @@ import {
 import { decryptSecret } from "./secrets.js";
 import { getAppSettings } from "./settings.js";
 import { SCENE_TEMPLATES, VIDEO_CATEGORIES } from "./videoAssets.js";
+import { getAvoidanceHints, recordVideoSignature } from "./variety.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -205,8 +206,8 @@ export async function generationConfigError(userId) {
   return null;
 }
 
-function systemPrompt(durationSec, lottieAssetPrompt) {
-  return [
+function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
+  const lines = [
     "You are a motion-graphics director for a SaaS video generator.",
     "Return only valid JSON that matches the requested schema.",
     `Create a ${durationSec}-second video plan from the user's prompt.`,
@@ -221,7 +222,29 @@ function systemPrompt(durationSec, lottieAssetPrompt) {
     "Favor modern ad motion: white kinetic typography, animated dark backgrounds, glowing accent shapes, punchy offer reveals, and clear app/product callouts.",
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
     "No labels inside the script. No markdown.",
-  ].join(" ");
+  ];
+
+  // Anti-repetition: tell the model what this user has already seen recently
+  // so we don't keep producing the same structural fingerprint for power users.
+  if (avoidance && (avoidance.templates?.length || avoidance.sequences?.length)) {
+    const parts = [];
+    if (avoidance.templates?.length) {
+      parts.push(
+        `This user has used these templates a lot recently — AVOID them: ${avoidance.templates.join(", ")}.`
+      );
+    }
+    if (avoidance.sequences?.length) {
+      parts.push(
+        `Do NOT reuse these recent scene-template sequences: ${avoidance.sequences.map((s) => `"${s}"`).join("; ")}.`
+      );
+    }
+    parts.push(
+      "Pick a deliberately different structural shape than the recent sequences — different opener, different middle pattern, different closer if possible."
+    );
+    lines.push(parts.join(" "));
+  }
+
+  return lines.join(" ");
 }
 
 function parseModelJson(raw) {
@@ -273,7 +296,8 @@ async function generateWithOpenAI(
   userId,
   purpose,
   lottieAssetIds,
-  lottieAssetPrompt
+  lottieAssetPrompt,
+  avoidance
 ) {
   const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
@@ -284,7 +308,7 @@ async function generateWithOpenAI(
     body: JSON.stringify({
       model: config.model,
       messages: [
-        { role: "system", content: systemPrompt(durationSec, lottieAssetPrompt) },
+        { role: "system", content: systemPrompt(durationSec, lottieAssetPrompt, avoidance) },
         { role: "user", content: prompt },
       ],
       response_format: {
@@ -320,7 +344,8 @@ async function generateWithGemini(
   userId,
   purpose,
   lottieAssetIds,
-  lottieAssetPrompt
+  lottieAssetPrompt,
+  avoidance
 ) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
   const res = await fetch(url, {
@@ -332,7 +357,7 @@ async function generateWithGemini(
           role: "user",
           parts: [
             {
-              text: `${systemPrompt(durationSec, lottieAssetPrompt)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`,
+              text: `${systemPrompt(durationSec, lottieAssetPrompt, avoidance)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`,
             },
           ],
         },
@@ -476,6 +501,10 @@ async function generateVideoPlan(prompt, durationSec, userId) {
   const lottieAssetIds = lottieAssets.map((asset) => asset.id);
   const lottieAssetPrompt = lottieAssetPromptListFromSummaries(lottieAssets);
 
+  // Pull recent structural signatures for this user so the AI knows what
+  // NOT to repeat. Power-user variety lives here.
+  const avoidance = await getAvoidanceHints(userId).catch(() => null);
+
   const payload = await withRetry(() =>
     config.provider === "openai"
       ? generateWithOpenAI(
@@ -485,7 +514,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
           userId,
           "video_generation",
           lottieAssetIds,
-          lottieAssetPrompt
+          lottieAssetPrompt,
+          avoidance
         )
       : generateWithGemini(
           prompt,
@@ -494,7 +524,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
           userId,
           "video_generation",
           lottieAssetIds,
-          lottieAssetPrompt
+          lottieAssetPrompt,
+          avoidance
         )
   );
 
