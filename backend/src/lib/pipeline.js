@@ -540,6 +540,11 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
     "  - Text elements in `elements[]` are ONLY for tiny labels (≤ 3 words) sitting next to an icon or shape — NEVER for the scene title.",
     "  - Place elements at fractional coordinates (x, y, w, h all in 0..1). Avoid overlapping. Use the lower half / sides of the canvas so they don't collide with the template's centered headline.",
     "  - A scene with ONLY text elements (no icons/shapes/charts/images) is REJECTED — convert at least one to a graphic.",
+    // ---- Field-format rules (these prevent Zod validation failures) ----
+    "FIELD-FORMAT RULES — ignoring these will cause the project to FAIL VALIDATION:",
+    "  - Color fields (color, fill, stroke, accent, bg, fg, bar, line) MUST be #RRGGBB hex strings only. Never 'white', 'transparent', 'none', 'rgb(...)', or any non-hex value. If you don't need a color, OMIT the field — never set it to a non-hex string.",
+    "  - Font 'weight' (when set) MUST be a multiple of 100 between 100 and 900 (i.e. 100, 200, 300, 400, 500, 600, 700, 800, 900). Never 0, 50, 'bold', or 'normal'.",
+    "  - Numeric coordinates (x, y, w, h) MUST be fractional 0..1.",
   ];
 
   // ---- Random copy briefing — sprinkled near the top so it sets the tone
@@ -841,7 +846,10 @@ function sanitizePlan(plan) {
             // mostly won't.
             animation: { in: { kind: "fade", at: 0, duration: 0.4 } },
           };
-          // Pass through type-specific fields the schema collected.
+          // Pass through type-specific fields the schema collected, with
+          // per-field sanitization to absorb the AI's small mistakes (font
+          // weight outside 100-900, "transparent" instead of #hex, etc.) so
+          // they don't blow up Zod validation and fail the whole project.
           const passthrough = [
             "type", "text", "color", "size", "weight", "align",
             "name", "src", "fit",
@@ -853,8 +861,44 @@ function sanitizePlan(plan) {
             "value", "label", "caption", "sparkline", "countUp", "showGrid",
             "animationDuration",
           ];
+          // Hex-only color fields. If the AI emits "transparent", "none",
+          // "black", "rgb(…)", or any non-hex value, drop the field entirely
+          // — they're all optional, the renderer falls back to brand colors.
+          const hexFields = new Set([
+            "color", "fill", "stroke", "accent", "bg", "fg", "bar", "line",
+          ]);
+          // Strict-range numeric fields. Each is { min, max, default? }.
+          // `default` is used when the AI emits something completely
+          // unparseable (NaN, string, etc.) — otherwise we clamp to min/max.
+          const numericRanges = {
+            weight: { min: 100, max: 900, step: 100 },     // font weight
+            size: { min: 0.005, max: 1 },                  // font size frac
+            strokeWidth: { min: 0, max: 100 },
+            radius: { min: 0, max: 500 },
+            axisMax: { min: 1, max: 10000 },
+            animationDuration: { min: 0.05, max: 60 },
+          };
           for (const key of passthrough) {
-            if (el?.[key] !== undefined) base[key] = el[key];
+            const v = el?.[key];
+            if (v === undefined || v === null) continue;
+            if (hexFields.has(key)) {
+              // Only accept #rgb / #rrggbb / #rrggbbaa.
+              if (typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v.trim())) {
+                base[key] = v.trim();
+              }
+              // Otherwise: drop. Field is optional everywhere.
+            } else if (key in numericRanges) {
+              const n = Number(v);
+              const { min, max, step } = numericRanges[key];
+              if (Number.isFinite(n)) {
+                let clamped = Math.max(min, Math.min(max, n));
+                if (step) clamped = Math.round(clamped / step) * step;
+                base[key] = clamped;
+              }
+              // Unparseable → omit, Zod's optional() takes over.
+            } else {
+              base[key] = v;
+            }
           }
           // Sensible per-type defaults so Zod doesn't reject minimal elements.
           if (base.type === "bar-chart") {
