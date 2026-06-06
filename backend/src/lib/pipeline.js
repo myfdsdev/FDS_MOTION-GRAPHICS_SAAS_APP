@@ -846,12 +846,16 @@ function sanitizePlan(plan) {
       // worry about (random ids, stacking order), so we add them here.
       if (Array.isArray(s?.elements)) {
         scene.elements = s.elements.slice(0, 8).map((el, j) => {
+          // Enforce minimum element size — 4% of frame width/height. Anything
+          // smaller is invisible at typical viewing sizes (the AI sometimes
+          // emits 0.01 thinking it's pixels).
+          const minDim = 0.04;
           const base = {
             id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
             x: clampFrac(el?.x, 0.1),
             y: clampFrac(el?.y, 0.5),
-            w: clampFrac(el?.w, 0.2),
-            h: clampFrac(el?.h, 0.1),
+            w: Math.max(minDim, clampFrac(el?.w, 0.2)),
+            h: Math.max(minDim, clampFrac(el?.h, 0.1)),
             rotation: Number(el?.rotation) || 0,
             z: j,
             // Give every element a gentle fade-in by default so videos stop
@@ -938,6 +942,11 @@ function sanitizePlan(plan) {
           if (base.type === "stat") {
             if (typeof base.value !== "number") base.value = 0;
           }
+          // Clamp so the element box doesn't extend past the right/bottom
+          // edge of the canvas — the AI sometimes picks x=0.9 + w=0.4 which
+          // pushes 30% of the element off-screen.
+          if (base.x + base.w > 1) base.w = Math.max(minDim, 1 - base.x);
+          if (base.y + base.h > 1) base.h = Math.max(minDim, 1 - base.y);
           return base;
         });
       }
@@ -1009,6 +1018,9 @@ function gradePlanQuality(plan, script, durationSec) {
   }
 
   // 4. Banned-phrase check (post-hoc, in case the model ignored the rule).
+  // Strip ALL punctuation + collapse whitespace before matching, so "Tap.
+  // Order. Done." and "tap order done" both hit. This is the matching bug
+  // that let "Tap. Order. Done." slip into a render.
   const bannedPhrases = [
     "unleash your",
     "elevate your",
@@ -1017,14 +1029,24 @@ function gradePlanQuality(plan, script, durationSec) {
     "seamless",
     "your idea in motion",
     "limited time",
-    "tap. order. done",
+    "tap order done",
     "try it free",
     "get started now",
     "simplify your workflow",
     "next level",
+    "make every second count",
+    "level up",
+    "supercharge",
+    "powerful insights",
+    "actionable insights",
+    "in just minutes",
+    "join thousands",
+    "trusted by",
+    "cut through the noise",
   ];
-  const flat = JSON.stringify(plan || {}).toLowerCase() + " " + (script || "").toLowerCase();
-  const hit = bannedPhrases.filter((p) => flat.includes(p));
+  const normalize = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  const flat = normalize(JSON.stringify(plan || {}) + " " + (script || ""));
+  const hit = bannedPhrases.filter((p) => flat.includes(normalize(p)));
   if (hit.length) {
     warnings.push(
       `Plan contains cliché phrase(s) the prompt told the AI to avoid: ${hit.join(", ")}.`
