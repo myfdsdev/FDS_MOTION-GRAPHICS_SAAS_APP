@@ -15,6 +15,8 @@ import {
   Unlock,
   Captions,
   BarChart3,
+  TrendingUp,
+  Hash,
 } from "lucide-react";
 import type { SceneElement } from "@/types";
 import type { EditorAction } from "@/lib/editor/editorStore";
@@ -24,6 +26,8 @@ const TYPE_ICON: Record<SceneElement["type"], typeof TypeIcon> = {
   text: TypeIcon,
   subtitle: Captions,
   "bar-chart": BarChart3,
+  "line-chart": TrendingUp,
+  stat: Hash,
   icon: Sparkles,
   image: ImageIcon,
   shape: Shapes,

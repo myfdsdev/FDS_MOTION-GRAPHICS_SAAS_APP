@@ -178,6 +178,46 @@ const NEW_ELEMENT_DEFAULTS = (type: SceneElement["type"]): SceneElement => {
         // accent left undefined -> canvas/renderer fall back to brandColors[1]
         futureOpacity: 0.45,
       };
+    case "line-chart":
+      return {
+        ...base,
+        type: "line-chart",
+        x: 0.55,
+        y: 0.15,
+        w: 0.38,
+        h: 0.5,
+        title: "Revenue",
+        points: [
+          { label: "Q1", value: 20 },
+          { label: "Q2", value: 35 },
+          { label: "Q3", value: 60 },
+          { label: "Q4", value: 92 },
+        ],
+        finalValue: 92,
+        finalLabel: "this quarter",
+        valuePrefix: "$",
+        valueSuffix: "K",
+        line: "#34d399",
+        showGrid: true,
+        animationDuration: 1.6,
+      };
+    case "stat":
+      return {
+        ...base,
+        type: "stat",
+        x: 0.08,
+        y: 0.35,
+        w: 0.34,
+        h: 0.3,
+        value: 1240000,
+        valuePrefix: "$",
+        label: "ARR",
+        caption: "as of last month",
+        sparkline: [12, 18, 25, 30, 36, 42, 55, 70, 88, 100],
+        accent: "#fbbf24",
+        countUp: true,
+        animationDuration: 1.2,
+      };
   }
 };
 
