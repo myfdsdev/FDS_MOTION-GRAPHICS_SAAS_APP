@@ -511,7 +511,7 @@ export default function EditorPage() {
         {/* Preview — pure Remotion <Player>, no editing overlay. */}
         <main
           className={cn(
-            "relative min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#0a0a0f] p-2 sm:p-4 md:flex md:p-6",
+            "relative min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#0a0a0f] p-1 sm:p-2 md:flex md:p-3",
             mobileView === "preview" ? "flex" : "hidden md:flex"
           )}
         >
