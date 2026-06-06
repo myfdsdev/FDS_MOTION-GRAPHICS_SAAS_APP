@@ -275,9 +275,9 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
               properties: {
                 scene: { type: "integer", minimum: 1 },
                 duration: { type: "number", minimum: 1, maximum: 15 },
-                text: { type: "string", maxLength: 140 },
-                headline: { type: "string", maxLength: 90 },
-                subtext: { type: "string", maxLength: 160 },
+                text: { type: "string", maxLength: 800 },
+                headline: { type: "string", maxLength: 140 },
+                subtext: { type: "string", maxLength: 240 },
                 visual: { type: "string" },
                 sceneTemplate: { type: "string", enum: SCENE_TEMPLATES },
                 animation: { type: "string", enum: animations },
@@ -831,14 +831,26 @@ function sanitizePlan(plan) {
     else delete out.brandColors; // optional in the schema — fall back to defaults
   }
 
+  // Safe truncation helper — trim to max chars and append an ellipsis only
+  // if we actually had to cut. Used to keep AI overruns from blowing up Zod.
+  const truncate = (s, max) => {
+    if (typeof s !== "string") return s;
+    if (s.length <= max) return s;
+    return s.slice(0, max - 1).trimEnd() + "…";
+  };
+
   if (Array.isArray(out.scenes)) {
     out.scenes = out.scenes.slice(0, 6).map((s, i) => {
       const scene = {
         ...s,
         scene: Number.isInteger(s?.scene) && s.scene > 0 ? s.scene : i + 1,
         duration: Math.min(15, Math.max(1, Number(s?.duration) || 4)),
-        headline: s?.headline || s?.text || "",
-        subtext: s?.subtext || s?.visual || "",
+        // Apply the same length caps the Zod schema enforces, so the AI
+        // running a few characters long can never fail the whole project.
+        text: truncate(s?.text ?? s?.headline ?? "", 800),
+        headline: truncate(s?.headline || s?.text || "", 140),
+        subtext: truncate(s?.subtext || s?.visual || "", 240),
+        visual: truncate(s?.visual ?? "", 800),
       };
 
       // Stamp ids + z + sensible defaults onto every AI-generated element.

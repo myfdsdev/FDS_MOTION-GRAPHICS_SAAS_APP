@@ -256,9 +256,12 @@ export const SceneSchema = z.object({
   scene: z.number().int().min(1),
   // Editor allows finer/longer scenes than the AI generator; keep a sane cap.
   duration: z.number().min(0.1).max(600),
-  text: z.string().max(140),
-  headline: z.string().max(90).optional(),
-  subtext: z.string().max(160).optional(),
+  // `text` is the per-scene NARRATION chunk — at 150 wpm a 10-second scene
+  // is ~25 words ≈ 175 chars, so 140 was too tight and kept failing Zod.
+  // Bumped to 800 with safe truncation in sanitizePlan as belt-and-suspenders.
+  text: z.string().max(800),
+  headline: z.string().max(140).optional(),
+  subtext: z.string().max(240).optional(),
   visual: z.string(),
   sceneTemplate: SceneTemplate.optional(),
   // Optional per-word timing for karaoke-subtitle template. When absent the
