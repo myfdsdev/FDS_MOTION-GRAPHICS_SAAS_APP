@@ -52,6 +52,81 @@ const templates = [
   "local-business",
 ];
 
+// ---------------------------------------------------------------------------
+// Random copywriting brief. Picked fresh on every generation so the AI never
+// writes with the same voice / hook / temperature twice in a row. This is
+// what makes the text feel different across generations — much more impactful
+// than rigid count rules. See AI/copy variety discussion for the why.
+// ---------------------------------------------------------------------------
+
+// Voice presets — distinct writing styles. Each one yields a noticeably
+// different feel even on the same product brief.
+const COPY_VOICES = [
+  "Casual, like texting a smart friend who already gets the basics. Contractions everywhere.",
+  "Punchy and bold. Three-word sentences. Short verbs. Strong feel. Don't apologize.",
+  "Dry humor / deadpan — the joke is in the understatement, never in the exclamation.",
+  "Storyteller — open mid-scene, like a movie. The viewer drops into the middle of something.",
+  "Contrarian — name a popular assumption and challenge it. 'Everyone says X. We don't think so.'",
+  "Data-led — every claim grounded in a specific number, percent, or duration. No vague qualifiers.",
+  "Confessional — admit a real, embarrassing problem before pitching anything.",
+  "Quietly confident — no exclamation marks, no superlatives. Let the facts carry the weight.",
+  "Playful and irreverent — surprising metaphors, unexpected comparisons.",
+  "Direct and no-fluff — sound like a senior engineer explaining to another engineer.",
+  "Cinematic — short visual descriptions, like screenplay scene headings. Big mood.",
+  "Warm and human — like a friend recommending something they actually use.",
+  "Provocative — open with a strong claim that makes people stop scrolling.",
+  "Aspirational — paint a sharp, sensory 'after' picture early. The viewer wants in.",
+  "Self-aware — acknowledge it's an ad. Earn the next 15 seconds.",
+];
+
+// Hook patterns — what scene 1 should DO. Same product becomes 10 different
+// videos depending on which hook is chosen.
+const HOOK_STYLES = [
+  "Open with a sharp question the viewer has actually thought.",
+  "Open with a surprising statistic that's specific enough to be believable.",
+  "Open with a contradiction to a common belief.",
+  "Open with a specific story moment ('Last Tuesday, 2am, …').",
+  "Open with a single sensory detail (a sound, a sight, a feeling).",
+  "Open with a confession ('I used to believe X').",
+  "Open with a metaphor that reframes the problem.",
+  "Open with a misdirection — start with something seemingly unrelated, then connect it.",
+  "Open with a short attributed quote (feels real, attribute to a relatable persona).",
+  "Open with an imperative — a verb-led command ('Stop checking email at 7am').",
+  "Open with a number-then-context combo ('46 minutes. That's how long…').",
+  "Open with a question-then-pause ('Ever had…? Yeah.').",
+];
+
+// Narrative frameworks — the SHAPE of the story. Rotates the structural arc.
+const NARRATIVE_FRAMEWORKS = [
+  "PAS — Problem, Agitate, Solve. Open with the pain.",
+  "BAB — Before, After, Bridge. Show the transformation.",
+  "AIDA — Attention, Interest, Desire, Action. Classic ad arc.",
+  "Story — Setup, Conflict, Resolution. Treat the video like a tiny film.",
+  "Compare — Old way vs new way. Side-by-side relief.",
+  "Reveal — Tease, build, reveal. Make the viewer earn the answer.",
+  "Demo — Show it working, prove it works, point to where to get it.",
+];
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * Pick a random copy briefing per generation. Temperature is also randomized
+ * because slight sampling variation amplifies the effect of voice/hook
+ * changes — same brief at temperature 0.6 vs 0.9 gives noticeably different
+ * sentence rhythms.
+ */
+function pickCopyBriefing() {
+  return {
+    voice: pickRandom(COPY_VOICES),
+    hook: pickRandom(HOOK_STYLES),
+    framework: pickRandom(NARRATIVE_FRAMEWORKS),
+    // 0.6 - 0.95 range. Below 0.5 reads robotic; above 0.95 reads chaotic.
+    temperature: Math.round((0.6 + Math.random() * 0.35) * 100) / 100,
+  };
+}
+
 // Allow-list of lucide-react icon names the renderer will reliably draw.
 // Keep it broad enough to cover most product/topic vibes but explicit so the
 // AI never invents a name the renderer can't resolve.
@@ -386,7 +461,7 @@ export async function generationConfigError(userId) {
   return null;
 }
 
-function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
+function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
   // Narration pace target — 150 words per minute = 2.5 words/sec. Real
   // explainer-video VOs land around 140-160 wpm, so 2.5 is a safe middle.
   // We give the model a hard target window so the script length actually
@@ -443,10 +518,17 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
     "  - NO bullet-point feel. NO lists of three adjectives ('fast, simple, powerful'). NO 'introducing X'.",
     "  - The narration should make sense played alone with the screen black — it should TELL the whole story even without the visuals.",
 
-    // ---- VISUAL DENSITY (fixes "too much text, few graphics") ----
-    "VISUAL ELEMENTS — every scene MUST be visually rich, not text-only:",
+    // ---- VISUAL DENSITY (job-based, not rigid count) ----
+    "VISUAL ELEMENTS — every scene should match its job's visual density:",
     "  - The scene template already draws scene.headline and scene.subtext as the main on-screen text. You do NOT add text elements for the title.",
-    "  - Every scene MUST include 2-4 graphical elements in `elements[]`: icons (lucide-react names), shapes (rect/ellipse), images (when relevant), or bar-charts (for data scenes).",
+    "  - DENSITY BY SCENE JOB (this is more important than a fixed count):",
+    "    · HOOK scene (scene 1, the opener) — prefer 0-1 elements. Let the words land. A great hook with empty space is stronger than a busy one.",
+    "    · EXPLANATION / FEATURE scene (middle scenes) — aim for 2-4 graphical elements that reinforce the point.",
+    "    · DATA / PROOF scene — exactly 1 chart element (`stat`, `line-chart`, or `bar-chart`) plus optionally 1 small supporting icon. No clutter around a number.",
+    "    · CTA scene (final) — 1-2 elements. A button-shape + a directional icon is plenty.",
+    "  - HARD FLOOR: never zero elements unless the headline genuinely needs silence (a single mid-frame quote, a punchline). Default toward 'add one' when in doubt.",
+    "  - HARD CEILING: max 4 elements per scene. More than 4 reads cluttered at typical viewing sizes.",
+    "  - Avoid cargo-cult icons — never add an element just to meet a count. If the icon doesn't reinforce the headline, leave it out.",
     "  - Use icons aggressively. Good lucide names to draw from: Sparkles, Zap, Clock, BarChart3, TrendingUp, ShieldCheck, Users, ArrowRight, Check, CheckCircle2, Star, Heart, Rocket, Target, Lightbulb, MessageSquare, Mail, Calendar, CreditCard, ShoppingCart, Smartphone, Monitor, Globe, Lock, Unlock, Search, Settings, Bell, Eye, EyeOff, Play, Pause, Download, Upload, Share2, Award, Trophy, ThumbsUp, Smile.",
     "  - For a scene about data or numbers, pick the RIGHT chart type:",
     "    · 'bar-chart' — comparing 2-6 categories (e.g. before/after, by team, by region). Rows are {label, value 0-100}.",
@@ -457,8 +539,22 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance) {
     "  - For a CTA scene: include a button-like rounded rect shape + an arrow icon.",
     "  - Text elements in `elements[]` are ONLY for tiny labels (≤ 3 words) sitting next to an icon or shape — NEVER for the scene title.",
     "  - Place elements at fractional coordinates (x, y, w, h all in 0..1). Avoid overlapping. Use the lower half / sides of the canvas so they don't collide with the template's centered headline.",
-    "  - A scene with 0 elements is REJECTED. A scene with only text elements is REJECTED. Mix at least one icon or shape into every scene.",
+    "  - A scene with ONLY text elements (no icons/shapes/charts/images) is REJECTED — convert at least one to a graphic.",
   ];
+
+  // ---- Random copy briefing — sprinkled near the top so it sets the tone
+  // before the rules. We push it onto the prompt array AFTER the boilerplate
+  // headers but BEFORE the copy-quality rules so it actually frames how the
+  // copy gets written.
+  if (briefing) {
+    lines.push(
+      "WRITING BRIEF FOR THIS GENERATION (chosen at random — do not break character):",
+      `  VOICE: ${briefing.voice}`,
+      `  HOOK STYLE for scene 1: ${briefing.hook}`,
+      `  NARRATIVE FRAMEWORK: ${briefing.framework}`,
+      "Stay consistent with this brief across all scenes. The brief is binding."
+    );
+  }
 
   // Anti-repetition: tell the model what this user has already seen recently
   // so we don't keep producing the same structural fingerprint for power users.
@@ -533,7 +629,8 @@ async function generateWithOpenAI(
   purpose,
   lottieAssetIds,
   lottieAssetPrompt,
-  avoidance
+  avoidance,
+  briefing
 ) {
   const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
@@ -544,7 +641,10 @@ async function generateWithOpenAI(
     body: JSON.stringify({
       model: config.model,
       messages: [
-        { role: "system", content: systemPrompt(durationSec, lottieAssetPrompt, avoidance) },
+        {
+          role: "system",
+          content: systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing),
+        },
         { role: "user", content: prompt },
       ],
       response_format: {
@@ -555,7 +655,9 @@ async function generateWithOpenAI(
           schema: createGeneratedPayloadSchema(lottieAssetIds),
         },
       },
-      temperature: 0.7,
+      // Per-generation jittered temperature — see pickCopyBriefing(). Falls
+      // back to 0.7 if the briefing is missing for any reason.
+      temperature: briefing?.temperature ?? 0.7,
     }),
   });
 
@@ -581,7 +683,8 @@ async function generateWithGemini(
   purpose,
   lottieAssetIds,
   lottieAssetPrompt,
-  avoidance
+  avoidance,
+  briefing
 ) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
   const res = await fetch(url, {
@@ -593,7 +696,7 @@ async function generateWithGemini(
           role: "user",
           parts: [
             {
-              text: `${systemPrompt(durationSec, lottieAssetPrompt, avoidance)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`,
+              text: `${systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`,
             },
           ],
         },
@@ -601,7 +704,7 @@ async function generateWithGemini(
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: createGeminiResponseSchema(lottieAssetIds),
-        temperature: 0.7,
+        temperature: briefing?.temperature ?? 0.7,
       },
     }),
   });
@@ -885,6 +988,14 @@ async function generateVideoPlan(prompt, durationSec, userId) {
   // NOT to repeat. Power-user variety lives here.
   const avoidance = await getAvoidanceHints(userId).catch(() => null);
 
+  // Roll a fresh writing brief — voice + hook + framework + temperature.
+  // Same input prompt twice → two distinct creative directions because this
+  // is picked per generation and not anchored to anything stable.
+  const briefing = pickCopyBriefing();
+  console.log(
+    `[pipeline] copy brief: voice="${briefing.voice.slice(0, 32)}…" hook="${briefing.hook.slice(0, 32)}…" T=${briefing.temperature}`
+  );
+
   const payload = await withRetry(() =>
     config.provider === "openai"
       ? generateWithOpenAI(
@@ -895,7 +1006,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
           "video_generation",
           lottieAssetIds,
           lottieAssetPrompt,
-          avoidance
+          avoidance,
+          briefing
         )
       : generateWithGemini(
           prompt,
@@ -905,7 +1017,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
           "video_generation",
           lottieAssetIds,
           lottieAssetPrompt,
-          avoidance
+          avoidance,
+          briefing
         )
   );
 
