@@ -1,6 +1,19 @@
 import { useEffect, useRef } from "react";
-import { Film, Loader2 } from "lucide-react";
+import { AlertTriangle, Copy, Film, Loader2, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import type { Project } from "@/types";
+
+const PHASE_LABEL: Record<NonNullable<Project["errorPhase"]>, string> = {
+  "load-plan": "Loading the scene plan",
+  "attach-lottie": "Attaching Lottie assets",
+  bundle: "Bundling the Remotion composition",
+  "select-composition": "Selecting the composition",
+  render: "Rendering frames",
+  upload: "Uploading the MP4",
+  finalize: "Finalizing the project",
+  tts: "Generating narration",
+  ai: "AI scene plan generation",
+};
 
 interface RenderedPreviewProps {
   project: Project;
@@ -10,6 +23,8 @@ interface RenderedPreviewProps {
   /** Called whenever the <video> advances on its own (during play) so the
    *  editor's timeline ruler can follow it. */
   onTimeUpdate?: (t: number) => void;
+  /** Optional one-click retry — wired to the editor's `handleRender`. */
+  onRetry?: () => void;
 }
 
 /**
@@ -26,6 +41,7 @@ export function RenderedPreview({
   currentTime,
   playing,
   onTimeUpdate,
+  onRetry,
 }: RenderedPreviewProps) {
   const ref = useRef<HTMLVideoElement>(null);
 
@@ -90,13 +106,7 @@ export function RenderedPreview({
           <div className="text-sm">Generating your scenes…</div>
         </>
       ) : failed ? (
-        <>
-          <Film size={28} className="text-danger" />
-          <div className="text-sm text-danger">Render failed</div>
-          <div className="max-w-xs text-xs text-faint">
-            Open the error panel (top-right ⚠) for details, then retry.
-          </div>
-        </>
+        <RenderFailedCard project={project} onRetry={onRetry} />
       ) : (
         <>
           <Film size={28} className="text-accent" />
