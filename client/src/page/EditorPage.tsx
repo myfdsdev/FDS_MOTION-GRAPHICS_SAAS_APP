@@ -530,6 +530,7 @@ export default function EditorPage() {
               currentTime={currentTime}
               playing={playing}
               onTimeUpdate={(t) => setCurrentTime(t)}
+              onRetry={handleRender}
             />
           </div>
           {generating && (
