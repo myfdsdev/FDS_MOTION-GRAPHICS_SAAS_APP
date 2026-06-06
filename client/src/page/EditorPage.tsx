@@ -37,7 +37,9 @@ import {
 import { toast } from "sonner";
 import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender, useDeleteProject } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
-import { RenderedPreview } from "@/components/canvas/RenderedPreview";
+import { Canvas } from "@/components/canvas/Canvas";
+import { LayersPanel } from "@/components/canvas/LayersPanel";
+import { ElementsPanel, PropertiesPanel } from "@/components/canvas/panels";
 import { RenderErrorDetails } from "@/components/project/RenderErrorDetails";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -112,11 +114,15 @@ export default function EditorPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [awaitingGen, setAwaitingGen] = useState(false);
+  const [showRenderedVideo, setShowRenderedVideo] = useState(false);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
   const lastSavedRef = useRef<string>("");
   const genBaselineRef = useRef<string>("");
+  /** Track the previous status so we can detect the RENDERING → DONE transition
+   *  and auto-open the rendered-video modal. */
+  const prevStatusRef = useRef<string | null>(null);
 
   const editable = project ? project.status !== "QUEUED" && project.status !== "RENDERING" : false;
   const total = totalDuration(state);
@@ -240,6 +246,21 @@ export default function EditorPage() {
     }, 800);
     return () => clearTimeout(handle);
   }, [state.tracks, state.zoomRegions, editable, project, updateProject, awaitingGen]);
+
+  // Auto-open rendered-video popup when render finishes.
+  useEffect(() => {
+    if (!project) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = project.status;
+    if (
+      prev &&
+      (prev === "RENDERING" || prev === "QUEUED") &&
+      project.status === "DONE" &&
+      project.outputUrl
+    ) {
+      setShowRenderedVideo(true);
+    }
+  }, [project]);
 
   // Virtual playback clock.
   useEffect(() => {
@@ -450,17 +471,28 @@ export default function EditorPage() {
             </button>
           </Tooltip>
           {project.status === "DONE" && project.outputUrl && (
-            <Tooltip content="Download MP4" side="bottom">
-              <a
-                href={project.outputUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs font-medium text-fg hover:border-accent/40 sm:px-3"
-              >
-                <Download size={13} />
-                <span className="hidden sm:inline">Download</span>
-              </a>
-            </Tooltip>
+            <>
+              <Tooltip content="Watch rendered video" side="bottom">
+                <button
+                  onClick={() => setShowRenderedVideo(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs font-medium text-fg hover:border-accent/40 sm:px-3"
+                >
+                  <Play size={13} />
+                  <span className="hidden sm:inline">View Render</span>
+                </button>
+              </Tooltip>
+              <Tooltip content="Download MP4" side="bottom">
+                <a
+                  href={project.outputUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs font-medium text-fg hover:border-accent/40 sm:px-3"
+                >
+                  <Download size={13} />
+                  <span className="hidden sm:inline">Download</span>
+                </a>
+              </Tooltip>
+            </>
           )}
           <Tooltip content="Render the final MP4" side="bottom">
             <button
@@ -508,7 +540,10 @@ export default function EditorPage() {
           />
         </aside>
 
-        {/* Preview — pure Remotion <Player>, no editing overlay. */}
+        {/* Preview — Canvas with LivePreview is the primary editing surface.
+            The actual Remotion <Player> renders the scene template in real time
+            and draggable element overlays sit on top. After render the MP4
+            opens in a popup — it never replaces this canvas. */}
         <main
           className={cn(
             "relative min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#0a0a0f] p-1 sm:p-2 md:flex md:p-3",
@@ -525,13 +560,45 @@ export default function EditorPage() {
             )}
             style={{ backgroundColor: brand[0] ?? "#0a0a0f" }}
           >
-            <RenderedPreview
-              project={project}
-              currentTime={currentTime}
-              playing={playing}
-              onTimeUpdate={(t) => setCurrentTime(t)}
-              onRetry={handleRender}
-            />
+            {sceneClip ? (
+              /* Live editable canvas — shows the scene template via Remotion
+                 <Player> and renders draggable element overlays on top. */
+              <Canvas
+                elements={elements}
+                selectedIds={state.selectedElementIds}
+                aspectRatio={project.aspectRatio}
+                brandColors={brand}
+                clipId={sceneClipId}
+                snapping={state.snapping}
+                dispatch={dispatch}
+                sceneNumber={sceneNumber}
+                sceneTime={currentTime - (sceneClip?.start ?? 0)}
+                sceneDuration={sceneClip?.duration ?? 0}
+                scene={sceneClip?.scene ?? null}
+                playing={playing}
+                overlay
+              />
+            ) : (
+              /* Placeholder — no scenes yet. */
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-muted">
+                <Film size={28} className="text-accent" />
+                <div className="text-sm">No scenes yet</div>
+                <div className="max-w-xs text-xs text-faint">
+                  Describe a video in the chat panel to generate scenes, then
+                  edit them right here on the canvas.
+                </div>
+              </div>
+            )}
+
+            {/* Rendering / generating overlays */}
+            {(project.status === "RENDERING" || project.status === "QUEUED") && (
+              <div className="pointer-events-none absolute inset-0 z-20 flex items-end justify-center pb-4">
+                <div className="flex items-center gap-2 rounded-full bg-bg/80 px-4 py-2 text-xs text-muted backdrop-blur-sm">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent/40 border-t-accent" />
+                  Rendering {project.progress ? `${project.progress}%` : "…"}
+                </div>
+              </div>
+            )}
           </div>
           {generating && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-bg/60 backdrop-blur-sm">
@@ -540,6 +607,68 @@ export default function EditorPage() {
             </div>
           )}
         </main>
+
+        {/* Right sidebar — Layers / Properties / Elements panels. */}
+        <aside
+          className={cn(
+            "hidden flex-col border-l border-border-soft bg-bg/40 md:flex md:w-56 md:shrink-0 lg:w-64",
+            mobileView === "preview" ? "" : ""
+          )}
+        >
+          {/* Panel tabs */}
+          <div className="flex border-b border-border-soft">
+            {([
+              { id: "layers" as const, label: "Layers", icon: Layers },
+              { id: "edit" as const, label: "Props", icon: SlidersHorizontal },
+              { id: "media" as const, label: "Add", icon: Plus },
+            ] as const).map((tab) => {
+              const Icon = tab.icon;
+              const active = panel === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setPanel(tab.id)}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition",
+                    active
+                      ? "border-b-2 border-accent text-fg"
+                      : "text-muted hover:text-fg"
+                  )}
+                >
+                  <Icon size={13} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {panel === "layers" && (
+              <LayersPanel
+                clipId={sceneClipId}
+                elements={elements}
+                selectedIds={state.selectedElementIds}
+                dispatch={dispatch}
+              />
+            )}
+            {panel === "edit" && (
+              <PropertiesPanel
+                clipId={sceneClipId}
+                elements={elements}
+                selectedIds={state.selectedElementIds}
+                dispatch={dispatch}
+                selectedClip={
+                  state.selection.length === 1
+                    ? findClip(state.tracks, state.selection[0])?.clip ?? null
+                    : null
+                }
+                sceneClip={sceneClip}
+              />
+            )}
+            {panel === "media" && (
+              <ElementsPanel clipId={sceneClipId} dispatch={dispatch} />
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* ---- Bottom: play controls + timeline view (read-only-ish) ---- */}
@@ -573,6 +702,14 @@ export default function EditorPage() {
 
       {/* Hidden narration <audio> driven by the playhead. */}
       <audio ref={audioRef} preload="auto" />
+
+      {/* ---- Rendered video popup modal ---- */}
+      {showRenderedVideo && project.outputUrl && (
+        <RenderedVideoModal
+          url={project.outputUrl}
+          onClose={() => setShowRenderedVideo(false)}
+        />
+      )}
     </div>
   );
 }
@@ -794,6 +931,61 @@ function PlaceholderPanel({ id }: { id: PanelId }) {
     <div className="flex h-full flex-col">
       <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold capitalize">{id}</div>
       <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted">{id} panel — coming soon.</div>
+    </div>
+  );
+}
+
+/**
+ * Full-screen modal that plays the rendered MP4. Opens automatically when a
+ * render finishes, and can be re-opened from the "View Render" header button.
+ * The canvas underneath stays fully editable — the rendered video never
+ * replaces the editing surface.
+ */
+function RenderedVideoModal({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border bg-bg shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border-soft px-5 py-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Film size={16} className="text-accent" />
+            Rendered Video
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg hover:border-accent/40"
+            >
+              <Download size={13} />
+              Download
+            </a>
+            <button
+              onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        {/* Video */}
+        <div className="bg-black p-2">
+          <video
+            src={url}
+            controls
+            autoPlay
+            className="mx-auto max-h-[70vh] w-full rounded-lg"
+            style={{ objectFit: "contain" }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -89,6 +89,8 @@ export interface ElementBase {
   locked?: boolean;
   /** Per-element entrance / exit animation (relative to scene start). */
   animation?: ElementAnimation;
+  /** Element-level opacity 0..1 (stacks with animation opacity). */
+  opacity?: number;
 }
 
 export interface TextElement extends ElementBase {
@@ -101,6 +103,20 @@ export interface TextElement extends ElementBase {
   color?: string;
   align?: TextAlign;
   lineHeight?: number;
+  /** Enable italic rendering. */
+  italic?: boolean;
+  /** Enable underline rendering. */
+  underline?: boolean;
+  /** Element-level opacity 0..1 (independent of animation opacity). */
+  opacity?: number;
+  /** Letter spacing in em units (e.g. 0.05). */
+  letterSpacing?: number;
+  /** CSS text-transform value. */
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
+  /** Background color behind the text block (e.g. for call-outs). */
+  bgColor?: string;
+  /** Border radius in px when bgColor is set. */
+  bgRadius?: number;
 }
 
 export interface IconElement extends ElementBase {

@@ -27,14 +27,6 @@ import {
 
 /** Build canvas elements from a legacy scene's headline/text/subtext fields. */
 export function elementsFromScene(scene: Scene): SceneElement[] {
-  // Lottie is no longer auto-placed on generated scenes — admins still upload
-  // Lotties to the library; users can drop them onto the canvas explicitly.
-  //
-  // Hoist the scene's headline + subtext into editable text elements so the
-  // user can SEE and EDIT them directly on the canvas. The template's own
-  // TextStack is suppressed in `ensureElements` (it clears headline/subtext/
-  // text/visual on the cloned scene) so the renderer doesn't draw the text
-  // twice — only ElementsLayer does.
   const out: SceneElement[] = [];
   let z = 0;
   const headline = scene.headline || scene.text;
@@ -42,6 +34,7 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
     out.push({
       id: uid("el"),
       type: "text",
+      name: "__headline__",
       x: 0.1,
       y: 0.38,
       w: 0.8,
@@ -59,6 +52,7 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
     out.push({
       id: uid("el"),
       type: "text",
+      name: "__subtext__",
       x: 0.15,
       y: 0.58,
       w: 0.7,
@@ -75,24 +69,17 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
   return out;
 }
 
-/** Ensure a scene has an `elements` array (migrate legacy scenes lazily).
- *  When we hoist headline/subtext into editable text elements, we ALSO clear
- *  those fields on the cloned scene so the template's TextStack draws nothing
- *  — preventing the same text from appearing twice in the final render.
- *  The top-level sceneJson.scenes is untouched; only the timeline clip's
- *  scene copy is modified. */
+/** Ensure a scene has an `elements` array with draggable text elements
+ *  created from the scene's headline/subtext.
+ *
+ *  Template fields stay on the scene so the backend renderer still has them.
+ *  The LivePreview strips headline/subtext before passing to the Remotion
+ *  Player so the template renders visuals + animations but NOT text —
+ *  the canvas overlay owns the text layer (draggable). */
 export function ensureElements(scene: Scene): Scene {
   if (scene.elements && scene.elements.length) return scene;
   const elements = elementsFromScene(scene);
-  if (!elements.length) return { ...scene, elements };
-  return {
-    ...scene,
-    elements,
-    headline: "",
-    subtext: "",
-    text: "",
-    visual: "",
-  };
+  return { ...scene, elements };
 }
 
 export function currentSceneClipId(
@@ -521,6 +508,13 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   color?: string;
   align?: "left" | "center" | "right";
   lineHeight?: number;
+  // Rich-text styling
+  italic?: boolean;
+  underline?: boolean;
+  letterSpacing?: number;
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
+  bgColor?: string;
+  bgRadius?: number;
   name?: string;
   src?: string;
   fit?: "cover" | "contain";
@@ -541,6 +535,7 @@ export type ElementPatch = Partial<Omit<SceneElement, "type">> & {
   // Base extensions
   hidden?: boolean;
   locked?: boolean;
+  opacity?: number;
   animation?: import("./editorTypes").ElementAnimation;
   // Bar-chart fields
   title?: string;
@@ -717,12 +712,25 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
 
     case "UPDATE_ELEMENT": {
-      return withHistory({
-        ...state,
-        tracks: mapElements(state.tracks, action.clipId, (els) =>
-          els.map((e) => (e.id === action.elementId ? applyElementPatch(e, action.patch) : e))
-        ),
-      });
+      let tracks = mapElements(state.tracks, action.clipId, (els) =>
+        els.map((e) => (e.id === action.elementId ? applyElementPatch(e, action.patch) : e))
+      );
+      // Sync headline/subtext canvas elements back to the scene fields so the
+      // backend renderer uses the updated text in the final MP4.
+      if (action.patch.text != null) {
+        const found = findClip(state.tracks, action.clipId);
+        const el = found?.clip.scene?.elements?.find((e) => e.id === action.elementId);
+        if (el?.name === "__headline__") {
+          tracks = mapClip(tracks, action.clipId, (c) =>
+            c.scene ? { ...c, scene: { ...c.scene, headline: action.patch.text, text: action.patch.text } } : c
+          );
+        } else if (el?.name === "__subtext__") {
+          tracks = mapClip(tracks, action.clipId, (c) =>
+            c.scene ? { ...c, scene: { ...c.scene, subtext: action.patch.text } } : c
+          );
+        }
+      }
+      return withHistory({ ...state, tracks });
     }
 
     case "MOVE_ELEMENT": {

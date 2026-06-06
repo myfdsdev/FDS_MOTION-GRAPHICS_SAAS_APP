@@ -1,17 +1,24 @@
 import { useMemo, useRef, useState, type ComponentType } from "react";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ArrowDownToLine,
   ArrowUpToLine,
   BarChart3,
+  Bold,
+  CaseUpper,
   CopyPlus,
   Captions,
   Image as ImageIcon,
+  Italic,
   Plus,
   Search,
   Shapes,
   Sparkles,
   Trash2,
   Type as TypeIcon,
+  Underline,
   X,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
@@ -22,11 +29,18 @@ import { Tooltip } from "@/components/ui/Tooltip";
 const FONTS = [
   "Inter",
   "Arial",
+  "Helvetica",
   "Georgia",
   "Times New Roman",
   "Courier New",
   "Verdana",
   "Trebuchet MS",
+  "Impact",
+  "Comic Sans MS",
+  "Palatino",
+  "Garamond",
+  "Tahoma",
+  "Lucida Console",
 ];
 
 interface PanelCommon {
@@ -317,7 +331,12 @@ export function PropertiesPanel({
             <NumField label="W %" value={pct(el.w)} onChange={(v) => patch({ w: v / 100 })} />
             <NumField label="H %" value={pct(el.h)} onChange={(v) => patch({ h: v / 100 })} />
             <NumField label="Rotation°" value={Math.round(el.rotation)} onChange={(v) => patch({ rotation: v })} />
-            <NumField label="Z-index" value={el.z} onChange={(v) => patch({ z: Math.max(0, Math.round(v)) })} />
+            <NumField
+              label="Opacity %"
+              value={Math.round((el.opacity ?? 1) * 100)}
+              step={5}
+              onChange={(v) => patch({ opacity: Math.max(0, Math.min(1, v / 100)) })}
+            />
           </div>
         </Section>
 
@@ -327,29 +346,110 @@ export function PropertiesPanel({
         />
 
         {el.type === "text" && (
-          <Section title="Typography">
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">Text</span>
-              <textarea
-                rows={2}
-                value={el.text}
-                onChange={(e) => patch({ text: e.target.value })}
-                className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
-              />
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <NumField label="Size %h" value={Math.round((el.size ?? 0.08) * 100)} onChange={(v) => patch({ size: Math.max(0.5, v) / 100 })} />
-              <NumField label="Weight" value={el.weight ?? 700} step={100} onChange={(v) => patch({ weight: v })} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+          <>
+            <Section title="Text">
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted">Content</span>
+                <textarea
+                  rows={3}
+                  value={el.text}
+                  onChange={(e) => patch({ text: e.target.value })}
+                  className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
+                />
+              </label>
+            </Section>
+
+            <Section title="Font">
+              <SelectField label="Family" value={el.font ?? "Inter"} options={FONTS} onChange={(v) => patch({ font: v })} />
+              <div className="grid grid-cols-2 gap-2">
+                <NumField label="Size %h" value={Math.round((el.size ?? 0.08) * 100)} onChange={(v) => patch({ size: Math.max(0.5, v) / 100 })} />
+                <NumField label="Weight" value={el.weight ?? 700} step={100} onChange={(v) => patch({ weight: v })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <NumField label="Line height" value={el.lineHeight ?? 1.05} step={0.05} onChange={(v) => patch({ lineHeight: Math.max(0.5, v) })} />
+                <NumField label="Spacing (em)" value={el.letterSpacing ?? 0} step={0.01} onChange={(v) => patch({ letterSpacing: v })} />
+              </div>
+            </Section>
+
+            <Section title="Style">
+              {/* Inline formatting toolbar */}
+              <div className="flex items-center gap-1">
+                <ToggleBtn
+                  icon={Bold}
+                  active={(el.weight ?? 700) >= 700}
+                  onClick={() => patch({ weight: (el.weight ?? 700) >= 700 ? 400 : 700 })}
+                  tooltip="Bold"
+                />
+                <ToggleBtn
+                  icon={Italic}
+                  active={!!el.italic}
+                  onClick={() => patch({ italic: !el.italic })}
+                  tooltip="Italic"
+                />
+                <ToggleBtn
+                  icon={Underline}
+                  active={!!el.underline}
+                  onClick={() => patch({ underline: !el.underline })}
+                  tooltip="Underline"
+                />
+                <span className="mx-1 h-4 w-px bg-border-soft" />
+                <ToggleBtn
+                  icon={AlignLeft}
+                  active={el.align === "left"}
+                  onClick={() => patch({ align: "left" })}
+                  tooltip="Align left"
+                />
+                <ToggleBtn
+                  icon={AlignCenter}
+                  active={!el.align || el.align === "center"}
+                  onClick={() => patch({ align: "center" })}
+                  tooltip="Align center"
+                />
+                <ToggleBtn
+                  icon={AlignRight}
+                  active={el.align === "right"}
+                  onClick={() => patch({ align: "right" })}
+                  tooltip="Align right"
+                />
+                <span className="mx-1 h-4 w-px bg-border-soft" />
+                <ToggleBtn
+                  icon={CaseUpper}
+                  active={el.textTransform === "uppercase"}
+                  onClick={() =>
+                    patch({
+                      textTransform:
+                        el.textTransform === "uppercase" ? "none" : "uppercase",
+                    })
+                  }
+                  tooltip="Uppercase"
+                />
+              </div>
               <ColorField label="Color" value={el.color ?? "#ffffff"} onChange={(v) => patch({ color: v })} />
-              <SelectField label="Align" value={el.align ?? "center"} options={["left", "center", "right"]} onChange={(v) => patch({ align: v as "left" | "center" | "right" })} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <SelectField label="Font" value={el.font ?? "Inter"} options={FONTS} onChange={(v) => patch({ font: v })} />
-              <NumField label="Line height" value={el.lineHeight ?? 1.05} step={0.05} onChange={(v) => patch({ lineHeight: Math.max(0.5, v) })} />
-            </div>
-          </Section>
+            </Section>
+
+            <Section title="Background">
+              <ColorField
+                label="Bg color"
+                value={el.bgColor ?? "#00000000"}
+                onChange={(v) => patch({ bgColor: v === "#00000000" ? undefined : v })}
+              />
+              {el.bgColor && (
+                <NumField
+                  label="Radius"
+                  value={el.bgRadius ?? 8}
+                  onChange={(v) => patch({ bgRadius: Math.max(0, v) })}
+                />
+              )}
+              {el.bgColor && (
+                <button
+                  onClick={() => patch({ bgColor: undefined, bgRadius: undefined })}
+                  className="text-[11px] text-faint hover:text-danger"
+                >
+                  Remove background
+                </button>
+              )}
+            </Section>
+          </>
         )}
 
         {el.type === "subtitle" && (
@@ -561,17 +661,23 @@ export function PropertiesPanel({
 
         {el.type === "shape" && (
           <Section title="Shape">
-            <SelectField label="Shape" value={el.shape} options={["rect", "ellipse"]} onChange={(v) => patch({ shape: v as "rect" | "ellipse" })} />
+            <SelectField label="Type" value={el.shape} options={["rect", "ellipse"]} onChange={(v) => patch({ shape: v as "rect" | "ellipse" })} />
+            <ColorField label="Fill color" value={el.fill ?? "#8b5cf6"} onChange={(v) => patch({ fill: v })} />
             <div className="grid grid-cols-2 gap-2">
-              <ColorField label="Fill" value={el.fill ?? "#8b5cf6"} onChange={(v) => patch({ fill: v })} />
               <ColorField label="Stroke" value={el.stroke ?? "#000000"} onChange={(v) => patch({ stroke: v })} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
               <NumField label="Stroke width" value={el.strokeWidth ?? 2} onChange={(v) => patch({ strokeWidth: Math.max(0, v) })} />
-              {el.shape === "rect" && (
-                <NumField label="Radius" value={el.radius ?? 8} onChange={(v) => patch({ radius: Math.max(0, v) })} />
-              )}
             </div>
+            {el.stroke && (
+              <button
+                onClick={() => patch({ stroke: undefined, strokeWidth: 0 })}
+                className="text-[11px] text-faint hover:text-danger"
+              >
+                Remove stroke
+              </button>
+            )}
+            {el.shape === "rect" && (
+              <NumField label="Corner radius" value={el.radius ?? 8} onChange={(v) => patch({ radius: Math.max(0, v) })} />
+            )}
           </Section>
         )}
       </div>
@@ -633,6 +739,37 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <p className="text-xs font-medium uppercase tracking-wider text-faint">{title}</p>
       {children}
     </div>
+  );
+}
+
+/** Small icon toggle button used in the text formatting toolbar. */
+function ToggleBtn({
+  icon: Icon,
+  active,
+  onClick,
+  tooltip,
+}: {
+  icon: typeof Bold;
+  active: boolean;
+  onClick: () => void;
+  tooltip: string;
+}) {
+  return (
+    <Tooltip content={tooltip}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        className={`flex h-7 w-7 items-center justify-center rounded-md transition ${
+          active
+            ? "bg-accent/20 text-accent"
+            : "text-muted hover:bg-surface-2 hover:text-fg"
+        }`}
+      >
+        <Icon size={14} />
+      </button>
+    </Tooltip>
   );
 }
 

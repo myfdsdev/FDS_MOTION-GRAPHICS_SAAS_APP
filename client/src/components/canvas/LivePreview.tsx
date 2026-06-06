@@ -57,19 +57,27 @@ export function LivePreview({
   const [width, height] = DIMENSIONS[aspectRatio] ?? DIMENSIONS["16:9"];
   const durationInFrames = Math.max(1, Math.round((sceneDuration || 1) * FPS));
 
-  // Single-scene mini-plan. We deliberately drop the elements array so the
-  // editor's own overlay owns drawing them (keeps drag/edit interactions live
-  // and avoids double-rendering each element).
+  // Single-scene mini-plan. We drop `elements` (the canvas overlay owns
+  // those) AND `headline`/`subtext` so the template renders its visuals and
+  // animations but NOT the text — the canvas draws the text as draggable
+  // elements instead.
   const inputProps = useMemo(() => {
     const cleaned = scene
       ? (() => {
-          const { elements: _elements, ...rest } = scene as Record<string, unknown> & {
+          const {
+            elements: _elements,
+            headline: _headline,
+            subtext: _subtext,
+            ...rest
+          } = scene as Record<string, unknown> & {
             elements?: unknown;
+            headline?: unknown;
+            subtext?: unknown;
           };
           void _elements;
-          // Match the scene's duration to the clip so the composition's
-          // frame window aligns with the editor's scene window.
-          return { ...rest, duration: sceneDuration };
+          void _headline;
+          void _subtext;
+          return { ...rest, headline: "", subtext: "", duration: sceneDuration };
         })()
       : null;
     return {

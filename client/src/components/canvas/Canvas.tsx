@@ -35,6 +35,9 @@ interface CanvasProps {
   scene?: Scene | null;
   /** Editor playback state — forwarded to the Player so play/pause flow. */
   playing?: boolean;
+  /** When true, Canvas fills its parent container (no aspect-ratio class or
+   *  background) so it can work as a transparent overlay. */
+  overlay?: boolean;
 }
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
@@ -66,6 +69,7 @@ export function Canvas({
   sceneDuration = 0,
   scene = null,
   playing = false,
+  overlay = false,
 }: CanvasProps) {
   const brandAccent = brandColors?.[1] ?? brandColors?.[0] ?? "#8b5cf6";
   const stageRef = useRef<HTMLDivElement>(null);
@@ -266,13 +270,21 @@ export function Canvas({
         endRotate(e);
         onStagePointerUp();
       }}
-      className={`relative w-full max-w-4xl overflow-hidden rounded-lg shadow-2xl ${ASPECT_CLASS[aspectRatio]}`}
-      style={{
-        background:
-          `radial-gradient(circle at 48% 34%, ${brandColors[1] ?? "#8b5cf6"}55 0%, transparent 34%), ` +
-          `radial-gradient(circle at 78% 78%, ${brandColors[2] ?? "#38bdf8"}44 0%, transparent 30%), ` +
-          `linear-gradient(135deg, ${brandColors[0] ?? "#0f172a"} 0%, #0b1020 100%)`,
-      }}
+      className={
+        overlay
+          ? "relative h-full w-full overflow-hidden"
+          : `relative w-full max-w-4xl overflow-hidden rounded-lg shadow-2xl ${ASPECT_CLASS[aspectRatio]}`
+      }
+      style={
+        overlay
+          ? undefined
+          : {
+              background:
+                `radial-gradient(circle at 48% 34%, ${brandColors[1] ?? "#8b5cf6"}55 0%, transparent 34%), ` +
+                `radial-gradient(circle at 78% 78%, ${brandColors[2] ?? "#38bdf8"}44 0%, transparent 30%), ` +
+                `linear-gradient(135deg, ${brandColors[0] ?? "#0f172a"} 0%, #0b1020 100%)`,
+            }
+      }
     >
       {/* Live Remotion <Player> backdrop — renders the actual scene template
           (kinetic-title, animated-bg-text, …) and its animations in real time
@@ -285,7 +297,6 @@ export function Canvas({
         brandColors={brandColors}
         playing={playing}
       />
-      {/* (Scene-number badge + accent bar are drawn by the Player above.) */}
 
       {ordered.map((el) => {
         if (el.hidden) return null;
@@ -312,7 +323,7 @@ export function Canvas({
               height: `${el.h * 100}%`,
               transform: `rotate(${el.rotation}deg) ${motion.transform}`,
               transformOrigin: "center",
-              opacity: motion.opacity,
+              opacity: (el.opacity ?? 1) * motion.opacity,
               cursor: locked ? "not-allowed" : editing ? "text" : "grab",
               outline: selected ? "1.5px solid #a78bfa" : "none",
               outlineOffset: 2,
@@ -469,6 +480,13 @@ function ElementBody({
           color: el.color ?? "#ffffff",
           fontFamily: el.font ?? "Inter, system-ui, sans-serif",
           lineHeight: el.lineHeight ?? 1.05,
+          fontStyle: el.italic ? "italic" : "normal",
+          textDecoration: el.underline ? "underline" : "none",
+          letterSpacing: el.letterSpacing ? `${el.letterSpacing}em` : undefined,
+          textTransform: el.textTransform ?? "none",
+          background: el.bgColor ?? "transparent",
+          borderRadius: el.bgColor ? (el.bgRadius ?? 8) : undefined,
+          padding: el.bgColor ? "4px 12px" : undefined,
           outline: "none",
           overflow: "hidden",
           cursor: editing ? "text" : "inherit",
