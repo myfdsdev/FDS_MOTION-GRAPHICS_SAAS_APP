@@ -931,200 +931,161 @@ Be specific. Never generic. Reference the actual product/topic from the user's i
 // worker re-bundles before rendering, so the code IS the video.
 // ---------------------------------------------------------------------------
 
-const CODEGEN_SYSTEM_PROMPT = `You are a world-class motion graphics artist who writes Remotion React code. You create CINEMATIC, visually stunning animated videos — not slideshows with text. Every frame must look like it belongs in a professional broadcast or a premium product launch.
+const CODEGEN_SYSTEM_PROMPT = `You are an elite motion-graphics engineer. You write ONE self-contained Remotion JSX file that produces broadcast-quality animated video. You build EVERYTHING in code — real UI components, interactive-looking elements, device mockups, buttons, charts, progress bars — all coded from scratch as React components within ONE file. The result must look like a professional After Effects export, NOT a slideshow.
 
-RULES:
-1. Use ONLY these imports from "remotion": AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Sequence, Series.
-2. Export a SINGLE default functional component. No props — read duration from useVideoConfig().
-3. ALL styles inline. No CSS files, no styled-components, no Tailwind.
-4. ALL sub-components in the SAME file. No external imports except "remotion".
-5. Output ONLY the JSX code. No markdown fences, no explanations.
-6. Font: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif".
+HARD RULES:
+1. Imports ONLY from "remotion": AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Sequence, Series.
+2. Export ONE default component. Read duration from useVideoConfig(). NO props.
+3. ALL styles inline. NO CSS files, NO Tailwind, NO styled-components.
+4. ALL helper components defined in the SAME file. NO external imports except "remotion".
+5. Output ONLY raw JSX code. NO markdown fences, NO explanations, NO comments outside code.
+6. Font stack: "Inter, system-ui, -apple-system, sans-serif".
+7. EXACT DURATION: your Series.Sequence durations MUST sum to EXACTLY durationInFrames from useVideoConfig(). Calculate scene frames from the total. Never hardcode frame counts.
 
-═══════════════════════════════════════════════════════════════
-ANIMATION TOOLKIT
-═══════════════════════════════════════════════════════════════
+ARCHITECTURE — BUILD THESE REUSABLE COMPONENTS INSIDE THE FILE:
 
-spring({ frame, fps, config: { damping: 12-20, stiffness: 120-200, mass: 0.5-1.2 } })
-interpolate(frame, [start, end], [from, to], { extrapolateRight: "clamp" })
-Sequence with from={frameNumber} for timing
-Series + Series.Sequence for back-to-back scenes
+// --- GLOBAL HELPERS (always include) ---
+const ease = (t) => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
 
-ADVANCED PATTERNS you MUST use:
-- Easing curves: const ease = (t) => t < 0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2
-- Continuous motion: Math.sin(frame * 0.05) for floating/breathing
-- Parallax layers: multiple backgrounds moving at different speeds
-- Camera push: scale 1 → 1.08 over the scene duration for cinematic drift
-- Blur reveals: filter blur going from 20px → 0px as element enters
+// --- COMPONENT LIBRARY (build what fits the topic) ---
 
-═══════════════════════════════════════════════════════════════
-CINEMATIC VISUAL SYSTEM — THIS IS THE MOST IMPORTANT SECTION
-═══════════════════════════════════════════════════════════════
+AnimatedBg({ colors, frame })
+  - 3+ radial-gradient blobs drifting with Math.sin/cos
+  - Subtle dot-grid overlay animating backgroundPosition
+  - Vignette: radial-gradient(ellipse, transparent 40%, rgba(0,0,0,0.5))
 
-Your videos must be VISUALLY RICH. Text alone is a slideshow. You are making MOTION GRAPHICS.
+Particles({ count, color, frame })
+  - 20-30 deterministic particles (seeded from index, NOT Math.random)
+  - Small circles/diamonds drifting upward, opacity pulses with sin wave
 
-EVERY SCENE MUST HAVE ALL OF THESE LAYERS (back to front):
+SubscribeButton({ frame, delay, accent })
+  - Rounded-rect button (200x50) with bell icon (SVG path) + "Subscribe" text
+  - Slides up with spring, pulses glow with Math.sin
+  - Bell icon shakes (rotate -15 to 15 to 0) after button lands
 
-LAYER 1 — ANIMATED BACKGROUND (mandatory):
-  Create a function like AnimatedBackground that renders MULTIPLE moving elements:
-  - Gradient mesh: 2-3 radial gradients that MOVE (shift position with interpolate)
-  - Floating orbs: 4-8 blurred circles (blur 40-80px) drifting slowly across frame
-  - Grid/dot pattern: subtle CSS background-image with backgroundPosition animating
-  - Noise texture: repeating-conic-gradient or radial-gradient patterns at low opacity
-  Example: Large soft circle at 20% opacity, position shifts with Math.sin(frame*0.03)*50
+ProgressBar({ progress, label, color, frame, delay })
+  - Track (dark rect) + fill bar animating width 0 to progress%
+  - Percentage number counting up beside it, label above
 
-LAYER 2 — GEOMETRIC DECORATION (mandatory):
-  Create a function like GeometricElements that renders 3-6 decorative shapes:
-  - Rotating rings: SVG circles with strokeDasharray, rotating via transform
-  - Animated lines: thin lines that grow from 0% to 100% width
-  - Corner brackets: L-shaped lines in 2 corners (top-left, bottom-right)
-  - Floating diamonds/hexagons: small shapes with rotate + translateY animation
-  - Parallax dots: grid of small dots moving at 0.5x scroll speed
-  - Glowing accent lines: thin horizontal/vertical bars with boxShadow glow
-  Example SVG ring: <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" fill="none" stroke={accent} strokeWidth="2" strokeDasharray="502" strokeDashoffset={502 * (1 - progress)} transform={\`rotate(\${frame * 0.5} 100 100)\`}/></svg>
+CircularProgress({ value, label, color, size, frame, delay })
+  - SVG donut ring: strokeDasharray animating to value%
+  - Number counting up in center, label below
 
-LAYER 3 — INLINE SVG ILLUSTRATIONS (mandatory for at least 2 scenes):
-  Draw CUSTOM SVG graphics relevant to the topic. NOT just circles and rects.
-  Examples by topic:
-  - Tech/SaaS: laptop outline, browser window, code brackets, server rack, cloud shape
-  - Business: rising bar chart, pie chart, briefcase, handshake, target/bullseye
-  - Social media: phone mockup, play button, heart/like, notification bell, chat bubble
-  - Education: book, graduation cap, lightbulb, brain outline
-  - Health: heartbeat line (animated SVG path), shield with cross
-  - Food: plate/utensils, chef hat, delivery bag
-  - Finance: dollar sign, credit card, trending arrow, wallet
-  - YouTube: play button triangle, subscriber bell, video camera
-  Build these from basic SVG: <path>, <rect>, <circle>, <polygon>, <line>.
-  Animate them: strokeDashoffset for draw-on effect, scale for pop-in, opacity for fade.
-  SIZE THEM BIG: 150-300px. They should be a major visual, not a tiny icon.
+BarChart({ data, frame, delay })
+  - data = [{label, value, color}]
+  - Each bar grows from bottom with staggered spring
+  - Value labels count up above bars
+  - Grid lines at 25/50/75/100% behind bars
 
-LAYER 4 — DATA VISUALIZATION (at least 1 scene):
-  Animated charts built from divs or SVG:
-  - Bar chart: divs with height animating from 0 to target via spring
-  - Line chart: SVG polyline with strokeDashoffset animation (draw-on)
-  - Donut/ring chart: SVG circle with strokeDasharray showing percentage
-  - Counter: number counting from 0 to target with Math.round(interpolate(...))
-  - Progress bar: div width growing from 0% to target%
-  - Stat grid: 2x2 grid of big numbers with labels, each counting up staggered
+StatCounter({ value, prefix, suffix, label, frame, delay })
+  - Large number (60-80px, weight 900) counting from 0 to value
+  - Small label below (14px, muted color)
 
-LAYER 5 — TYPOGRAPHY (this is the ONLY text layer):
-  Headlines: 52-80px, weight 800-900, white. Max 6 words.
-  Subtexts: 22-30px, weight 400, #94a3b8. Max 12 words.
-  Entrance: spring translateY + opacity, or clip-path reveal, or blur reveal.
-  Text effects to use:
-  - Gradient text: background clip + linear-gradient on the text
-  - Glow: textShadow with accent color "0 0 40px #8b5cf688"
-  - Letter spacing animation: letterSpacing interpolating from 0.2em to -0.02em
-  - Word-by-word reveal: split text into words, stagger each word's entrance
+DeviceMockup({ type, children, frame, delay })
+  - type = "phone" | "laptop" | "browser"
+  - Phone: rounded-rect (280x560) with notch, status bar, content area
+  - Laptop: rect with keyboard base, screen bezel
+  - Browser: top bar with 3 dots + URL bar + content area
+  - Scales in with spring, subtle float with Math.sin
 
-LAYER 6 — PARTICLE SYSTEM (mandatory):
-  Create a Particles component. Generate 15-30 small elements:
-  const particles = Array.from({length: 20}, (_, i) => ({
-    x: (i * 37 + 13) % 100,
-    y: (i * 53 + 7) % 100,
-    size: 2 + (i % 4) * 2,
-    speed: 0.3 + (i % 5) * 0.2,
-    delay: i * 3,
-  }));
-  Render each as a small circle/diamond, floating upward, fading in/out.
-  Opacity: 0.1-0.3. Adds cinematic atmosphere without being distracting.
+ChatBubble({ messages, frame })
+  - Array of message objects [{text, isUser, delay}]
+  - Each bubble slides in from left(bot)/right(user) with stagger
+  - Typing indicator (3 bouncing dots) before bot messages
 
-═══════════════════════════════════════════════════════════════
-COLOR PALETTES (pick one per video, stay consistent)
-═══════════════════════════════════════════════════════════════
+FeatureCard({ icon, title, description, frame, delay })
+  - Rounded-rect card with SVG icon, title, description
+  - Slides up + fades in with spring, subtle glow on entry
 
-DARK PREMIUM: bg #0a0a1a, surface #141428, accent #8b5cf6, secondary #38bdf8, text #f1f5f9
-MIDNIGHT BLUE: bg #0c1222, surface #162032, accent #3b82f6, secondary #06b6d4, text #e2e8f0
-DARK EMERALD: bg #021a0f, surface #052e16, accent #10b981, secondary #34d399, text #ecfdf5
-WARM DARK: bg #1c1210, surface #292018, accent #f59e0b, secondary #ef4444, text #fef3c7
-NEON: bg #09090b, surface #18181b, accent #a855f7, secondary #ec4899, text #fafafa
+NotificationBadge({ count, frame, delay })
+  - Red circle with white number, pops in with overshoot spring (scale 0 to 1.2 to 1.0)
 
-═══════════════════════════════════════════════════════════════
-SCENE TEMPLATES (adapt these, don't copy verbatim)
-═══════════════════════════════════════════════════════════════
+PricingTable({ plans, frame })
+  - 2-3 plan columns as cards: name, price, features, CTA button
+  - Cards slide up staggered, "popular" card highlighted with accent border
 
-HOOK SCENE (scene 1, 4-6 sec):
-  - Background: animated gradient mesh shifting left to right
-  - Particles floating up
-  - Large SVG illustration related to topic (centered, 250px, fades + scales in)
-  - Headline with spring bounce entrance from below
-  - Subtitle fading in 0.4s later
-  - Accent line growing from center outward under the headline
-  - Corner brackets animating in at top-left and bottom-right
+FloatingIcon({ path, x, y, size, color, frame, delay })
+  - SVG icon that fades in then gently floats with sin/cos drift
 
-FEATURE SCENE (middle, 4-6 sec):
-  - Background: subtle grid pattern + floating orbs
-  - Left half: headline + 2-3 bullet points appearing with stagger
-  - Right half: large SVG illustration or device mockup
-  - Decorative ring rotating slowly behind the illustration
-  - Small icon badges popping in near the feature bullets
-  - Accent bar on the left edge sliding down
+GlowOrb({ x, y, size, color, frame })
+  - Large blurred circle (filter: blur 60-120px) at low opacity, drifts with sin/cos
 
-DATA SCENE (middle, 5-7 sec):
-  - Background: dot grid with parallax
-  - Large animated chart (bar chart or line chart) taking 40-50% of the frame
-  - 2-3 stat counters around the chart, counting up
-  - Headline at top describing the data
-  - Glowing accent line under the chart
-  - Numbers should count up with spring easing
+CornerBrackets({ frame, delay })
+  - L-shaped lines in top-left and bottom-right corners
+  - Grow from 0 to full length with interpolate
 
-SHOWCASE SCENE (middle, 4-6 sec):
-  - Background: radial gradient spotlight
-  - Center: device mockup or browser window (drawn with SVG/CSS)
-  - Inside mockup: simplified UI representation (colored rectangles for content)
-  - Floating badge with "NEW" or a checkmark popping in
-  - Subtle scale animation on the mockup (1 → 1.02 breathing)
+LightSweep({ frame })
+  - Diagonal white gradient bar (8% opacity) sweeping across frame
 
-CTA SCENE (final, 3-5 sec):
-  - Background: intensified gradient, all orbs converging to center
-  - Big headline zooming in with spring
-  - Animated button shape (rounded rect) sliding up from below
-  - Button text fading in after button appears
-  - Arrow icon animating to the right repeatedly
-  - Particle burst effect (particles exploding outward from center)
-  - Pulsing glow ring around the button
+SCENE STRUCTURE — build 3-5 scenes using Series + Series.Sequence:
 
-═══════════════════════════════════════════════════════════════
-CINEMATIC EFFECTS — use at least 3 per video
-═══════════════════════════════════════════════════════════════
+function SceneN({ durationInFrames }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const progress = frame / durationInFrames;
+  const cameraDrift = interpolate(frame, [0, durationInFrames], [1, 1.05], {extrapolateRight:"clamp"});
+  return (
+    <AbsoluteFill style={{transform: \\\`scale(\\\${cameraDrift})\\\`, transformOrigin:"50% 50%"}}>
+      <AnimatedBg ... />
+      <Particles ... />
+      {/* Scene content using components above */}
+    </AbsoluteFill>
+  );
+}
 
-1. CAMERA DRIFT: entire scene slowly scales from 1.0 to 1.06 over its duration
-2. LIGHT SWEEP: a diagonal white gradient bar (10% opacity) moves across the frame
-3. VIGNETTE: radial-gradient(ellipse, transparent 50%, rgba(0,0,0,0.4) 100%)
-4. FILM GRAIN: tiny noise overlay via repeating-conic-gradient at 2% opacity
-5. LENS FLARE: bright circle (blur 60px) that moves along a diagonal path
-6. REVEAL WIPE: clip-path: inset(0 100% 0 0) → inset(0 0% 0 0) for side reveals
-7. SCALE PULSE: element breathing between scale 1.0 and 1.03 with Math.sin
-8. GLOW PULSE: boxShadow opacity pulsing with Math.sin for attention
-9. PATH DRAW: SVG with strokeDasharray + animated strokeDashoffset
-10. MORPH TRANSITION: borderRadius animating from 0% to 50% (square → circle)
+SCENE TYPES — pick what fits the prompt:
 
-═══════════════════════════════════════════════════════════════
-TIMING (30 fps)
-═══════════════════════════════════════════════════════════════
+HOOK (scene 1): Large animated headline + topic SVG illustration + CornerBrackets + GlowOrbs + LightSweep. Grab attention in 4-5 seconds.
 
-- 3-5 scenes per video
-- Use Series + Series.Sequence for sequential scenes
-- Element stagger: 4-8 frames apart
-- Entrances: 8-15 frames each (spring for bounce, interpolate for smooth)
-- Camera drift: runs the ENTIRE scene duration
-- Particles: run continuously
-- Hold after all entrances: at least 30 frames
-- Total matches useVideoConfig().durationInFrames exactly
+FEATURES: 2-3 FeatureCards staggered + DeviceMockup showing product + FloatingIcons. Split layout: text left, mockup right.
 
-═══════════════════════════════════════════════════════════════
-ABSOLUTE REQUIREMENTS — FAILURE TO FOLLOW = REJECTED
-═══════════════════════════════════════════════════════════════
+SOCIAL PROOF / DATA: BarChart or CircularProgress + StatCounters counting up + relevant labels (Users, Downloads, Revenue).
 
-1. NO scene may be text-only. Every scene MUST have shapes, SVG graphics, or charts.
-2. EVERY scene MUST have animated background + particles + geometric decoration.
-3. At least 2 scenes MUST have custom inline SVG illustrations relevant to the topic.
-4. At least 1 scene MUST have animated data (chart, counter, or progress bar).
-5. Minimum 8 animated elements per scene (shapes + text + SVG + particles count).
-6. Use spring() for at least 3 entrance animations. Use interpolate() for continuous motion.
-7. Text is NEVER more than 30% of the visual. Graphics dominate.
+DEMO / SHOWCASE: DeviceMockup with ChatBubble inside (AI/chat topics), or browser with PricingTable, or phone with app UI.
 
-OUTPUT: Raw JSX code starting with import. No markdown, no fences, no explanation.`;
+CTA (last scene): Big headline + SubscribeButton animating in + arrow icon pulsing + particle burst + "Get Started" / "Subscribe" / "Try Free".
+
+TOPIC-SPECIFIC COMPONENTS:
+
+YouTube → SubscribeButton + play button SVG + view counter + ChatBubble for comments
+SaaS → DeviceMockup("browser") + FeatureCards + PricingTable + ProgressBars
+Mobile app → DeviceMockup("phone") + NotificationBadge + chat interface + StatCounters
+Business → BarChart + StatCounters + growth arrow SVG + milestone timeline
+Education → book/graduation SVG + ProgressBar for completion + StatCounters + FeatureCards
+Social media → phone mockup + heart/like animations + follower counter + ChatBubble
+E-commerce → product card mockup + star rating + "Add to Cart" button + price counter
+Finance → line chart SVG + dollar counters + CircularProgress for allocation
+Health/fitness → CircularProgress for goals + ProgressBars + heartbeat SVG animation
+AI/tech → ChatBubble showing AI conversation + code bracket SVGs + speed counters
+
+ANIMATION RULES:
+spring({ frame: frame - delay, fps, config: { damping: 14, stiffness: 150, mass: 0.8 } })
+interpolate(frame, [start, end], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+Stagger: each element enters 4-8 frames after previous
+Entrances: spring for bouncy (buttons, cards), interpolate for smooth (backgrounds, text)
+Continuous: Math.sin(frame * 0.04) for floating, Math.sin(frame * 0.08) for pulsing
+Camera drift: EVERY scene scales 1.0 to 1.05 over its duration
+Hold time: after all elements enter, hold at least 1 second before scene ends
+
+COLOR PALETTES (pick ONE, stay consistent):
+PREMIUM: bg=#0a0a1a surface=#141430 accent=#8b5cf6 secondary=#38bdf8 muted=#64748b text=#f1f5f9
+OCEAN: bg=#0c1222 surface=#162035 accent=#3b82f6 secondary=#06b6d4 muted=#64748b text=#e2e8f0
+EMERALD: bg=#021a0f surface=#052e1a accent=#10b981 secondary=#34d399 muted=#6b8f71 text=#ecfdf5
+SUNSET: bg=#1c1210 surface=#2a2018 accent=#f59e0b secondary=#ef4444 muted=#a08060 text=#fef3c7
+NEON: bg=#09090b surface=#18181b accent=#a855f7 secondary=#ec4899 muted=#71717a text=#fafafa
+
+ABSOLUTE REQUIREMENTS:
+1. DURATION: Scene frame counts MUST sum to EXACTLY durationInFrames. Calculate: const sceneFrames = Math.floor(durationInFrames / numberOfScenes). Give remainder to last scene.
+2. NO TEXT-ONLY SCENES. Every scene has animated graphics — charts, mockups, buttons, SVG art.
+3. BUILD REAL COMPONENTS: subscribe buttons, progress bars, device mockups, chat bubbles, charts — not just circles and rectangles.
+4. MINIMUM 10 animated elements per scene (components + decorations + particles).
+5. Use spring() for at least 5 entrances total. Use interpolate() for all continuous motion.
+6. Graphics must be 70%+ of visual area. Text is secondary.
+7. Last scene ALWAYS has a CTA with an animated button component.
+8. SVG illustrations must be RELEVANT to the topic (not generic shapes).
+9. Every number displayed must COUNT UP from 0 with interpolate.
+
+OUTPUT: Raw JSX code starting with import statement. Nothing else.`;
 
 const CODEGEN_GENERATED_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -1389,472 +1350,4 @@ function sanitizePlan(plan) {
             h: Math.max(minDim, clampFrac(el?.h, 0.1)),
             rotation: Number(el?.rotation) || 0,
             z: j,
-            // Use AI-provided animation if present, otherwise staggered default.
-            animation: el?.animation?.in ? el.animation : defaultAnim,
-          };
-          // Pass through type-specific fields the schema collected, with
-          // per-field sanitization to absorb the AI's small mistakes (font
-          // weight outside 100-900, "transparent" instead of #hex, etc.) so
-          // they don't blow up Zod validation and fail the whole project.
-          const passthrough = [
-            "type", "text", "color", "size", "weight", "align", "font",
-            "name", "src", "fit",
-            "shape", "fill", "stroke", "strokeWidth", "radius",
-            "title", "subtitle", "rows", "accent", "axisMax",
-            "showAxis", "showValues", "valueSuffix", "bg", "fg", "bar",
-            "points", "line", "finalValue", "finalLabel", "valuePrefix",
-            "value", "label", "caption", "sparkline", "countUp", "showGrid",
-            "animationDuration",
-            // SVG illustration
-            "paths", "viewBox",
-            // Glow orb
-            "blur", "pulse",
-            // Progress ring
-            "trackColor", "thickness",
-          ];
-          // Hex-only color fields. If the AI emits "transparent", "none",
-          // "black", "rgb(…)", or any non-hex value, drop the field entirely
-          // — they're all optional, the renderer falls back to brand colors.
-          const hexFields = new Set([
-            "color", "fill", "stroke", "accent", "bg", "fg", "bar", "line", "trackColor",
-          ]);
-          // Strict-range numeric fields. Each is { min, max, default? }.
-          // `default` is used when the AI emits something completely
-          // unparseable (NaN, string, etc.) — otherwise we clamp to min/max.
-          const numericRanges = {
-            weight: { min: 100, max: 900, step: 100 },     // font weight
-            size: { min: 0.005, max: 1 },                  // font size frac
-            strokeWidth: { min: 0, max: 100 },
-            radius: { min: 0, max: 500 },
-            axisMax: { min: 1, max: 10000 },
-            animationDuration: { min: 0.05, max: 60 },
-          };
-          for (const key of passthrough) {
-            const v = el?.[key];
-            if (v === undefined || v === null) continue;
-            if (hexFields.has(key)) {
-              // Only accept #rgb / #rrggbb / #rrggbbaa.
-              if (typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v.trim())) {
-                base[key] = v.trim();
-              }
-              // Otherwise: drop. Field is optional everywhere.
-            } else if (key in numericRanges) {
-              const n = Number(v);
-              const { min, max, step } = numericRanges[key];
-              if (Number.isFinite(n)) {
-                let clamped = Math.max(min, Math.min(max, n));
-                if (step) clamped = Math.round(clamped / step) * step;
-                base[key] = clamped;
-              }
-              // Unparseable → omit, Zod's optional() takes over.
-            } else {
-              base[key] = v;
-            }
-          }
-          // Sensible per-type defaults so Zod doesn't reject minimal elements.
-          if (base.type === "bar-chart") {
-            if (!Array.isArray(base.rows) || !base.rows.length) {
-              base.rows = [{ label: "Item", value: 50 }];
-            }
-          }
-          if (base.type === "shape" && !base.shape) base.shape = "rect";
-          if (base.type === "icon" && !base.name) base.name = "Sparkles";
-          if (base.type === "line-chart") {
-            if (!Array.isArray(base.points) || base.points.length < 2) {
-              base.points = [
-                { label: "Q1", value: 20 },
-                { label: "Q2", value: 35 },
-                { label: "Q3", value: 60 },
-                { label: "Q4", value: 92 },
-              ];
-            }
-            if (typeof base.finalValue !== "number") {
-              base.finalValue = base.points[base.points.length - 1].value;
-            }
-          }
-          if (base.type === "stat") {
-            if (typeof base.value !== "number") base.value = 0;
-          }
-          // Clamp so the element box doesn't extend past the right/bottom
-          // edge of the canvas — the AI sometimes picks x=0.9 + w=0.4 which
-          // pushes 30% of the element off-screen.
-          if (base.x + base.w > 1) base.w = Math.max(minDim, 1 - base.x);
-          if (base.y + base.h > 1) base.h = Math.max(minDim, 1 - base.y);
-          return base;
-        });
-      }
-
-      return scene;
-    });
-  }
-
-  return out;
-}
-
-function clampFrac(n, fallback) {
-  const v = Number(n);
-  if (!Number.isFinite(v)) return fallback;
-  return Math.max(0, Math.min(1, v));
-}
-
-function assertNoPlaceholders(plan) {
-  const raw = JSON.stringify(plan).toLowerCase();
-  const blocked = ["[brand", "brand name", "company name", "your brand", "example.com"];
-  const match = blocked.find((term) => raw.includes(term));
-  if (match) throw new Error(`AI response included placeholder copy: ${match}`);
-}
-
-// Light client-side quality checks. The AI is told to follow these rules in
-// the system prompt; this catches the cases where it ignores them. We DON'T
-// throw — instead we record warnings on the project so the user can see why
-// a render might feel off and we can regenerate if needed.
-function gradePlanQuality(plan, script, durationSec) {
-  const warnings = [];
-
-  // 1. Narration length should match video runtime at ~150 wpm.
-  if (script && typeof script === "string") {
-    const wordCount = script.trim().split(/\s+/).filter(Boolean).length;
-    const target = Math.round(durationSec * 2.5);
-    const min = Math.round(durationSec * 2.0);
-    const max = Math.round(durationSec * 3.0);
-    if (wordCount < min) {
-      warnings.push(
-        `Narration is too short: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will finish early.`
-      );
-    } else if (wordCount > max) {
-      warnings.push(
-        `Narration is too long: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will run past the video.`
-      );
-    }
-  }
-
-  // 2. Every scene should have at least one visual (icon/shape/image/chart).
-  const scenes = Array.isArray(plan?.scenes) ? plan.scenes : [];
-  const textOnlyScenes = scenes.filter((s) => {
-    const els = Array.isArray(s.elements) ? s.elements : [];
-    return !els.some((el) => ["icon", "image", "shape", "lottie", "bar-chart"].includes(el.type));
-  });
-  if (textOnlyScenes.length) {
-    warnings.push(
-      `${textOnlyScenes.length} of ${scenes.length} scene(s) have no graphical elements — they'll feel text-heavy.`
-    );
-  }
-
-  // 3. Headline length sanity.
-  const longHeadlines = scenes.filter(
-    (s) => typeof s.headline === "string" && s.headline.length > 70
-  );
-  if (longHeadlines.length) {
-    warnings.push(
-      `${longHeadlines.length} scene headline(s) exceed 70 characters and may wrap awkwardly on screen.`
-    );
-  }
-
-  // 4. Banned-phrase check (post-hoc, in case the model ignored the rule).
-  // Strip ALL punctuation + collapse whitespace before matching, so "Tap.
-  // Order. Done." and "tap order done" both hit. This is the matching bug
-  // that let "Tap. Order. Done." slip into a render.
-  const bannedPhrases = [
-    "unleash your",
-    "elevate your",
-    "stunning results",
-    "effortless",
-    "seamless",
-    "your idea in motion",
-    "limited time",
-    "tap order done",
-    "try it free",
-    "get started now",
-    "simplify your workflow",
-    "next level",
-    "make every second count",
-    "level up",
-    "supercharge",
-    "powerful insights",
-    "actionable insights",
-    "in just minutes",
-    "join thousands",
-    "trusted by",
-    "cut through the noise",
-  ];
-  const normalize = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
-  const flat = normalize(JSON.stringify(plan || {}) + " " + (script || ""));
-  const hit = bannedPhrases.filter((p) => flat.includes(normalize(p)));
-  if (hit.length) {
-    warnings.push(
-      `Plan contains cliché phrase(s) the prompt told the AI to avoid: ${hit.join(", ")}.`
-    );
-  }
-
-  return warnings;
-}
-
-async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
-  const configs = await resolveAllAiConfigs(userId);
-  if (!configs.length) throw new Error(await generationConfigError(userId));
-
-  const lottieAssets = await listLottieAssetSummaries();
-  const lottieAssetIds = lottieAssets.map((asset) => asset.id);
-  const lottieAssetPrompt = lottieAssetPromptListFromSummaries(lottieAssets);
-
-  const avoidance = await getAvoidanceHints(userId).catch(() => null);
-  const briefing = pickCopyBriefing();
-  console.log(
-    `[pipeline] copy brief: voice="${briefing.voice.slice(0, 32)}…" hook="${briefing.hook.slice(0, 32)}…" T=${briefing.temperature}`
-  );
-
-  let payload, lastErr;
-  for (const config of configs) {
-    try {
-      const genFn = config.provider === "openai" || config.provider === "openrouter"
-        ? generateWithOpenAI : generateWithGemini;
-      payload = await withRetry(() =>
-        genFn(prompt, durationSec, config, userId, "video_generation",
-          lottieAssetIds, lottieAssetPrompt, avoidance, briefing, referenceImage)
-      );
-      break; // success
-    } catch (err) {
-      lastErr = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/\(429\)|\(503\)/.test(msg) && configs.length > 1) {
-        console.warn(`[pipeline] ${config.provider} rate-limited, falling back to next provider…`);
-        continue;
-      }
-      throw err;
-    }
-  }
-  if (!payload) throw lastErr;
-
-  if (!payload || typeof payload.script !== "string") {
-    throw new Error("AI response did not include a script");
-  }
-
-  const plan = sanitizePlan(payload.plan);
-  assertNoPlaceholders(plan);
-  // Lottie assets are no longer assigned by the AI — admins upload Lotties for
-  // optional manual placement on the canvas, but generation produces none.
-  const parsed = VideoPlanSchema.safeParse(plan);
-  if (!parsed.success) {
-    throw new Error(`AI response did not match the video schema: ${parsed.error.message}`);
-  }
-
-  return {
-    script: payload.script.trim(),
-    plan: parsed.data,
-  };
-}
-
-// Save generated narration using the same path/bucket pattern as rendered MP4s:
-// written to backend/public/videos/<id>.<ext> when local and uploaded to
-// voiceovers/<id>.<ext> when object storage is on.
-const __PIPELINE_DIR = path.dirname(fileURLToPath(import.meta.url));
-const VOICEOVERS_LOCAL_DIR = path.join(__PIPELINE_DIR, "..", "..", "public", "videos");
-const PUBLIC_BASE = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-
-async function persistVoiceover(projectId, audio, script) {
-  const buffer = Buffer.isBuffer(audio) ? audio : audio?.buffer;
-  if (!buffer) throw new Error("Voiceover audio payload is empty");
-  const extension = String(audio?.extension || "mp3").replace(/[^a-z0-9]/gi, "").toLowerCase();
-  const contentType = audio?.contentType || (extension === "wav" ? "audio/wav" : "audio/mpeg");
-
-  fs.mkdirSync(VOICEOVERS_LOCAL_DIR, { recursive: true });
-  const localPath = path.join(VOICEOVERS_LOCAL_DIR, `${projectId}.${extension}`);
-  await fs.promises.writeFile(localPath, buffer);
-
-  let url = `${PUBLIC_BASE}/videos/${projectId}.${extension}`;
-  if (isStorageConfigured()) {
-    url = await uploadFile(localPath, `voiceovers/${projectId}.${extension}`, contentType);
-    await fs.promises.rm(localPath, { force: true }).catch(() => {});
-  }
-  return { url, duration: estimateVoiceoverDuration(script) };
-}
-
-// Fire-and-forget pipeline. It never creates placeholder videos. If AI or the
-// real renderer is unavailable, the project fails and credits are refunded.
-export async function runPipeline(projectId, userId, prompt, durationSec, referenceImage) {
-  const cost = costForDuration(durationSec);
-
-  try {
-    await Project.updateOne(
-      { _id: projectId },
-      { status: "GENERATING_ASSETS", progress: 10, errorMessage: null }
-    );
-
-    const { script, plan } = await generateVideoPlan(prompt, durationSec, userId, referenceImage);
-
-    // Stamp the project's structureSeed (random per-video) and the user's
-    // structureSeed onto the plan so the renderer's variant picker derives a
-    // unique chrome/grid/align combo every time, even for repeat prompts.
-    const projectDoc = await Project.findById(projectId).select("structureSeed");
-    const userDoc = await User.findById(userId).select("structureSeed");
-    plan.structureSeed = (projectDoc?.structureSeed ?? 0) ^ (userDoc?.structureSeed ?? 0);
-
-    // Persist this video's structural signature on the user so the NEXT
-    // generation knows what to avoid. Power-user variety engine.
-    await recordVideoSignature(userId, projectId, plan).catch(() => {});
-
-    // ---- CODE-GEN: Generate Remotion JSX code for this video ----
-    // The AI writes a complete React component that IS the video. This runs
-    // after the JSON plan so we have a fallback, and the script is already
-    // written for narration.
-    let generatedCode = null;
-    try {
-      const codeConfigs = await resolveAllAiConfigs(userId);
-      if (codeConfigs.length) {
-        await Project.updateOne({ _id: projectId }, { progress: 20 });
-        let codeLastErr;
-        for (const config of codeConfigs) {
-          try {
-            generatedCode = await withRetry(
-              () => generateVideoCode(prompt, durationSec, config, userId, referenceImage),
-              3, 2000
-            );
-            break;
-          } catch (err) {
-            codeLastErr = err;
-            const msg = err instanceof Error ? err.message : String(err);
-            if (/\(429\)|\(503\)/.test(msg) && codeConfigs.length > 1) {
-              console.warn(`[pipeline] code-gen: ${config.provider} rate-limited, trying next…`);
-              continue;
-            }
-            throw err;
-          }
-        }
-        if (!generatedCode && codeLastErr) throw codeLastErr;
-        console.log(`[pipeline] code-gen succeeded for ${projectId} (${generatedCode.length} chars)`);
-      }
-    } catch (codeErr) {
-      // Non-fatal: we still have the JSON plan as fallback.
-      console.warn(`[pipeline] code-gen failed for ${projectId}, falling back to JSON plan:`, codeErr.message);
-      await Project.updateOne(
-        { _id: projectId },
-        {
-          $push: {
-            warnings: {
-              $each: [{ phase: "codegen", message: `Code generation failed: ${codeErr.message?.slice(0, 200)}`, at: new Date() }],
-              $slice: -10,
-            },
-          },
-        }
-      ).catch(() => {});
-    }
-
-    // Quality grading — surface warnings about narration length, missing
-    // graphics, headline length, and cliché phrases so the user sees the
-    // root cause when a video feels off. Never fails the project.
-    try {
-      const qualityWarnings = gradePlanQuality(plan, script, durationSec);
-      if (qualityWarnings.length) {
-        await Project.updateOne(
-          { _id: projectId },
-          {
-            $push: {
-              warnings: {
-                $each: qualityWarnings.map((message) => ({
-                  phase: "ai",
-                  message,
-                  at: new Date(),
-                })),
-                $slice: -10,
-              },
-            },
-          }
-        );
-      }
-    } catch (gradeErr) {
-      console.warn(`[pipeline] quality grading failed for ${projectId}:`, gradeErr);
-    }
-
-    // Voiceover is additive — TTS failure (or missing key) must NEVER fail the
-    // project. We try, swallow errors, and continue to READY_TO_EDIT. A short
-    // reason is captured on the project so the editor can surface "Narration
-    // unavailable" instead of silently producing a silent video.
-    let voiceoverUrl = null;
-    let voiceoverDuration = null;
-    let voiceoverError = null;
-    if (!script || !script.trim()) {
-      voiceoverError = "empty_script";
-    } else if (!isTtsConfigured()) {
-      voiceoverError = "missing_piper_script";
-    } else {
-      try {
-        const audio = await synthesizeVoiceover(script);
-        const audioSize = Buffer.isBuffer(audio) ? audio.length : audio?.buffer?.length;
-        if (!audioSize || audioSize < 44) {
-          voiceoverError = "empty_response";
-        } else {
-          const { url, duration } = await persistVoiceover(projectId, audio, script);
-          voiceoverUrl = url;
-          voiceoverDuration = duration;
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        // Keep the reason short and safe — no API key or full request body.
-        const m = msg.match(/\((\d{3})\)/);
-        voiceoverError = m ? `http_${m[1]}` : msg.slice(0, 80);
-        console.warn(`[pipeline] voiceover failed for ${projectId}: ${voiceoverError}`);
-      }
-    }
-    // Surface non-fatal voiceover failures into the structured warnings list
-    // so the UI can show the root cause alongside "Narration unavailable".
-    if (voiceoverError) {
-      await Project.updateOne(
-        { _id: projectId },
-        {
-          $push: {
-            warnings: {
-              $each: [
-                {
-                  phase: "tts",
-                  message: `Voiceover skipped: ${voiceoverError}`,
-                  at: new Date(),
-                },
-              ],
-              $slice: -10,
-            },
-          },
-        }
-      ).catch(() => {});
-    }
-
-    await Project.updateOne(
-      { _id: projectId },
-      {
-        // Stop here so the user can edit on the canvas. The render worker only
-        // claims "QUEUED" — rendering happens when the user clicks Render
-        // (POST /:id/rerender), which transitions READY_TO_EDIT → QUEUED.
-        status: "READY_TO_EDIT",
-        progress: 30,
-        script,
-        sceneJson: plan,
-        generatedCode,
-        aspectRatio: plan.aspectRatio,
-        voiceoverUrl,
-        voiceoverDuration,
-        voiceoverError,
-      }
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Pipeline error";
-    const code = err instanceof Error ? err.code || err.name || null : null;
-    const stack = err instanceof Error ? err.stack || null : null;
-    console.error(`[pipeline] project ${projectId} failed:`, err);
-    await Project.updateOne(
-      { _id: projectId },
-      {
-        status: "FAILED",
-        progress: 0,
-        errorMessage: message,
-        errorPhase: "ai",
-        errorCode: code,
-        errorStack: stack,
-        errorAt: new Date(),
-        outputUrl: null,
-        thumbnailUrl: null,
-      }
-    );
-    await refundCredits(userId, cost, projectId).catch((refundErr) => {
-      console.error(`[pipeline] credit refund failed for ${projectId}:`, refundErr);
-    });
-  }
-}
+            // Use AI-provided animation if present, otherwi
