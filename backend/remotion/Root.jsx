@@ -1,5 +1,6 @@
 import { Composition } from "remotion";
 import { Video } from "./Video.jsx";
+import GeneratedVideo from "./generated/Current.jsx";
 
 const FPS = 30;
 
@@ -53,45 +54,75 @@ const defaultProps = {
   ],
 };
 
+// Default props for the code-gen composition. Duration/dimensions are
+// overridden per-render via calculateMetadata.
+const generatedDefaultProps = {
+  duration: 20,
+  aspectRatio: "16:9",
+};
+
 export const Root = () => {
   return (
-    <Composition
-      id="video"
-      component={Video}
-      durationInFrames={20 * FPS}
-      fps={FPS}
-      width={1920}
-      height={1080}
-      defaultProps={defaultProps}
-      calculateMetadata={({ props }) => {
-        const [width, height] = DIMENSIONS[props.aspectRatio] ?? DIMENSIONS["16:9"];
-        const timeline = props.timeline;
-        let seconds;
-        if (timeline && Array.isArray(timeline.tracks) && timeline.tracks.length) {
-          // Total = the latest clip / zoom-region end across all tracks.
-          let max = Number(timeline.duration) || 0;
-          for (const track of timeline.tracks) {
-            for (const clip of track.clips ?? []) {
-              max = Math.max(max, (Number(clip.start) || 0) + (Number(clip.duration) || 0));
+    <>
+      {/* Legacy JSON-driven composition */}
+      <Composition
+        id="video"
+        component={Video}
+        durationInFrames={20 * FPS}
+        fps={FPS}
+        width={1920}
+        height={1080}
+        defaultProps={defaultProps}
+        calculateMetadata={({ props }) => {
+          const [width, height] = DIMENSIONS[props.aspectRatio] ?? DIMENSIONS["16:9"];
+          const timeline = props.timeline;
+          let seconds;
+          if (timeline && Array.isArray(timeline.tracks) && timeline.tracks.length) {
+            let max = Number(timeline.duration) || 0;
+            for (const track of timeline.tracks) {
+              for (const clip of track.clips ?? []) {
+                max = Math.max(max, (Number(clip.start) || 0) + (Number(clip.duration) || 0));
+              }
             }
+            for (const region of timeline.zoomRegions ?? []) {
+              max = Math.max(max, Number(region.end) || 0);
+            }
+            seconds = max || 20;
+          } else {
+            seconds =
+              Number(props.duration) > 0
+                ? Number(props.duration)
+                : (props.scenes ?? []).reduce((sum, s) => sum + (Number(s.duration) || 0), 0) || 20;
           }
-          for (const region of timeline.zoomRegions ?? []) {
-            max = Math.max(max, Number(region.end) || 0);
-          }
-          seconds = max || 20;
-        } else {
-          seconds =
-            Number(props.duration) > 0
-              ? Number(props.duration)
-              : (props.scenes ?? []).reduce((sum, s) => sum + (Number(s.duration) || 0), 0) || 20;
-        }
-        return {
-          width,
-          height,
-          fps: FPS,
-          durationInFrames: Math.max(1, Math.round(seconds * FPS)),
-        };
-      }}
-    />
+          return {
+            width,
+            height,
+            fps: FPS,
+            durationInFrames: Math.max(1, Math.round(seconds * FPS)),
+          };
+        }}
+      />
+
+      {/* Code-gen composition — AI writes Current.jsx before each render */}
+      <Composition
+        id="generated"
+        component={GeneratedVideo}
+        durationInFrames={20 * FPS}
+        fps={FPS}
+        width={1920}
+        height={1080}
+        defaultProps={generatedDefaultProps}
+        calculateMetadata={({ props }) => {
+          const [width, height] = DIMENSIONS[props.aspectRatio] ?? DIMENSIONS["16:9"];
+          const seconds = Number(props.duration) || 20;
+          return {
+            width,
+            height,
+            fps: FPS,
+            durationInFrames: Math.max(1, Math.round(seconds * FPS)),
+          };
+        }}
+      />
+    </>
   );
 };
