@@ -56,7 +56,7 @@ export interface Scene {
   headline?: string;
   subtext?: string;
   visual: string;
-  sceneTemplate?: SceneTemplate;
+  sceneTheme?: string;
   lottieAsset?: string;
   lottieAnimationData?: unknown;
   visualAssetId?: string;
@@ -68,7 +68,6 @@ export interface Scene {
 export interface VideoPlan {
   duration: number;
   aspectRatio: AspectRatio;
-  template: TemplateName;
   category?: VideoCategory;
   brandColors?: string[];
   scenes: Scene[];
@@ -95,7 +94,6 @@ export interface Project {
   sceneJson?: VideoPlan;
   /** True when the AI generated custom Remotion JSX code for this project. */
   hasGeneratedCode?: boolean;
-  template?: TemplateName;
   aspectRatio: AspectRatio;
   durationSec: number;
   outputUrl?: string;
