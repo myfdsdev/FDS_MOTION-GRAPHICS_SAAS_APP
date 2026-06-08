@@ -193,7 +193,7 @@ export function PropertiesPanel({
                   rows={2}
                   value={scene.headline ?? ""}
                   onChange={(e) => patchScene({ headline: e.target.value })}
-                  placeholder="The big title shown by the template"
+                  placeholder="The big title shown in the scene"
                   className="w-full resize-none rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg outline-none focus:border-accent/50"
                 />
               </label>
