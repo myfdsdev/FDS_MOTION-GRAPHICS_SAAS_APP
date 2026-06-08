@@ -140,12 +140,17 @@ export async function getProject(id: string): Promise<Project> {
 
 export async function createProject(
   prompt: string,
-  durationSec = 20
+  durationSec = 20,
+  referenceImage?: string
 ): Promise<Project> {
   if (USE_MOCKS) return mockApi.createProject(prompt, durationSec);
   return realFetch<Project>("/api/projects", {
     method: "POST",
-    body: JSON.stringify({ prompt, durationSec }),
+    body: JSON.stringify({
+      prompt,
+      durationSec,
+      ...(referenceImage ? { referenceImage } : {}),
+    }),
   });
 }
 
@@ -173,12 +178,17 @@ export async function rerenderProject(id: string): Promise<Project> {
 export async function generateProject(
   id: string,
   prompt: string,
-  durationSec?: number
+  durationSec?: number,
+  referenceImage?: string
 ): Promise<Project> {
   if (USE_MOCKS) return mockApi.getProject(id);
   return realFetch<Project>(`/api/projects/${id}/generate`, {
     method: "POST",
-    body: JSON.stringify({ prompt, ...(durationSec ? { durationSec } : {}) }),
+    body: JSON.stringify({
+      prompt,
+      ...(durationSec ? { durationSec } : {}),
+      ...(referenceImage ? { referenceImage } : {}),
+    }),
   });
 }
 

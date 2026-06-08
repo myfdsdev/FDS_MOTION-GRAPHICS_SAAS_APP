@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
-import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2 } from "lucide-react";
+import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2, X, ImageIcon } from "lucide-react";
 import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
 import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
@@ -22,9 +22,30 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [prompt, setPrompt] = useState("");
+  const [refImage, setRefImage] = useState<string | null>(null);
+  const [refName, setRefName] = useState("");
 
   const isSubmitting = createProject.isPending;
   const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
+
+  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error("Image must be under 4 MB");
+      return;
+    }
+    setRefName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => setRefImage(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+    if (onPickFiles) onPickFiles([file]);
+  };
 
   const handleCreate = async () => {
     if (prompt.trim().length < 10) {
@@ -32,8 +53,11 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       return;
     }
     try {
-      const proj = await createProject.mutateAsync({ prompt, durationSec });
-      // Open the generated project straight in the editor.
+      const proj = await createProject.mutateAsync({
+        prompt,
+        durationSec,
+        referenceImage: refImage ?? undefined,
+      });
       navigate(`/projects/${proj.id}/edit`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create";
@@ -110,32 +134,44 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
           />
         </div>
 
+        {/* Reference image preview */}
+        {refImage && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-2/60 p-2 mb-1.5">
+            <img src={refImage} alt="ref" className="h-14 w-14 rounded-lg object-cover border border-border" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs text-fg font-medium">
+                <ImageIcon size={12} className="text-accent shrink-0" />
+                <span className="truncate">{refName}</span>
+              </div>
+              <div className="text-[11px] text-faint mt-0.5">Design reference — layout, colors & style only (not content)</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setRefImage(null); setRefName(""); }}
+              className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-faint hover:text-danger hover:bg-surface-2 transition-colors"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
         {/* Bottom toolbar */}
         <div className="flex items-center justify-between gap-2 pt-1">
-          {/* Left: attach */}
+          {/* Left: attach reference image */}
           <div className="flex items-center gap-1">
             <input
               ref={fileInput}
               type="file"
-              multiple
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? []);
-                if (files.length) onPickFiles?.(files);
-                e.target.value = "";
-              }}
+              onChange={handleFilePick}
             />
             <button
               type="button"
-              onClick={() =>
-                onPickFiles
-                  ? fileInput.current?.click()
-                  : toast("Attachments are available on the Create page")
-              }
+              onClick={() => fileInput.current?.click()}
               className="w-9 h-9 rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
-              aria-label="Add attachment"
-              title="Add image"
+              aria-label="Add reference image"
+              title="Upload design reference (layout & style only)"
             >
               <Plus size={18} />
             </button>

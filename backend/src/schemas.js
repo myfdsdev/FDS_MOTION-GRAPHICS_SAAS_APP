@@ -254,8 +254,9 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
 
 export const SceneSchema = z.object({
   scene: z.number().int().min(1),
-  // Editor allows finer/longer scenes than the AI generator; keep a sane cap.
   duration: z.number().min(0.1).max(600),
+  /** "custom" = elements-first motion graphics, "template" = legacy templates */
+  renderMode: z.enum(["custom", "template"]).optional(),
   // `text` is the per-scene NARRATION chunk — at 150 wpm a 10-second scene
   // is ~25 words ≈ 175 chars, so 140 was too tight and kept failing Zod.
   // Bumped to 800 with safe truncation in sanitizePlan as belt-and-suspenders.
@@ -327,10 +328,10 @@ export const TimelineSchema = z.object({
 });
 
 export const VideoPlanSchema = z.object({
-  // Editor can produce longer projects than the generator's 5–60s.
   duration: z.number().min(1).max(600),
   aspectRatio: AspectRatio,
   template: TemplateName,
+  renderMode: z.enum(["custom", "template"]).optional(),
   category: VideoCategory.optional(),
   brandColors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional(),
   scenes: z.array(SceneSchema).min(1).max(50),
@@ -360,17 +361,20 @@ export const LoginInput = z.object({
 });
 
 export const CreateProjectInput = z.object({
-  prompt: z.string().min(10).max(1000),
+  prompt: z.string().min(10).max(5000),
   durationSec: z.number().int().min(5).max(60).optional().default(20),
+  referenceImage: z.string().max(6_000_000).optional(),
 });
 
 export const EnhancePromptInput = z.object({
-  prompt: z.string().min(5).max(1000),
+  prompt: z.string().min(5).max(5000),
 });
 
 export const GenerateProjectInput = z.object({
-  prompt: z.string().min(10).max(1000),
+  prompt: z.string().min(10).max(5000),
   durationSec: z.number().int().min(5).max(60).optional(),
+  /** Base64 data-URL of a reference image for layout/style extraction. */
+  referenceImage: z.string().max(6_000_000).optional(),
 });
 
 export const TopUpInput = z.object({

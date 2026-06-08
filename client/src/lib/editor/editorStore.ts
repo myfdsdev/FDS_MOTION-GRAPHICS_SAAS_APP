@@ -27,10 +27,11 @@ import {
 
 /** Build canvas elements from a legacy scene's headline/text/subtext fields. */
 export function elementsFromScene(scene: Scene): SceneElement[] {
+  // `scene.text` is the NARRATION script (voiceover) — never show it on screen.
+  // Only `scene.headline` and `scene.subtext` are on-screen text.
   const out: SceneElement[] = [];
   let z = 0;
-  const headline = scene.headline || scene.text;
-  if (headline) {
+  if (scene.headline) {
     out.push({
       id: uid("el"),
       type: "text",
@@ -41,7 +42,7 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
       h: 0.18,
       rotation: 0,
       z: z++,
-      text: headline,
+      text: scene.headline,
       size: 0.1,
       weight: 800,
       color: DEFAULT_ELEMENT_COLOR,
@@ -69,17 +70,16 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
   return out;
 }
 
-/** Ensure a scene has an `elements` array with draggable text elements
- *  created from the scene's headline/subtext.
+/** Ensure a scene has an `elements` array.
  *
- *  Template fields stay on the scene so the backend renderer still has them.
- *  The LivePreview strips headline/subtext before passing to the Remotion
- *  Player so the template renders visuals + animations but NOT text —
- *  the canvas overlay owns the text layer (draggable). */
+ *  CUSTOM mode: elements[] is the source of truth for all visible content.
+ *  The AI generates headline/subtext as text elements directly.
+ *
+ *  TEMPLATE mode: headline/subtext belong to the template. elements[] are
+ *  optional overlays (icons, shapes, charts). */
 export function ensureElements(scene: Scene): Scene {
-  if (scene.elements && scene.elements.length) return scene;
-  const elements = elementsFromScene(scene);
-  return { ...scene, elements };
+  if (scene.elements) return scene;
+  return { ...scene, elements: [] };
 }
 
 export function currentSceneClipId(
@@ -712,25 +712,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
 
     case "UPDATE_ELEMENT": {
-      let tracks = mapElements(state.tracks, action.clipId, (els) =>
-        els.map((e) => (e.id === action.elementId ? applyElementPatch(e, action.patch) : e))
-      );
-      // Sync headline/subtext canvas elements back to the scene fields so the
-      // backend renderer uses the updated text in the final MP4.
-      if (action.patch.text != null) {
-        const found = findClip(state.tracks, action.clipId);
-        const el = found?.clip.scene?.elements?.find((e) => e.id === action.elementId);
-        if (el?.name === "__headline__") {
-          tracks = mapClip(tracks, action.clipId, (c) =>
-            c.scene ? { ...c, scene: { ...c.scene, headline: action.patch.text, text: action.patch.text } } : c
-          );
-        } else if (el?.name === "__subtext__") {
-          tracks = mapClip(tracks, action.clipId, (c) =>
-            c.scene ? { ...c, scene: { ...c.scene, subtext: action.patch.text } } : c
-          );
-        }
-      }
-      return withHistory({ ...state, tracks });
+      return withHistory({
+        ...state,
+        tracks: mapElements(state.tracks, action.clipId, (els) =>
+          els.map((e) => (e.id === action.elementId ? applyElementPatch(e, action.patch) : e))
+        ),
+      });
     }
 
     case "MOVE_ELEMENT": {

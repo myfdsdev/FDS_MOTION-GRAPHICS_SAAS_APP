@@ -32,7 +32,7 @@ projectsRouter.post(
   validate(CreateProjectInput),
   async (req, res, next) => {
     try {
-      const { prompt, durationSec } = req.body;
+      const { prompt, durationSec, referenceImage } = req.body;
       const userId = req.user.id;
       const configError = await generationConfigError(userId);
       if (configError) return res.status(500).json({ error: configError });
@@ -55,7 +55,7 @@ projectsRouter.post(
       }
 
       // Fire-and-forget — request returns immediately with the PLANNING project.
-      runPipeline(String(project._id), userId, prompt, durationSec);
+      runPipeline(String(project._id), userId, prompt, durationSec, referenceImage);
 
       res.status(201).json(toProjectDTO(project));
     } catch (err) {
@@ -138,7 +138,7 @@ projectsRouter.post(
       const configError = await generationConfigError(req.user.id);
       if (configError) return res.status(500).json({ error: configError });
 
-      const { prompt, durationSec } = req.body;
+      const { prompt, durationSec, referenceImage } = req.body;
       const seconds = durationSec ?? project.durationSec ?? 20;
 
       const cost = costForDuration(seconds);
@@ -152,7 +152,7 @@ projectsRouter.post(
       project.outputUrl = null;
       await project.save();
 
-      runPipeline(String(project._id), req.user.id, prompt, seconds);
+      runPipeline(String(project._id), req.user.id, prompt, seconds, referenceImage);
 
       res.status(202).json(toProjectDTO(project));
     } catch (err) {

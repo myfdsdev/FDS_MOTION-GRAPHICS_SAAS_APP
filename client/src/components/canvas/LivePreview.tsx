@@ -57,27 +57,20 @@ export function LivePreview({
   const [width, height] = DIMENSIONS[aspectRatio] ?? DIMENSIONS["16:9"];
   const durationInFrames = Math.max(1, Math.round((sceneDuration || 1) * FPS));
 
-  // Single-scene mini-plan. We drop `elements` (the canvas overlay owns
-  // those) AND `headline`/`subtext` so the template renders its visuals and
-  // animations but NOT the text — the canvas draws the text as draggable
-  // elements instead.
+  // Strip `elements` (canvas overlay draws them interactively).
+  // In CUSTOM mode, also strip headline/subtext (they're in elements).
+  // In TEMPLATE mode, keep headline/subtext (template renders them).
   const inputProps = useMemo(() => {
     const cleaned = scene
       ? (() => {
-          const {
-            elements: _elements,
-            headline: _headline,
-            subtext: _subtext,
-            ...rest
-          } = scene as Record<string, unknown> & {
-            elements?: unknown;
-            headline?: unknown;
-            subtext?: unknown;
-          };
+          const raw = scene as Record<string, unknown>;
+          const mode = raw.renderMode || "custom";
+          const { elements: _elements, ...rest } = raw as Record<string, unknown> & { elements?: unknown };
           void _elements;
-          void _headline;
-          void _subtext;
-          return { ...rest, headline: "", subtext: "", duration: sceneDuration };
+          if (mode === "custom") {
+            return { ...rest, headline: "", subtext: "", duration: sceneDuration };
+          }
+          return { ...rest, duration: sceneDuration };
         })()
       : null;
     return {

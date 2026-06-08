@@ -96,14 +96,17 @@ interface PropertiesProps extends PanelCommon {
   sceneClip?: TimelineClip | null;
 }
 
-const SCENE_TEMPLATES = [
-  "kinetic-title",
-  "animated-bg-text",
-  "app-showcase",
-  "offer-burst",
-  "proof-cards",
-  "final-cta",
-  "karaoke-subtitle",
+const SCENE_THEMES = [
+  "gradient-flow",
+  "geometric",
+  "spotlight",
+  "split-tone",
+  "minimal-dark",
+  "minimal-light",
+  "mesh-gradient",
+  "particle-field",
+  "aurora",
+  "bold-color",
 ] as const;
 
 const ANIMATIONS = [
@@ -221,11 +224,11 @@ export function PropertiesPanel({
 
             <Section title="Template">
               <SelectField
-                label="Scene template"
-                value={scene.sceneTemplate ?? "kinetic-title"}
-                options={[...SCENE_TEMPLATES]}
+                label="Scene theme"
+                value={scene.sceneTemplate ?? "gradient-flow"}
+                options={[...SCENE_THEMES]}
                 onChange={(v) =>
-                  patchScene({ sceneTemplate: v as typeof SCENE_TEMPLATES[number] })
+                  patchScene({ sceneTemplate: v as typeof SCENE_THEMES[number] })
                 }
               />
               <div className="grid grid-cols-2 gap-2">

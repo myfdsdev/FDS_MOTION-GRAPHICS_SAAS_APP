@@ -31,6 +31,7 @@ import {
   Trash2,
   Type as TypeIcon,
   Undo2,
+  X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -355,7 +356,7 @@ export default function EditorPage() {
     },
   });
 
-  const runGenerate = async (prompt: string, durationSec: number) => {
+  const runGenerate = async (prompt: string, durationSec: number, referenceImage?: string) => {
     if (!project) return;
     if (prompt.trim().length < 10) {
       toast.error("Describe the video — at least a sentence.");
@@ -364,7 +365,7 @@ export default function EditorPage() {
     try {
       genBaselineRef.current = JSON.stringify(project.sceneJson ?? null);
       setAwaitingGen(true);
-      await generate.mutateAsync({ prompt, durationSec });
+      await generate.mutateAsync({ prompt, durationSec, referenceImage });
     } catch (e) {
       setAwaitingGen(false);
       toast.error(e instanceof Error ? e.message : "Generation failed");
@@ -790,13 +791,34 @@ function ChatPanel({
   aspectRatio: string;
   defaultDuration: number;
   generating: boolean;
-  onGenerate: (prompt: string, durationSec: number) => void;
+  onGenerate: (prompt: string, durationSec: number, referenceImage?: string) => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState(defaultDuration || 15);
+  const [refImage, setRefImage] = useState<string | null>(null);
+  const [refName, setRefName] = useState<string>("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error("Image must be under 4 MB");
+      return;
+    }
+    setRefName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => setRefImage(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const submit = () => {
-    onGenerate(prompt, duration);
+    onGenerate(prompt, duration, refImage ?? undefined);
   };
 
   return (
@@ -865,9 +887,23 @@ function ChatPanel({
             placeholder="Describe a scene or edit the whole video"
             className="w-full resize-none bg-transparent px-1 text-sm text-fg outline-none placeholder:text-faint"
           />
+          {/* Reference image preview */}
+          {refImage && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface-3/50 p-1.5">
+              <img src={refImage} alt="ref" className="h-12 w-12 rounded object-cover" />
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-[11px] text-fg">{refName}</div>
+                <div className="text-[10px] text-faint">Design reference — layout, colors & style only (not content)</div>
+              </div>
+              <button onClick={() => { setRefImage(null); setRefName(""); }} className="shrink-0 rounded p-1 text-faint hover:text-danger">
+                <X size={12} />
+              </button>
+            </div>
+          )}
           <div className="mt-1 flex items-center justify-between">
-            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-3 hover:text-fg" title="Attach (coming soon)">
-              <Paperclip size={14} />
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+            <button onClick={() => fileRef.current?.click()} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-3 hover:text-fg" title="Attach reference image">
+              <Plus size={14} />
             </button>
             <button
               onClick={submit}

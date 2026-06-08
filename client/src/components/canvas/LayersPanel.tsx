@@ -35,8 +35,6 @@ const TYPE_ICON: Record<SceneElement["type"], typeof TypeIcon> = {
 };
 
 function elementLabel(el: SceneElement, index: number): string {
-  if (el.name === "__headline__") return "Headline";
-  if (el.name === "__subtext__") return "Subtext";
   if (el.name && el.name.trim()) return el.name;
   if (el.type === "text") return el.text?.slice(0, 36) || "Text";
   if (el.type === "subtitle") return el.text?.slice(0, 36) || "Subtitle";

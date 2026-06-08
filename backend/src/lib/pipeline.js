@@ -22,7 +22,7 @@ import {
 } from "./lottieLibrary.js";
 import { decryptSecret } from "./secrets.js";
 import { getAppSettings } from "./settings.js";
-import { SCENE_TEMPLATES, VIDEO_CATEGORIES } from "./videoAssets.js";
+import { SCENE_THEMES, VIDEO_CATEGORIES } from "./videoAssets.js";
 import { getAvoidanceHints, recordVideoSignature } from "./variety.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
@@ -153,6 +153,17 @@ const ICON_VOCAB = [
 // flat (not oneOf-per-type) maximises compatibility with both OpenAI's strict
 // JSON Schema and Gemini's restricted subset.
 function elementSchemaJson() {
+  const animationKinds = ["fade", "slide-left", "slide-right", "slide-up", "slide-down", "zoom-in", "zoom-out", "scale", "pop"];
+  const animationStep = {
+    type: "object",
+    additionalProperties: false,
+    required: ["kind", "at", "duration"],
+    properties: {
+      kind: { type: "string", enum: animationKinds },
+      at: { type: "number", minimum: 0, maximum: 15 },
+      duration: { type: "number", minimum: 0.05, maximum: 5 },
+    },
+  };
   return {
     type: "object",
     additionalProperties: false,
@@ -164,12 +175,22 @@ function elementSchemaJson() {
       w: { type: "number", minimum: 0.02, maximum: 1 },
       h: { type: "number", minimum: 0.02, maximum: 1 },
       rotation: { type: "number", minimum: -180, maximum: 180 },
+      // Per-element entrance/exit animation — THIS is what creates the motion-graphics feel.
+      animation: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          in: animationStep,
+          out: animationStep,
+        },
+      },
       // Text / subtitle
       text: { type: "string", maxLength: 200 },
       color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
       size: { type: "number", minimum: 0.02, maximum: 0.4 },
       weight: { type: "integer", minimum: 100, maximum: 900 },
       align: { type: "string", enum: ["left", "center", "right"] },
+      font: { type: "string", maxLength: 80 },
       // Icon
       name: { type: "string", enum: ICON_VOCAB },
       // Image
@@ -218,12 +239,19 @@ function elementSchemaJson() {
       finalLabel: { type: "string", maxLength: 40 },
       valuePrefix: { type: "string", maxLength: 8 },
       valueSuffix: { type: "string", maxLength: 8 },
+      showGrid: { type: "boolean" },
+      animationDuration: { type: "number", minimum: 0.2, maximum: 10 },
       // Stat tile
       value: { type: "number" },
       label: { type: "string", maxLength: 80 },
       caption: { type: "string", maxLength: 160 },
       accent: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
       sparkline: { type: "array", minItems: 2, maxItems: 20, items: { type: "number" } },
+      countUp: { type: "boolean" },
+      // Common
+      bg: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      fg: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      bar: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
     },
   };
 }
@@ -264,10 +292,7 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
                 "scene",
                 "duration",
                 "text",
-                "headline",
-                "subtext",
-                "visual",
-                "sceneTemplate",
+                "sceneTheme",
                 "animation",
                 "transition",
                 "elements",
@@ -279,16 +304,13 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
                 headline: { type: "string", maxLength: 140 },
                 subtext: { type: "string", maxLength: 240 },
                 visual: { type: "string" },
-                sceneTemplate: { type: "string", enum: SCENE_TEMPLATES },
+                sceneTheme: { type: "string", enum: SCENE_THEMES },
                 animation: { type: "string", enum: animations },
                 transition: { type: "string", enum: transitions },
-                // *** THE FIX *** — schema now allows (and requires!) the AI to
-                // emit graphical elements. Without this entry, structured-output
-                // mode strips them and you get text-only videos.
                 elements: {
                   type: "array",
-                  minItems: 2,
-                  maxItems: 6,
+                  minItems: 1,
+                  maxItems: 8,
                   items: elementSchemaJson(),
                 },
               },
@@ -327,7 +349,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
                 headline: { type: "STRING" },
                 subtext: { type: "STRING" },
                 visual: { type: "STRING" },
-                sceneTemplate: { type: "STRING", enum: SCENE_TEMPLATES },
+                sceneTheme: { type: "STRING", enum: SCENE_THEMES },
                 animation: { type: "STRING", enum: animations },
                 transition: { type: "STRING", enum: transitions },
                 // *** THE FIX *** — same root cause as OpenAI: without this
@@ -347,11 +369,36 @@ function createGeminiResponseSchema(lottieAssetIds) {
                       w: { type: "NUMBER" },
                       h: { type: "NUMBER" },
                       rotation: { type: "NUMBER" },
+                      // Per-element entrance/exit animation
+                      animation: {
+                        type: "OBJECT",
+                        properties: {
+                          in: {
+                            type: "OBJECT",
+                            properties: {
+                              kind: { type: "STRING", enum: ["fade", "slide-left", "slide-right", "slide-up", "slide-down", "zoom-in", "zoom-out", "scale", "pop"] },
+                              at: { type: "NUMBER" },
+                              duration: { type: "NUMBER" },
+                            },
+                            required: ["kind", "at", "duration"],
+                          },
+                          out: {
+                            type: "OBJECT",
+                            properties: {
+                              kind: { type: "STRING", enum: ["fade", "slide-left", "slide-right", "slide-up", "slide-down", "zoom-in", "zoom-out", "scale", "pop"] },
+                              at: { type: "NUMBER" },
+                              duration: { type: "NUMBER" },
+                            },
+                            required: ["kind", "at", "duration"],
+                          },
+                        },
+                      },
                       text: { type: "STRING" },
                       color: { type: "STRING" },
                       size: { type: "NUMBER" },
                       weight: { type: "INTEGER" },
                       align: { type: "STRING", enum: ["left", "center", "right"] },
+                      font: { type: "STRING" },
                       name: { type: "STRING", enum: ICON_VOCAB },
                       src: { type: "STRING" },
                       fit: { type: "STRING", enum: ["cover", "contain"] },
@@ -389,11 +436,17 @@ function createGeminiResponseSchema(lottieAssetIds) {
                       finalLabel: { type: "STRING" },
                       valuePrefix: { type: "STRING" },
                       valueSuffix: { type: "STRING" },
+                      showGrid: { type: "BOOLEAN" },
+                      animationDuration: { type: "NUMBER" },
                       value: { type: "NUMBER" },
                       label: { type: "STRING" },
                       caption: { type: "STRING" },
                       accent: { type: "STRING" },
                       sparkline: { type: "ARRAY", items: { type: "NUMBER" } },
+                      countUp: { type: "BOOLEAN" },
+                      bg: { type: "STRING" },
+                      fg: { type: "STRING" },
+                      bar: { type: "STRING" },
                     },
                     required: ["type", "x", "y", "w", "h"],
                   },
@@ -403,10 +456,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
                 "scene",
                 "duration",
                 "text",
-                "headline",
-                "subtext",
-                "visual",
-                "sceneTemplate",
+                "sceneTheme",
                 "animation",
                 "transition",
                 "elements",
@@ -479,20 +529,17 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
     `NARRATION SCRIPT LENGTH IS A HARD REQUIREMENT. The combined narration must take ${durationSec} seconds to read aloud at 150 words per minute. Target: ${targetWords} words total. Acceptable range: ${minWords}-${maxWords} words. Count your words before returning — if you're outside the range, rewrite. Distribute words across scenes proportional to each scene's duration (a 6-second scene gets ~${Math.round(6 * 2.5)} words; a 3-second scene gets ~${Math.round(3 * 2.5)} words).`,
     `Available templates: ${templates.join(", ")}.`,
     `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
-    `Available scene templates: ${SCENE_TEMPLATES.join(", ")}.`,
+    `Available scene themes (animated backgrounds): ${SCENE_THEMES.join(", ")}.`,
     `Available animations: ${animations.join(", ")}.`,
     `Available transitions: ${transitions.join(", ")}.`,
-    "For every scene, choose one sceneTemplate from the allowed list.",
-    "VARY the sceneTemplate across scenes — do NOT use the same template for every scene. Prefer 'kinetic-title' or 'animated-bg-text' for openers, 'final-cta' for closers, and mix 'app-showcase' / 'offer-burst' / 'proof-cards' for the middle. In a 3+ scene plan no template should repeat back-to-back, and the same template should not appear in more than half the scenes.",
-    "Favor modern ad motion: white kinetic typography, animated dark backgrounds, glowing accent shapes, punchy offer reveals, and clear app/product callouts.",
+    "For every scene, choose one sceneTheme from the allowed list. The theme provides an animated background; ALL visible content (headline, subtext, icons, charts) must go into the elements[] array.",
+    "VARY the sceneTheme across scenes — do NOT use the same theme for every scene. Mix dark and light themes for contrast. No theme should repeat back-to-back.",
+    "Favor modern ad motion: bold kinetic typography, animated dark backgrounds, glowing accent shapes, punchy reveals.",
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
     "No labels inside the script. No markdown.",
-    // Anti-overlap rule. The scene template ALWAYS draws scene.headline as the
-    // big title; any text element you also add will draw on top of it and the
-    // two will collide. Put the title in scene.headline (one place), and use
-    // `elements` only for *additional* decorations (icons, shapes, charts,
-    // subtitle bands) — never for the primary title.
-    "Put the scene's primary title in scene.headline. Do NOT also add a text element whose content duplicates or paraphrases the headline — the template draws the headline itself. Reserve `elements` for icons, shapes, charts, or supplemental subtitles only.",
+    // ELEMENTS-FIRST — everything visible must be in elements[].
+    "CRITICAL: ALL visible on-screen content MUST be in the elements[] array. This includes the headline, subtext, icons, shapes, and charts. The scene.headline and scene.subtext fields are OPTIONAL legacy metadata — the renderer draws ONLY what is in elements[]. If a scene has no text elements, no text will appear on screen.",
+    "Every scene MUST have at least one text element for the headline (type='text', large size ~0.08-0.12, weight 800, centered near y 0.30-0.45). Optionally add a second text element for subtext (smaller size ~0.03-0.05, weight 500, below the headline near y 0.55-0.65).",
 
     // ---- COPYWRITING RULES — kill the SaaS-cliché vibe -----------------
     // The big quality complaint is generic taglines ("Unleash Your Creativity",
@@ -518,42 +565,61 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
     "  - NO bullet-point feel. NO lists of three adjectives ('fast, simple, powerful'). NO 'introducing X'.",
     "  - The narration should make sense played alone with the screen black — it should TELL the whole story even without the visuals.",
 
-    // ---- VISUAL DENSITY (job-based, not rigid count) ----
-    "VISUAL ELEMENTS — every scene should match its job's visual density:",
-    "  - The scene template already draws scene.headline and scene.subtext as the main on-screen text. You do NOT add text elements for the title.",
-    "  - DENSITY BY SCENE JOB (this is more important than a fixed count):",
-    "    · HOOK scene (scene 1, the opener) — prefer 0-1 elements. Let the words land. A great hook with empty space is stronger than a busy one.",
-    "    · EXPLANATION / FEATURE scene (middle scenes) — aim for 2-4 graphical elements that reinforce the point.",
-    "    · DATA / PROOF scene — exactly 1 chart element (`stat`, `line-chart`, or `bar-chart`) plus optionally 1 small supporting icon. No clutter around a number.",
-    "    · CTA scene (final) — 1-2 elements. A button-shape + a directional icon is plenty.",
-    "  - HARD FLOOR: never zero elements unless the headline genuinely needs silence (a single mid-frame quote, a punchline). Default toward 'add one' when in doubt.",
-    "  - HARD CEILING: max 4 elements per scene. More than 4 reads cluttered at typical viewing sizes.",
-    "  - Avoid cargo-cult icons — never add an element just to meet a count. If the icon doesn't reinforce the headline, leave it out.",
-    "  - Use icons aggressively. Good lucide names to draw from: Sparkles, Zap, Clock, BarChart3, TrendingUp, ShieldCheck, Users, ArrowRight, Check, CheckCircle2, Star, Heart, Rocket, Target, Lightbulb, MessageSquare, Mail, Calendar, CreditCard, ShoppingCart, Smartphone, Monitor, Globe, Lock, Unlock, Search, Settings, Bell, Eye, EyeOff, Play, Pause, Download, Upload, Share2, Award, Trophy, ThumbsUp, Smile.",
-    "  - For a scene about data or numbers, pick the RIGHT chart type:",
-    "    · 'bar-chart' — comparing 2-6 categories (e.g. before/after, by team, by region). Rows are {label, value 0-100}.",
-    "    · 'line-chart' — showing GROWTH over time. Points are {label?, value}; 4-10 points produce a great curve. Always include `finalValue`, `finalLabel`, and the latest value also in the last `points[].value`. Use this whenever the topic is 'growth', 'trend', 'over time', 'X to Y', 'progress'.",
-    "    · 'stat' — ONE headline number you want to brag about ($1.2M, 98%, 4×, 312 users). Set `value`, `valuePrefix`/`valueSuffix` (e.g. '$', '%', 'x', 'K'), `label` (short uppercase context), and optional `caption` (sub-line). Include a 6-12 point `sparkline` array of background-trend numbers to make the stat feel alive.",
-    "  - For a scene about features or steps: include 2-4 icon elements arranged horizontally or in a grid, each with a tiny text label (≤ 3 words).",
-    "  - For a scene about people / testimonials: include a circular shape (profile placeholder) + a quote-style subtitle element.",
-    "  - For a CTA scene: include a button-like rounded rect shape + an arrow icon.",
-    "  - Text elements in `elements[]` are ONLY for tiny labels (≤ 3 words) sitting next to an icon or shape — NEVER for the scene title.",
-    "  - Place elements at fractional coordinates (x, y, w, h all in 0..1).",
-    "  - LAYOUT ZONES — pick one zone per element. NEVER place an element inside the headline zone (y 0.30-0.55, x 0.15-0.85) — that's where the scene template draws its centered title. Allowed zones:",
-    "    · LEFT GUTTER:   x 0.04-0.30, any y. Good for tall props (phone mockups, vertical icons stack).",
-    "    · RIGHT GUTTER:  x 0.65-0.96, any y. Good for charts, stat tiles, big numbers.",
-    "    · TOP BAND:      y 0.04-0.22, full width. Good for category chips, status badges.",
-    "    · BOTTOM BAND:   y 0.62-0.94, full width. Good for icon rows, captions, CTA buttons.",
-    "  - SIZE GUIDANCE — make elements *substantial*, not tiny floaters:",
-    "    · Icon: w 0.06-0.12 (roughly 6-12% of frame width).",
-    "    · Stat tile: w 0.28-0.45, h 0.22-0.40.",
-    "    · Line/bar chart: w 0.30-0.50, h 0.30-0.55.",
-    "    · Decorative shape: w 0.06-0.20.",
-    "    · CTA button shape: w 0.18-0.28, h 0.08-0.12.",
-    "  - NO ELEMENT may have w or h below 0.04 — anything smaller is invisible at typical viewing sizes.",
-    "  - NO OVERLAP — element bounding boxes must NOT intersect each other. If you place an element in the left gutter, the next one goes to the right gutter or bottom band, not on top.",
-    "  - The CTA scene specifically: place the button shape FAR FROM the subtext zone. A button at x 0.4-0.6, y 0.72-0.84 is good. NEVER put a button overlapping any text element or the template's centered subtitle.",
-    "  - A scene with ONLY text elements (no icons/shapes/charts/images) is REJECTED — convert at least one to a graphic.",
+    // ---- ELEMENTS-FIRST VISUAL SYSTEM ----
+    "ELEMENTS-FIRST SYSTEM — the sceneTheme provides an animated background. ALL visible content is in the elements[] array.",
+    "",
+    "EVERY ELEMENT MUST HAVE AN ANIMATION OBJECT. Without it the element just pops in with no motion — that looks broken. Use this format:",
+    '  "animation": { "in": { "kind": "<kind>", "at": <seconds>, "duration": <seconds> } }',
+    "  Available animation kinds: fade, slide-left, slide-right, slide-up, slide-down, zoom-in, zoom-out, scale, pop.",
+    "  Stagger elements: headline at=0, subtext at=0.3, first icon at=0.5, second icon at=0.7, etc. This creates the motion-graphics feel.",
+    "",
+    "MANDATORY STRUCTURE per scene (minimum 3 elements, maximum 8):",
+    "  1) HEADLINE text element — type='text', size 0.08-0.12, weight 800, color '#ffffff', centered. Animation: slide-up or zoom-in at 0s.",
+    "  2) SUBTEXT text element — type='text', size 0.03-0.05, weight 400-500, color '#94a3b8'. Animation: fade at 0.3s.",
+    "  3) At least ONE visual element — icon, shape, or chart. Animation: pop or slide at 0.5s+.",
+    "",
+    "EXAMPLE SCENE (copy this structure, change the content):",
+    '  {"scene":1,"duration":5,"text":"Narration goes here...","sceneTheme":"gradient-flow","animation":"fade-in","transition":"fade",',
+    '   "elements":[',
+    '     {"type":"text","x":0.08,"y":0.30,"w":0.84,"h":0.18,"text":"Your Big Headline","size":0.10,"weight":800,"color":"#ffffff","align":"center","animation":{"in":{"kind":"slide-up","at":0,"duration":0.5}}},',
+    '     {"type":"text","x":0.15,"y":0.52,"w":0.70,"h":0.10,"text":"Supporting subtext line here","size":0.04,"weight":500,"color":"#94a3b8","align":"center","animation":{"in":{"kind":"fade","at":0.3,"duration":0.4}}},',
+    '     {"type":"icon","x":0.44,"y":0.72,"w":0.08,"h":0.08,"name":"Sparkles","color":"#8b5cf6","animation":{"in":{"kind":"pop","at":0.5,"duration":0.3}}},',
+    '     {"type":"shape","x":0.30,"y":0.88,"w":0.40,"h":0.06,"shape":"rect","fill":"#8b5cf6","radius":99,"animation":{"in":{"kind":"slide-up","at":0.6,"duration":0.4}}}',
+    "  ]}",
+    "",
+    "EXAMPLE DATA SCENE:",
+    '  {"scene":2,"duration":6,"text":"Revenue grew 340% in one quarter.","sceneTheme":"spotlight","animation":"slide-left","transition":"cut",',
+    '   "elements":[',
+    '     {"type":"text","x":0.05,"y":0.08,"w":0.50,"h":0.14,"text":"Revenue Growth","size":0.08,"weight":800,"color":"#ffffff","align":"left","animation":{"in":{"kind":"slide-left","at":0,"duration":0.5}}},',
+    '     {"type":"line-chart","x":0.52,"y":0.12,"w":0.44,"h":0.50,"points":[{"label":"Q1","value":20},{"label":"Q2","value":45},{"label":"Q3","value":78},{"label":"Q4","value":120}],"finalValue":120,"valueSuffix":"K","valuePrefix":"$","line":"#34d399","showGrid":true,"animationDuration":1.8,"animation":{"in":{"kind":"fade","at":0.2,"duration":0.4}}},',
+    '     {"type":"stat","x":0.05,"y":0.55,"w":0.40,"h":0.35,"value":340,"valueSuffix":"%","label":"GROWTH","caption":"year over year","accent":"#fbbf24","sparkline":[10,18,25,40,55,70,88,120],"animation":{"in":{"kind":"zoom-in","at":0.5,"duration":0.5}}}',
+    "  ]}",
+    "",
+    "EXAMPLE CTA SCENE:",
+    '  {"scene":4,"duration":4,"text":"Try it free today.","sceneTheme":"bold-color","animation":"zoom-in","transition":"fade",',
+    '   "elements":[',
+    '     {"type":"text","x":0.10,"y":0.30,"w":0.80,"h":0.16,"text":"Start Free Today","size":0.11,"weight":800,"color":"#ffffff","align":"center","animation":{"in":{"kind":"zoom-in","at":0,"duration":0.4}}},',
+    '     {"type":"shape","x":0.30,"y":0.60,"w":0.40,"h":0.10,"shape":"rect","fill":"#ffffff","radius":99,"animation":{"in":{"kind":"slide-up","at":0.3,"duration":0.4}}},',
+    '     {"type":"text","x":0.32,"y":0.61,"w":0.36,"h":0.08,"text":"Get Started →","size":0.04,"weight":700,"color":"#0f172a","align":"center","animation":{"in":{"kind":"fade","at":0.4,"duration":0.3}}},',
+    '     {"type":"icon","x":0.82,"y":0.74,"w":0.10,"h":0.10,"name":"ArrowRight","color":"#ffffff","animation":{"in":{"kind":"slide-right","at":0.5,"duration":0.3}}}',
+    "  ]}",
+    "",
+    "SCENE TYPE PATTERNS — pick the right one for each scene's job:",
+    "  · HOOK (scene 1): headline (slide-up) + subtext (fade) + 1 accent icon (pop). Clean, minimal.",
+    "  · FEATURE: headline (slide-left, left-aligned) + 2-3 icons in a row (staggered pop) + subtext.",
+    "  · DATA: headline (top-left) + chart element (right half) + stat tile (bottom-left).",
+    "  · SOCIAL PROOF: headline + shape (ellipse, profile placeholder) + subtext as quote.",
+    "  · CTA: big centered headline (zoom-in) + button shape (slide-up) + button label text + arrow icon.",
+    "",
+    "LAYOUT RULES:",
+    "  - Headline: centered y 0.28-0.42 for centered layouts, or x 0.05 y 0.08 for left-aligned with chart.",
+    "  - Icons: w 0.06-0.12. Place in rows (y 0.72-0.88, spaced x apart) or gutters.",
+    "  - Charts: w 0.35-0.50, h 0.35-0.50. Right half or bottom half of frame.",
+    "  - Shapes: decorative accents w 0.06-0.20, or button shapes w 0.20-0.40.",
+    "  - NO ELEMENT below w=0.04 or h=0.04.",
+    "  - NO OVERLAP between elements.",
+    "",
+    "ICON NAMES (lucide-react): Sparkles, Zap, Rocket, Clock, Star, Heart, ThumbsUp, Target, Lightbulb, TrendingUp, BarChart3, ShieldCheck, Users, ArrowRight, Check, CheckCircle2, MessageSquare, Mail, Calendar, CreditCard, ShoppingCart, Smartphone, Monitor, Globe, Lock, Search, Settings, Bell, Play, Download, Upload, Share2, Award, Trophy, Smile, Coffee, Code, Terminal, Cpu, Bot, Brain.",
     // ---- Field-format rules (these prevent Zod validation failures) ----
     "FIELD-FORMAT RULES — ignoring these will cause the project to FAIL VALIDATION:",
     "  - Color fields (color, fill, stroke, accent, bg, fg, bar, line) MUST be #RRGGBB hex strings only. Never 'white', 'transparent', 'none', 'rgb(...)', or any non-hex value. If you don't need a color, OMIT the field — never set it to a non-hex string.",
@@ -649,8 +715,23 @@ async function generateWithOpenAI(
   lottieAssetIds,
   lottieAssetPrompt,
   avoidance,
-  briefing
+  briefing,
+  referenceImage
 ) {
+  // Build user message — text only, or multimodal with reference image.
+  const userContent = referenceImage
+    ? [
+        {
+          type: "text",
+          text: `${prompt}\n\nREFERENCE IMAGE ATTACHED — use it ONLY as a design layout blueprint. Extract:\n- Layout structure: where elements are positioned (left/right/center, top/bottom, split layouts)\n- Color palette: dominant colors, accent colors, background tones\n- Typography hierarchy: large vs small text sizing, weight contrast, alignment\n- Element arrangement: spacing, grouping, visual flow\n- Visual density: how many elements per section, whitespace balance\n\nDO NOT copy any text content, brand names, logos, or specific imagery from the reference. The TEXT and CONTENT must come entirely from the user's prompt above. Only the DESIGN STRUCTURE and VISUAL STYLE should be replicated.`,
+        },
+        {
+          type: "image_url",
+          image_url: { url: referenceImage, detail: "high" },
+        },
+      ]
+    : prompt;
+
   const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
@@ -664,7 +745,7 @@ async function generateWithOpenAI(
           role: "system",
           content: systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing),
         },
-        { role: "user", content: prompt },
+        { role: "user", content: userContent },
       ],
       response_format: {
         type: "json_schema",
@@ -703,23 +784,29 @@ async function generateWithGemini(
   lottieAssetIds,
   lottieAssetPrompt,
   avoidance,
-  briefing
+  briefing,
+  referenceImage
 ) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
+
+  // Build parts — text + optional reference image.
+  const parts = [];
+  let textPrompt = `${systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`;
+  if (referenceImage) {
+    textPrompt += "\n\nREFERENCE IMAGE ATTACHED — use it ONLY as a design layout blueprint. Extract layout structure, color palette, typography hierarchy, element arrangement, and visual density. DO NOT copy any text content, brand names, or specific imagery from it. Content comes from the user's prompt only.";
+    // Extract base64 data and mime type from data URL.
+    const match = referenceImage.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (match) {
+      parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+    }
+  }
+  parts.unshift({ text: textPrompt });
+
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `${systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`,
-            },
-          ],
-        },
-      ],
+      contents: [{ role: "user", parts }],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: createGeminiResponseSchema(lottieAssetIds),
@@ -742,6 +829,28 @@ async function generateWithGemini(
   return parseModelJson(data.candidates?.[0]?.content?.parts?.[0]?.text);
 }
 
+const ENHANCE_SYSTEM_PROMPT = `You are a senior motion graphics creative director. Transform the user's rough idea into a detailed, production-ready motion graphics video brief. Return plain text only, under 180 words.
+
+YOUR OUTPUT MUST INCLUDE ALL OF THESE:
+
+1. VIDEO CONCEPT — One punchy sentence describing the video's purpose and audience.
+
+2. VISUAL STYLE — Specify:
+   - Color palette: 3-4 specific hex colors (e.g. "Deep navy #0f172a, electric violet #8b5cf6, cyan accent #38bdf8")
+   - Typography: font weight (800 for headlines, 500 for body), size hierarchy (large headline, medium subtext)
+   - Background mood: which theme fits (gradient-flow, spotlight, aurora, mesh-gradient, geometric, bold-color, minimal-dark)
+
+3. SCENE BREAKDOWN — 3-5 scenes, each with:
+   - Headline text (≤7 words, punchy)
+   - Supporting visual elements: icons (name specific lucide icons like Rocket, TrendingUp, ShieldCheck), shapes (rounded rect buttons, accent bars), or data (stat counters, line charts, bar charts)
+   - Animation style per scene: slide-up headlines, pop-in icons, zoom-in stats, fade subtexts
+
+4. MOTION FEEL — Describe the pacing: "Fast cuts with staggered element entrances" or "Slow cinematic reveals with 0.5s staggers"
+
+5. NARRATION TONE — Speaking style for the voiceover: conversational, authoritative, playful, data-driven, etc.
+
+Be specific. Never generic. Reference the actual product/topic from the user's input.`;
+
 export async function enhancePromptWithAi(prompt, userId) {
   const config = await resolveAiConfig(userId);
   if (!config) throw new Error(await generationConfigError(userId));
@@ -756,15 +865,11 @@ export async function enhancePromptWithAi(prompt, userId) {
       body: JSON.stringify({
         model: config.model,
         messages: [
-          {
-            role: "system",
-            content:
-              "Rewrite the user's idea as a concise, production-ready motion graphics prompt. Keep it under 120 words. Return plain text only.",
-          },
+          { role: "system", content: ENHANCE_SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ],
-        temperature: 0.7,
-        max_tokens: 220,
+        temperature: 0.8,
+        max_tokens: 500,
       }),
     });
 
@@ -793,13 +898,11 @@ export async function enhancePromptWithAi(prompt, userId) {
         {
           role: "user",
           parts: [
-            {
-              text: `Rewrite this as a concise, production-ready motion graphics prompt under 120 words. Return plain text only.\n\n${prompt}`,
-            },
+            { text: `${ENHANCE_SYSTEM_PROMPT}\n\nUser's idea: ${prompt}` },
           ],
         },
       ],
-      generationConfig: { temperature: 0.7 },
+      generationConfig: { temperature: 0.8 },
     }),
   });
 
@@ -841,16 +944,19 @@ function sanitizePlan(plan) {
 
   if (Array.isArray(out.scenes)) {
     out.scenes = out.scenes.slice(0, 6).map((s, i) => {
+      // renderMode is set by the pipeline caller. Default to "custom"
+      // (elements-first motion graphics). "template" uses legacy templates.
+      const renderMode = plan.renderMode || "custom";
       const scene = {
         ...s,
         scene: Number.isInteger(s?.scene) && s.scene > 0 ? s.scene : i + 1,
         duration: Math.min(15, Math.max(1, Number(s?.duration) || 4)),
-        // Apply the same length caps the Zod schema enforces, so the AI
-        // running a few characters long can never fail the whole project.
-        text: truncate(s?.text ?? s?.headline ?? "", 800),
-        headline: truncate(s?.headline || s?.text || "", 140),
-        subtext: truncate(s?.subtext || s?.visual || "", 240),
+        text: truncate(s?.text ?? "", 800),
+        headline: truncate(s?.headline ?? "", 140),
+        subtext: truncate(s?.subtext ?? "", 240),
         visual: truncate(s?.visual ?? "", 800),
+        sceneTemplate: s?.sceneTheme || s?.sceneTemplate || "gradient-flow",
+        renderMode,
       };
 
       // Stamp ids + z + sensible defaults onto every AI-generated element.
@@ -862,6 +968,16 @@ function sanitizePlan(plan) {
           // smaller is invisible at typical viewing sizes (the AI sometimes
           // emits 0.01 thinking it's pixels).
           const minDim = 0.04;
+          // Staggered entrance animations — each element enters slightly
+          // later than the previous one, creating the motion-graphics feel.
+          const staggerKinds = ["slide-up", "fade", "pop", "zoom-in", "slide-left"];
+          const defaultAnim = {
+            in: {
+              kind: staggerKinds[j % staggerKinds.length],
+              at: Math.round(j * 0.2 * 100) / 100,
+              duration: 0.4,
+            },
+          };
           const base = {
             id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
             x: clampFrac(el?.x, 0.1),
@@ -870,23 +986,19 @@ function sanitizePlan(plan) {
             h: Math.max(minDim, clampFrac(el?.h, 0.1)),
             rotation: Number(el?.rotation) || 0,
             z: j,
-            // Give every element a gentle fade-in by default so videos stop
-            // feeling static. The AI can override by emitting its own
-            // animation field, but with elements being new in the schema it
-            // mostly won't.
-            animation: { in: { kind: "fade", at: 0, duration: 0.4 } },
+            // Use AI-provided animation if present, otherwise staggered default.
+            animation: el?.animation?.in ? el.animation : defaultAnim,
           };
           // Pass through type-specific fields the schema collected, with
           // per-field sanitization to absorb the AI's small mistakes (font
           // weight outside 100-900, "transparent" instead of #hex, etc.) so
           // they don't blow up Zod validation and fail the whole project.
           const passthrough = [
-            "type", "text", "color", "size", "weight", "align",
+            "type", "text", "color", "size", "weight", "align", "font",
             "name", "src", "fit",
             "shape", "fill", "stroke", "strokeWidth", "radius",
             "title", "subtitle", "rows", "accent", "axisMax",
             "showAxis", "showValues", "valueSuffix", "bg", "fg", "bar",
-            // New chart types
             "points", "line", "finalValue", "finalLabel", "valuePrefix",
             "value", "label", "caption", "sparkline", "countUp", "showGrid",
             "animationDuration",
@@ -1068,7 +1180,7 @@ function gradePlanQuality(plan, script, durationSec) {
   return warnings;
 }
 
-async function generateVideoPlan(prompt, durationSec, userId) {
+async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
   const config = await resolveAiConfig(userId);
   if (!config) throw new Error(await generationConfigError(userId));
 
@@ -1099,7 +1211,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
           lottieAssetIds,
           lottieAssetPrompt,
           avoidance,
-          briefing
+          briefing,
+          referenceImage
         )
       : generateWithGemini(
           prompt,
@@ -1110,7 +1223,8 @@ async function generateVideoPlan(prompt, durationSec, userId) {
           lottieAssetIds,
           lottieAssetPrompt,
           avoidance,
-          briefing
+          briefing,
+          referenceImage
         )
   );
 
@@ -1160,7 +1274,7 @@ async function persistVoiceover(projectId, audio, script) {
 
 // Fire-and-forget pipeline. It never creates placeholder videos. If AI or the
 // real renderer is unavailable, the project fails and credits are refunded.
-export async function runPipeline(projectId, userId, prompt, durationSec) {
+export async function runPipeline(projectId, userId, prompt, durationSec, referenceImage) {
   const cost = costForDuration(durationSec);
 
   try {
@@ -1169,7 +1283,7 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
       { status: "GENERATING_ASSETS", progress: 10, errorMessage: null }
     );
 
-    const { script, plan } = await generateVideoPlan(prompt, durationSec, userId);
+    const { script, plan } = await generateVideoPlan(prompt, durationSec, userId, referenceImage);
 
     // Stamp the project's structureSeed (random per-video) and the user's
     // structureSeed onto the plan so the renderer's variant picker derives a

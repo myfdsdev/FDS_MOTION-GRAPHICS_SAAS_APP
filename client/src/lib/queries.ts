@@ -114,8 +114,8 @@ export function useProject(id: string | undefined) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prompt, durationSec }: { prompt: string; durationSec?: number }) =>
-      api.createProject(prompt, durationSec),
+    mutationFn: ({ prompt, durationSec, referenceImage }: { prompt: string; durationSec?: number; referenceImage?: string }) =>
+      api.createProject(prompt, durationSec, referenceImage),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["me"] });
@@ -146,8 +146,8 @@ export function useUpdateProject(id: string | undefined) {
 export function useGenerateProject(id: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prompt, durationSec }: { prompt: string; durationSec?: number }) =>
-      api.generateProject(id!, prompt, durationSec),
+    mutationFn: ({ prompt, durationSec, referenceImage }: { prompt: string; durationSec?: number; referenceImage?: string }) =>
+      api.generateProject(id!, prompt, durationSec, referenceImage),
     onSuccess: (project) => {
       qc.setQueryData(["project", id], project);
       qc.invalidateQueries({ queryKey: ["me"] });
