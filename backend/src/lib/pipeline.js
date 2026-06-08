@@ -486,6 +486,7 @@ async function resolveAiConfig(userId) {
   const userOpenRouter = decryptSecret(user?.apiKeys?.openrouter);
 
   // OpenRouter first — OpenAI-compatible API, supports free models
+  console.log("[resolveAiConfig] OPENROUTER_API_KEY set:", !!process.env.OPENROUTER_API_KEY, "userOpenRouter:", !!userOpenRouter);
   if (userOpenRouter || process.env.OPENROUTER_API_KEY) {
     return {
       provider: "openrouter",
