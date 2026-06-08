@@ -362,7 +362,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
                     properties: {
                       type: {
                         type: "STRING",
-                        enum: ["text", "icon", "image", "shape", "bar-chart", "line-chart", "stat", "subtitle"],
+                        enum: ["text", "icon", "image", "shape", "bar-chart", "line-chart", "stat", "subtitle", "svg", "glow", "progress-ring"],
                       },
                       x: { type: "NUMBER" },
                       y: { type: "NUMBER" },
@@ -447,6 +447,12 @@ function createGeminiResponseSchema(lottieAssetIds) {
                       bg: { type: "STRING" },
                       fg: { type: "STRING" },
                       bar: { type: "STRING" },
+                      paths: { type: "STRING" },
+                      viewBox: { type: "STRING" },
+                      blur: { type: "NUMBER" },
+                      pulse: { type: "BOOLEAN" },
+                      trackColor: { type: "STRING" },
+                      thickness: { type: "NUMBER" },
                     },
                     required: ["type", "x", "y", "w", "h"],
                   },
