@@ -782,12 +782,34 @@ async function generateWithOpenAI(
       ]
     : prompt;
 
-  const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+  const isOpenRouter = config.provider === "openrouter";
+  const chatUrl = isOpenRouter ? OPENROUTER_CHAT_URL : OPENAI_CHAT_COMPLETIONS_URL;
+
+  // OpenRouter free models don't support strict json_schema — fall back to
+  // json_object and rely on the system prompt to enforce structure.
+  const responseFormat = isOpenRouter
+    ? { type: "json_object" }
+    : {
+        type: "json_schema",
+        json_schema: {
+          name: "motion_video_generation",
+          strict: true,
+          schema: createGeneratedPayloadSchema(lottieAssetIds),
+        },
+      };
+
+  const headers = {
+    Authorization: `Bearer ${config.apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (isOpenRouter) {
+    headers["HTTP-Referer"] = process.env.WEB_ORIGIN || "http://localhost:5173";
+    headers["X-Title"] = "AI Video Generator";
+  }
+
+  const res = await fetch(chatUrl, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
       model: config.model,
       messages: [
@@ -797,22 +819,13 @@ async function generateWithOpenAI(
         },
         { role: "user", content: userContent },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "motion_video_generation",
-          strict: true,
-          schema: createGeneratedPayloadSchema(lottieAssetIds),
-        },
-      },
-      // Per-generation jittered temperature — see pickCopyBriefing(). Falls
-      // back to 0.7 if the briefing is missing for any reason.
+      response_format: responseFormat,
       temperature: briefing?.temperature ?? 0.7,
     }),
   });
 
   if (!res.ok) {
-    throw new Error(`OpenAI generation failed (${res.status}): ${await readErrorBody(res)}`);
+    throw new Error(`${isOpenRouter ? "OpenRouter" : "OpenAI"} generation failed (${res.status}): ${await readErrorBody(res)}`);
   }
 
   const data = await res.json();
