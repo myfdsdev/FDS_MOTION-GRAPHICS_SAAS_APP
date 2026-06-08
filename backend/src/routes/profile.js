@@ -54,8 +54,4 @@ profileRouter.patch("/", validate(UpdateProfileInput), async (req, res, next) =>
     }).lean();
 
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    res.json(toProfileDTO(user));
-  } catch (err) {
-    next(err);
-  }
-});
+  

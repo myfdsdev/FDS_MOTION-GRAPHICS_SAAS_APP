@@ -217,4 +217,4 @@ export const ApiUsage = mongoose.models.ApiUsage || mongoose.model("ApiUsage", a
 export const AppSetting =
   mongoose.models.AppSetting || mongoose.model("AppSetting", appSettingSchema);
 export const LottieAsset =
-  mongoose.models.LottieAsset || mongoose.model("LottieAsset", lottieAssetSchema);
+  mongoose.models.LottieAsset || mongoose.model("Lot

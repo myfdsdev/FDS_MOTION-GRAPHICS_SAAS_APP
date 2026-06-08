@@ -1025,7 +1025,7 @@ function SceneN({ durationInFrames }) {
   const progress = frame / durationInFrames;
   const cameraDrift = interpolate(frame, [0, durationInFrames], [1, 1.05], {extrapolateRight:"clamp"});
   return (
-    <AbsoluteFill style={{transform: \\\`scale(\\\${cameraDrift})\\\`, transformOrigin:"50% 50%"}}>
+    <AbsoluteFill style={{transform: \`scale(\${cameraDrift})\`, transformOrigin:"50% 50%"}}>
       <AnimatedBg ... />
       <Particles ... />
       {/* Scene content using components above */}
@@ -1350,4 +1350,472 @@ function sanitizePlan(plan) {
             h: Math.max(minDim, clampFrac(el?.h, 0.1)),
             rotation: Number(el?.rotation) || 0,
             z: j,
-            // Use AI-provided animation if present, otherwi
+            // Use AI-provided animation if present, otherwise staggered default.
+            animation: el?.animation?.in ? el.animation : defaultAnim,
+          };
+          // Pass through type-specific fields the schema collected, with
+          // per-field sanitization to absorb the AI's small mistakes (font
+          // weight outside 100-900, "transparent" instead of #hex, etc.) so
+          // they don't blow up Zod validation and fail the whole project.
+          const passthrough = [
+            "type", "text", "color", "size", "weight", "align", "font",
+            "name", "src", "fit",
+            "shape", "fill", "stroke", "strokeWidth", "radius",
+            "title", "subtitle", "rows", "accent", "axisMax",
+            "showAxis", "showValues", "valueSuffix", "bg", "fg", "bar",
+            "points", "line", "finalValue", "finalLabel", "valuePrefix",
+            "value", "label", "caption", "sparkline", "countUp", "showGrid",
+            "animationDuration",
+            // SVG illustration
+            "paths", "viewBox",
+            // Glow orb
+            "blur", "pulse",
+            // Progress ring
+            "trackColor", "thickness",
+          ];
+          // Hex-only color fields. If the AI emits "transparent", "none",
+          // "black", "rgb(…)", or any non-hex value, drop the field entirely
+          // — they're all optional, the renderer falls back to brand colors.
+          const hexFields = new Set([
+            "color", "fill", "stroke", "accent", "bg", "fg", "bar", "line", "trackColor",
+          ]);
+          // Strict-range numeric fields. Each is { min, max, default? }.
+          // `default` is used when the AI emits something completely
+          // unparseable (NaN, string, etc.) — otherwise we clamp to min/max.
+          const numericRanges = {
+            weight: { min: 100, max: 900, step: 100 },     // font weight
+            size: { min: 0.005, max: 1 },                  // font size frac
+            strokeWidth: { min: 0, max: 100 },
+            radius: { min: 0, max: 500 },
+            axisMax: { min: 1, max: 10000 },
+            animationDuration: { min: 0.05, max: 60 },
+          };
+          for (const key of passthrough) {
+            const v = el?.[key];
+            if (v === undefined || v === null) continue;
+            if (hexFields.has(key)) {
+              // Only accept #rgb / #rrggbb / #rrggbbaa.
+              if (typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v.trim())) {
+                base[key] = v.trim();
+              }
+              // Otherwise: drop. Field is optional everywhere.
+            } else if (key in numericRanges) {
+              const n = Number(v);
+              const { min, max, step } = numericRanges[key];
+              if (Number.isFinite(n)) {
+                let clamped = Math.max(min, Math.min(max, n));
+                if (step) clamped = Math.round(clamped / step) * step;
+                base[key] = clamped;
+              }
+              // Unparseable → omit, Zod's optional() takes over.
+            } else {
+              base[key] = v;
+            }
+          }
+          // Sensible per-type defaults so Zod doesn't reject minimal elements.
+          if (base.type === "bar-chart") {
+            if (!Array.isArray(base.rows) || !base.rows.length) {
+              base.rows = [{ label: "Item", value: 50 }];
+            }
+          }
+          if (base.type === "shape" && !base.shape) base.shape = "rect";
+          if (base.type === "icon" && !base.name) base.name = "Sparkles";
+          if (base.type === "line-chart") {
+            if (!Array.isArray(base.points) || base.points.length < 2) {
+              base.points = [
+                { label: "Q1", value: 20 },
+                { label: "Q2", value: 35 },
+                { label: "Q3", value: 60 },
+                { label: "Q4", value: 92 },
+              ];
+            }
+            if (typeof base.finalValue !== "number") {
+              base.finalValue = base.points[base.points.length - 1].value;
+            }
+          }
+          if (base.type === "stat") {
+            if (typeof base.value !== "number") base.value = 0;
+          }
+          // Clamp so the element box doesn't extend past the right/bottom
+          // edge of the canvas — the AI sometimes picks x=0.9 + w=0.4 which
+          // pushes 30% of the element off-screen.
+          if (base.x + base.w > 1) base.w = Math.max(minDim, 1 - base.x);
+          if (base.y + base.h > 1) base.h = Math.max(minDim, 1 - base.y);
+          return base;
+        });
+      }
+
+      return scene;
+    });
+  }
+
+  return out;
+}
+
+function clampFrac(n, fallback) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.max(0, Math.min(1, v));
+}
+
+function assertNoPlaceholders(plan) {
+  const raw = JSON.stringify(plan).toLowerCase();
+  const blocked = ["[brand", "brand name", "company name", "your brand", "example.com"];
+  const match = blocked.find((term) => raw.includes(term));
+  if (match) throw new Error(`AI response included placeholder copy: ${match}`);
+}
+
+// Light client-side quality checks. The AI is told to follow these rules in
+// the system prompt; this catches the cases where it ignores them. We DON'T
+// throw — instead we record warnings on the project so the user can see why
+// a render might feel off and we can regenerate if needed.
+function gradePlanQuality(plan, script, durationSec) {
+  const warnings = [];
+
+  // 1. Narration length should match video runtime at ~150 wpm.
+  if (script && typeof script === "string") {
+    const wordCount = script.trim().split(/\s+/).filter(Boolean).length;
+    const target = Math.round(durationSec * 2.5);
+    const min = Math.round(durationSec * 2.0);
+    const max = Math.round(durationSec * 3.0);
+    if (wordCount < min) {
+      warnings.push(
+        `Narration is too short: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will finish early.`
+      );
+    } else if (wordCount > max) {
+      warnings.push(
+        `Narration is too long: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will run past the video.`
+      );
+    }
+  }
+
+  // 2. Every scene should have at least one visual (icon/shape/image/chart).
+  const scenes = Array.isArray(plan?.scenes) ? plan.scenes : [];
+  const textOnlyScenes = scenes.filter((s) => {
+    const els = Array.isArray(s.elements) ? s.elements : [];
+    return !els.some((el) => ["icon", "image", "shape", "lottie", "bar-chart"].includes(el.type));
+  });
+  if (textOnlyScenes.length) {
+    warnings.push(
+      `${textOnlyScenes.length} of ${scenes.length} scene(s) have no graphical elements — they'll feel text-heavy.`
+    );
+  }
+
+  // 3. Headline length sanity.
+  const longHeadlines = scenes.filter(
+    (s) => typeof s.headline === "string" && s.headline.length > 70
+  );
+  if (longHeadlines.length) {
+    warnings.push(
+      `${longHeadlines.length} scene headline(s) exceed 70 characters and may wrap awkwardly on screen.`
+    );
+  }
+
+  // 4. Banned-phrase check (post-hoc, in case the model ignored the rule).
+  // Strip ALL punctuation + collapse whitespace before matching, so "Tap.
+  // Order. Done." and "tap order done" both hit. This is the matching bug
+  // that let "Tap. Order. Done." slip into a render.
+  const bannedPhrases = [
+    "unleash your",
+    "elevate your",
+    "stunning results",
+    "effortless",
+    "seamless",
+    "your idea in motion",
+    "limited time",
+    "tap order done",
+    "try it free",
+    "get started now",
+    "simplify your workflow",
+    "next level",
+    "make every second count",
+    "level up",
+    "supercharge",
+    "powerful insights",
+    "actionable insights",
+    "in just minutes",
+    "join thousands",
+    "trusted by",
+    "cut through the noise",
+  ];
+  const normalize = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  const flat = normalize(JSON.stringify(plan || {}) + " " + (script || ""));
+  const hit = bannedPhrases.filter((p) => flat.includes(normalize(p)));
+  if (hit.length) {
+    warnings.push(
+      `Plan contains cliché phrase(s) the prompt told the AI to avoid: ${hit.join(", ")}.`
+    );
+  }
+
+  return warnings;
+}
+
+async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
+  const configs = await resolveAllAiConfigs(userId);
+  if (!configs.length) throw new Error(await generationConfigError(userId));
+
+  const lottieAssets = await listLottieAssetSummaries();
+  const lottieAssetIds = lottieAssets.map((asset) => asset.id);
+  const lottieAssetPrompt = lottieAssetPromptListFromSummaries(lottieAssets);
+
+  const avoidance = await getAvoidanceHints(userId).catch(() => null);
+  const briefing = pickCopyBriefing();
+  console.log(
+    `[pipeline] copy brief: voice="${briefing.voice.slice(0, 32)}…" hook="${briefing.hook.slice(0, 32)}…" T=${briefing.temperature}`
+  );
+
+  let payload, lastErr;
+  for (const config of configs) {
+    try {
+      const genFn = config.provider === "openai" || config.provider === "openrouter"
+        ? generateWithOpenAI : generateWithGemini;
+      payload = await withRetry(() =>
+        genFn(prompt, durationSec, config, userId, "video_generation",
+          lottieAssetIds, lottieAssetPrompt, avoidance, briefing, referenceImage)
+      );
+      break; // success
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/\(429\)|\(503\)/.test(msg) && configs.length > 1) {
+        console.warn(`[pipeline] ${config.provider} rate-limited, falling back to next provider…`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (!payload) throw lastErr;
+
+  if (!payload || typeof payload.script !== "string") {
+    throw new Error("AI response did not include a script");
+  }
+
+  const plan = sanitizePlan(payload.plan);
+  assertNoPlaceholders(plan);
+  // Lottie assets are no longer assigned by the AI — admins upload Lotties for
+  // optional manual placement on the canvas, but generation produces none.
+  const parsed = VideoPlanSchema.safeParse(plan);
+  if (!parsed.success) {
+    throw new Error(`AI response did not match the video schema: ${parsed.error.message}`);
+  }
+
+  return {
+    script: payload.script.trim(),
+    plan: parsed.data,
+  };
+}
+
+// Save generated narration using the same path/bucket pattern as rendered MP4s:
+// written to backend/public/videos/<id>.<ext> when local and uploaded to
+// voiceovers/<id>.<ext> when object storage is on.
+const __PIPELINE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const VOICEOVERS_LOCAL_DIR = path.join(__PIPELINE_DIR, "..", "..", "public", "videos");
+const PUBLIC_BASE = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+async function persistVoiceover(projectId, audio, script) {
+  const buffer = Buffer.isBuffer(audio) ? audio : audio?.buffer;
+  if (!buffer) throw new Error("Voiceover audio payload is empty");
+  const extension = String(audio?.extension || "mp3").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const contentType = audio?.contentType || (extension === "wav" ? "audio/wav" : "audio/mpeg");
+
+  fs.mkdirSync(VOICEOVERS_LOCAL_DIR, { recursive: true });
+  const localPath = path.join(VOICEOVERS_LOCAL_DIR, `${projectId}.${extension}`);
+  await fs.promises.writeFile(localPath, buffer);
+
+  let url = `${PUBLIC_BASE}/videos/${projectId}.${extension}`;
+  if (isStorageConfigured()) {
+    url = await uploadFile(localPath, `voiceovers/${projectId}.${extension}`, contentType);
+    await fs.promises.rm(localPath, { force: true }).catch(() => {});
+  }
+  return { url, duration: estimateVoiceoverDuration(script) };
+}
+
+// Fire-and-forget pipeline. It never creates placeholder videos. If AI or the
+// real renderer is unavailable, the project fails and credits are refunded.
+export async function runPipeline(projectId, userId, prompt, durationSec, referenceImage) {
+  const cost = costForDuration(durationSec);
+
+  try {
+    await Project.updateOne(
+      { _id: projectId },
+      { status: "GENERATING_ASSETS", progress: 10, errorMessage: null }
+    );
+
+    const { script, plan } = await generateVideoPlan(prompt, durationSec, userId, referenceImage);
+
+    // Stamp the project's structureSeed (random per-video) and the user's
+    // structureSeed onto the plan so the renderer's variant picker derives a
+    // unique chrome/grid/align combo every time, even for repeat prompts.
+    const projectDoc = await Project.findById(projectId).select("structureSeed");
+    const userDoc = await User.findById(userId).select("structureSeed");
+    plan.structureSeed = (projectDoc?.structureSeed ?? 0) ^ (userDoc?.structureSeed ?? 0);
+
+    // Persist this video's structural signature on the user so the NEXT
+    // generation knows what to avoid. Power-user variety engine.
+    await recordVideoSignature(userId, projectId, plan).catch(() => {});
+
+    // ---- CODE-GEN: Generate Remotion JSX code for this video ----
+    // The AI writes a complete React component that IS the video. This runs
+    // after the JSON plan so we have a fallback, and the script is already
+    // written for narration.
+    let generatedCode = null;
+    try {
+      const codeConfigs = await resolveAllAiConfigs(userId);
+      if (codeConfigs.length) {
+        await Project.updateOne({ _id: projectId }, { progress: 20 });
+        let codeLastErr;
+        for (const config of codeConfigs) {
+          try {
+            generatedCode = await withRetry(
+              () => generateVideoCode(prompt, durationSec, config, userId, referenceImage),
+              3, 2000
+            );
+            break;
+          } catch (err) {
+            codeLastErr = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            if (/\(429\)|\(503\)/.test(msg) && codeConfigs.length > 1) {
+              console.warn(`[pipeline] code-gen: ${config.provider} rate-limited, trying next…`);
+              continue;
+            }
+            throw err;
+          }
+        }
+        if (!generatedCode && codeLastErr) throw codeLastErr;
+        console.log(`[pipeline] code-gen succeeded for ${projectId} (${generatedCode.length} chars)`);
+      }
+    } catch (codeErr) {
+      // Non-fatal: we still have the JSON plan as fallback.
+      console.warn(`[pipeline] code-gen failed for ${projectId}, falling back to JSON plan:`, codeErr.message);
+      await Project.updateOne(
+        { _id: projectId },
+        {
+          $push: {
+            warnings: {
+              $each: [{ phase: "codegen", message: `Code generation failed: ${codeErr.message?.slice(0, 200)}`, at: new Date() }],
+              $slice: -10,
+            },
+          },
+        }
+      ).catch(() => {});
+    }
+
+    // Quality grading — surface warnings about narration length, missing
+    // graphics, headline length, and cliché phrases so the user sees the
+    // root cause when a video feels off. Never fails the project.
+    try {
+      const qualityWarnings = gradePlanQuality(plan, script, durationSec);
+      if (qualityWarnings.length) {
+        await Project.updateOne(
+          { _id: projectId },
+          {
+            $push: {
+              warnings: {
+                $each: qualityWarnings.map((message) => ({
+                  phase: "ai",
+                  message,
+                  at: new Date(),
+                })),
+                $slice: -10,
+              },
+            },
+          }
+        );
+      }
+    } catch (gradeErr) {
+      console.warn(`[pipeline] quality grading failed for ${projectId}:`, gradeErr);
+    }
+
+    // Voiceover is additive — TTS failure (or missing key) must NEVER fail the
+    // project. We try, swallow errors, and continue to READY_TO_EDIT. A short
+    // reason is captured on the project so the editor can surface "Narration
+    // unavailable" instead of silently producing a silent video.
+    let voiceoverUrl = null;
+    let voiceoverDuration = null;
+    let voiceoverError = null;
+    if (!script || !script.trim()) {
+      voiceoverError = "empty_script";
+    } else if (!isTtsConfigured()) {
+      voiceoverError = "missing_piper_script";
+    } else {
+      try {
+        const audio = await synthesizeVoiceover(script);
+        const audioSize = Buffer.isBuffer(audio) ? audio.length : audio?.buffer?.length;
+        if (!audioSize || audioSize < 44) {
+          voiceoverError = "empty_response";
+        } else {
+          const { url, duration } = await persistVoiceover(projectId, audio, script);
+          voiceoverUrl = url;
+          voiceoverDuration = duration;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Keep the reason short and safe — no API key or full request body.
+        const m = msg.match(/\((\d{3})\)/);
+        voiceoverError = m ? `http_${m[1]}` : msg.slice(0, 80);
+        console.warn(`[pipeline] voiceover failed for ${projectId}: ${voiceoverError}`);
+      }
+    }
+    // Surface non-fatal voiceover failures into the structured warnings list
+    // so the UI can show the root cause alongside "Narration unavailable".
+    if (voiceoverError) {
+      await Project.updateOne(
+        { _id: projectId },
+        {
+          $push: {
+            warnings: {
+              $each: [
+                {
+                  phase: "tts",
+                  message: `Voiceover skipped: ${voiceoverError}`,
+                  at: new Date(),
+                },
+              ],
+              $slice: -10,
+            },
+          },
+        }
+      ).catch(() => {});
+    }
+
+    await Project.updateOne(
+      { _id: projectId },
+      {
+        // Stop here so the user can edit on the canvas. The render worker only
+        // claims "QUEUED" — rendering happens when the user clicks Render
+        // (POST /:id/rerender), which transitions READY_TO_EDIT → QUEUED.
+        status: "READY_TO_EDIT",
+        progress: 30,
+        script,
+        sceneJson: plan,
+        generatedCode,
+        aspectRatio: plan.aspectRatio,
+        voiceoverUrl,
+        voiceoverDuration,
+        voiceoverError,
+      }
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Pipeline error";
+    const code = err instanceof Error ? err.code || err.name || null : null;
+    const stack = err instanceof Error ? err.stack || null : null;
+    console.error(`[pipeline] project ${projectId} failed:`, err);
+    await Project.updateOne(
+      { _id: projectId },
+      {
+        status: "FAILED",
+        progress: 0,
+        errorMessage: message,
+        errorPhase: "ai",
+        errorCode: code,
+        errorStack: stack,
+        errorAt: new Date(),
+        outputUrl: null,
+        thumbnailUrl: null,
+      }
+    );
+    await refundCredits(userId, cost, projectId).catch((refundErr) => {
+      console.error(`[pipeline] credit refund failed for ${projectId}:`, refundErr);
+    });
+  }
+}
