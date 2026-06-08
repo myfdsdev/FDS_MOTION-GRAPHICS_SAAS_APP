@@ -15,7 +15,6 @@ const DIMENSIONS = {
 const defaultProps = {
   duration: 10,
   aspectRatio: "16:9",
-  template: "explainer-video",
   category: "business",
   brandColors: ["#0f172a", "#8b5cf6", "#38bdf8", "#34d399"],
   scenes: [
@@ -26,7 +25,7 @@ const defaultProps = {
       headline: "",
       subtext: "",
       visual: "",
-      sceneTemplate: "gradient-flow",
+      sceneTheme: "gradient-flow",
       animation: "fade-in",
       transition: "fade",
       elements: [
@@ -42,7 +41,7 @@ const defaultProps = {
       headline: "",
       subtext: "",
       visual: "",
-      sceneTemplate: "spotlight",
+      sceneTheme: "spotlight",
       animation: "slide-left",
       transition: "cut",
       elements: [

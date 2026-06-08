@@ -68,7 +68,7 @@ function SceneRenderer({ scene, colors, index, clipDurationInFrames, structureSe
   const accent = colors[(index % Math.max(1, colors.length - 1)) + 1] ?? colors[1] ?? DEFAULT_COLORS[1];
   const secondary = colors[(index + 2) % colors.length] ?? DEFAULT_COLORS[2];
   const variant = pickVariant(scene, index, structureSeed);
-  const theme = scene.sceneTemplate || scene.sceneTheme || "gradient-flow";
+  const theme = scene.sceneTheme || scene.sceneTemplate || "gradient-flow";
   const hasElements = Array.isArray(scene.elements) && scene.elements.length > 0;
 
   return (

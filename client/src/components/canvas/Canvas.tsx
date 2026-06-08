@@ -21,7 +21,7 @@ interface CanvasProps {
   clipId: string | null;
   snapping: boolean;
   dispatch: React.Dispatch<EditorAction>;
-  /** 1-based number of the current scene (drawn in the template backdrop). */
+  /** 1-based number of the current scene (drawn in the scene backdrop). */
   sceneNumber?: number;
   /** Seconds elapsed within the current scene clip. Drives karaoke-subtitle
    *  highlight in real time as the user scrubs the timeline. */
@@ -29,9 +29,9 @@ interface CanvasProps {
   /** Total length of the current scene clip in seconds. Used as the subtitle
    *  duration fallback when an element doesn't specify its own. */
   sceneDuration?: number;
-  /** The current scene payload (text, headline, sceneTemplate, animation,
-   *  …). Passed to the embedded <Player> so it can render the same scene
-   *  template you'll see in the final MP4. */
+  /** The current scene payload (text, headline, sceneTheme, animation, …).
+   *  Passed to the embedded <Player> so it can render the same scene
+   *  you'll see in the final MP4. */
   scene?: Scene | null;
   /** Editor playback state — forwarded to the Player so play/pause flow. */
   playing?: boolean;
@@ -286,9 +286,9 @@ export function Canvas({
             }
       }
     >
-      {/* Live Remotion <Player> backdrop — renders the actual scene template
-          (kinetic-title, animated-bg-text, …) and its animations in real time
-          as the user scrubs. Element overlays sit on top for editing. */}
+      {/* Live Remotion <Player> backdrop — renders the scene theme and its
+          animations in real time as the user scrubs. Element overlays sit on
+          top for editing. */}
       <LivePreview
         scene={scene}
         sceneTime={sceneTime}

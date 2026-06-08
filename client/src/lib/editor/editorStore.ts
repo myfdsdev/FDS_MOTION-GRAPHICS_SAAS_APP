@@ -434,7 +434,7 @@ export type EditorAction =
   | { type: "REORDER_TRACK"; trackId: string; toIndex: number }
   | { type: "UPDATE_TRACK"; trackId: string; patch: Partial<TimelineTrack> }
   | { type: "UPDATE_CLIP"; clipId: string; patch: Partial<TimelineClip> }
-  // Scene-level edit on a scene clip (headline / text / subtext / template / …).
+  // Scene-level edit on a scene clip (headline / text / subtext / theme / …).
   // Touches `clip.scene` only — the clip's own timing/track stays untouched.
   | { type: "UPDATE_SCENE"; clipId: string; patch: Partial<Scene> }
   // scene elements (canvas). clipId is the current scene clip (derived from playhead)

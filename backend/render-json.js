@@ -45,7 +45,7 @@ async function main() {
   const plan = readPlan(inputPath);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-  console.log(`[render-json] validating OK: ${plan.template}, ${plan.aspectRatio}, ${plan.duration}s`);
+  console.log(`[render-json] validating OK: ${plan.aspectRatio}, ${plan.duration}s`);
   console.log("[render-json] ensuring Remotion browser...");
   await ensureBrowser();
 

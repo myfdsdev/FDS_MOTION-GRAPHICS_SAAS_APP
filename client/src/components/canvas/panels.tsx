@@ -182,7 +182,7 @@ export function PropertiesPanel({
           <div className="border-b border-border-soft px-4 py-3">
             <div className="text-sm font-semibold">Scene</div>
             <div className="text-[11px] text-faint">
-              Edits the template text behind your elements
+              Edits the scene text behind your elements
             </div>
           </div>
           <div className="flex-1 space-y-4 overflow-y-auto p-4">

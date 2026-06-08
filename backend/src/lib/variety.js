@@ -5,7 +5,7 @@
 //   2. Given a freshly generated plan, persist its signature to user.recentSignatures
 //      so the next generation can avoid it too.
 //
-// We intentionally only track STRUCTURE here (templates + variant fingerprints)
+// We intentionally only track STRUCTURE here (themes + variant fingerprints)
 // — palette/colors get layered on in a later phase.
 // ---------------------------------------------------------------------------
 
@@ -18,40 +18,40 @@ const AVOID_WINDOW = 10;
 
 /**
  * Build the "don't repeat" payload to inject into the AI prompt. Picks up
- * which templates have been overused recently, common template sequences, and
+ * which themes have been overused recently, common theme sequences, and
  * any structural variants we want to discourage.
  */
 export async function getAvoidanceHints(userId) {
-  if (!userId) return { templates: [], sequences: [], variants: [] };
+  if (!userId) return { themes: [], sequences: [], variants: [] };
   const user = await User.findById(userId).select("recentSignatures").lean();
   const sigs = (user?.recentSignatures || []).slice(-AVOID_WINDOW);
-  if (!sigs.length) return { templates: [], sequences: [], variants: [] };
+  if (!sigs.length) return { themes: [], sequences: [], variants: [] };
 
-  // Count template usage in the window. Templates used 2+ times recently are
-  // strongly discouraged; templates used 3+ times are explicitly avoided.
-  const tplCount = new Map();
+  // Count theme usage in the window. Themes used 2+ times recently are
+  // strongly discouraged; themes used 3+ times are explicitly avoided.
+  const themeCount = new Map();
   for (const s of sigs) {
-    for (const t of s.templates || []) {
-      tplCount.set(t, (tplCount.get(t) || 0) + 1);
+    for (const t of s.themes || s.templates || []) {
+      themeCount.set(t, (themeCount.get(t) || 0) + 1);
     }
   }
-  const overused = [...tplCount.entries()]
+  const overused = [...themeCount.entries()]
     .filter(([, n]) => n >= 2)
     .sort((a, b) => b[1] - a[1])
     .map(([t]) => t);
 
-  // Recent full sequences so the AI doesn't reuse "kinetic-title → app-showcase → final-cta" again.
+  // Recent full sequences so the AI doesn't reuse the same theme order again.
   const sequences = sigs
-    .map((s) => (s.templates || []).join(" → "))
+    .map((s) => (s.themes || s.templates || []).join(" → "))
     .filter(Boolean)
     .slice(-5);
 
   // Variant fingerprints (corner / grid / align combos) — these are what
-  // makes a structural look feel repetitive even when the template differs.
+  // makes a structural look feel repetitive even when the theme differs.
   const variants = sigs.flatMap((s) => s.variants || []);
 
   return {
-    templates: overused,
+    themes: overused,
     sequences,
     variants: Array.from(new Set(variants)).slice(0, 20),
   };
@@ -64,8 +64,8 @@ export async function getAvoidanceHints(userId) {
  */
 export async function recordVideoSignature(userId, projectId, plan) {
   if (!userId || !plan) return;
-  const templates = (plan.scenes || [])
-    .map((s) => s?.sceneTemplate)
+  const themes = (plan.scenes || [])
+    .map((s) => s?.sceneTheme || s?.sceneTemplate)
     .filter(Boolean);
   // Variant fingerprints come from the same hash the renderer uses to pick
   // chrome/grid/align — recompute here so a planned scene has a stable id.
@@ -81,7 +81,7 @@ export async function recordVideoSignature(userId, projectId, plan) {
             $each: [
               {
                 projectId: String(projectId),
-                templates,
+                themes,
                 variants,
                 createdAt: new Date(),
               },
@@ -106,7 +106,7 @@ export async function recordVideoSignature(userId, projectId, plan) {
  */
 export function structureVariantId(scene, index, seed) {
   const text = scene?.headline || scene?.text || "";
-  const tpl = scene?.sceneTemplate || "?";
+  const tpl = scene?.sceneTheme || scene?.sceneTemplate || "?";
   // Cheap djb2-ish hash so we don't pull in crypto.
   let h = 5381 ^ Number(seed || 0);
   const mix = `${index}|${tpl}|${text}`;

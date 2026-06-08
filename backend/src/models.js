@@ -37,7 +37,7 @@ const userSchema = new Schema(
       type: [
         {
           projectId: String,
-          templates: [String],          // scene templates used, in order
+          themes: [String],             // scene themes used, in order
           variants: [String],           // structural variant ids (bg, corners, grid…)
           createdAt: { type: Date, default: () => new Date() },
           _id: false,
@@ -65,7 +65,6 @@ const projectSchema = new Schema(
     status: { type: String, enum: PROJECT_STATUSES, default: "PLANNING" },
     script: { type: String, default: null },
     sceneJson: { type: Schema.Types.Mixed, default: null },
-    template: { type: String, default: null },
     aspectRatio: { type: String, default: "16:9" },
     durationSec: { type: Number, default: 20 },
     outputUrl: { type: String, default: null },

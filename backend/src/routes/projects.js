@@ -92,7 +92,6 @@ projectsRouter.patch("/:id", validate(UpdateProjectInput), async (req, res, next
     const { sceneJson } = req.body;
     project.sceneJson = sceneJson;
     if (sceneJson.aspectRatio) project.aspectRatio = sceneJson.aspectRatio;
-    if (sceneJson.template) project.template = sceneJson.template;
     // Keep durationSec in sync with the timeline's total length.
     const totalSec = sceneJson.timeline?.duration ?? sceneJson.duration;
     if (Number.isFinite(totalSec)) project.durationSec = Math.round(totalSec);
