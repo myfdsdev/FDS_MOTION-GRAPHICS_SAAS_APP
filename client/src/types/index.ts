@@ -187,7 +187,7 @@ export interface AdminOverview {
     totalTokens: number;
     lastUsedAt: string | null;
     byProvider: Array<{
-      provider: "openai" | "gemini";
+      provider: "openai" | "gemini" | "openrouter";
       keySource: "user" | "environment";
       requests: number;
       totalTokens: number;

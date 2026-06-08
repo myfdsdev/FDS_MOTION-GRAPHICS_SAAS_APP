@@ -49,7 +49,7 @@ function formatNumber(value: number) {
 }
 
 function formatProvider(provider: string) {
-  return provider === "openai" ? "OpenAI" : "Gemini";
+  return provider === "openai" ? "OpenAI" : provider === "openrouter" ? "OpenRouter" : "Gemini";
 }
 
 function formatKeySource(source: string) {
