@@ -160,7 +160,7 @@ const apiUsageSchema = new Schema(
     keySource: { type: String, enum: ["user", "environment"], required: true },
     purpose: {
       type: String,
-      enum: ["video_generation", "prompt_enhancement"],
+      enum: ["video_generation", "prompt_enhancement", "video_codegen"],
       required: true,
     },
     model: { type: String, default: null },
