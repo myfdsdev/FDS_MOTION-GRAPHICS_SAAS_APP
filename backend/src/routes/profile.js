@@ -21,7 +21,7 @@ function toProfileDTO(user) {
 
 function encryptedKeyPatch(apiKeys = {}) {
   const patch = {};
-  for (const key of ["openai", "gemini", "fal"]) {
+  for (const key of ["openai", "gemini", "openrouter", "fal"]) {
     if (!(key in apiKeys)) continue;
     const value = apiKeys[key]?.trim();
     patch[`apiKeys.${key}`] = value ? encryptSecret(value) : null;

@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProfile, useUpdateProfile } from "@/lib/queries";
 
-type KeyName = "openai" | "gemini" | "fal";
+type KeyName = "openai" | "gemini" | "openrouter" | "fal";
 
 const keyRows: Array<{ id: KeyName; label: string; placeholder: string }> = [
+  { id: "openrouter", label: "OpenRouter API key", placeholder: "sk-or-..." },
   { id: "openai", label: "OpenAI API key", placeholder: "sk-..." },
   { id: "gemini", label: "Gemini API key", placeholder: "AIza..." },
   { id: "fal", label: "fal.ai API key", placeholder: "fal..." },
