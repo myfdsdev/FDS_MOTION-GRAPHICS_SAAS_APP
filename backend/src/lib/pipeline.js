@@ -1596,7 +1596,7 @@ async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
   );
 
   const payload = await withRetry(() =>
-    config.provider === "openai"
+    config.provider === "openai" || config.provider === "openrouter"
       ? generateWithOpenAI(
           prompt,
           durationSec,
