@@ -156,7 +156,7 @@ creditTxSchema.index({ userId: 1, createdAt: -1 });
 const apiUsageSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
-    provider: { type: String, enum: ["openai", "gemini"], required: true, index: true },
+    provider: { type: String, enum: ["openai", "gemini", "openrouter"], required: true, index: true },
     keySource: { type: String, enum: ["user", "environment"], required: true },
     purpose: {
       type: String,
