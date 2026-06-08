@@ -219,13 +219,13 @@ export function PropertiesPanel({
               </label>
             </Section>
 
-            <Section title="Template">
+            <Section title="Scene Theme">
               <SelectField
                 label="Scene theme"
-                value={scene.sceneTemplate ?? "gradient-flow"}
+                value={scene.sceneTheme ?? "gradient-flow"}
                 options={[...SCENE_THEMES]}
                 onChange={(v) =>
-                  patchScene({ sceneTemplate: v as typeof SCENE_THEMES[number] })
+                  patchScene({ sceneTheme: v as typeof SCENE_THEMES[number] })
                 }
               />
               <div className="grid grid-cols-2 gap-2">
@@ -250,7 +250,7 @@ export function PropertiesPanel({
               Tip: add <span className="font-medium text-muted">Text</span>,{" "}
               <span className="font-medium text-muted">Subtitle</span>, or{" "}
               <span className="font-medium text-muted">Bar chart</span> from the
-              left panel to layer custom, draggable pieces on top of this template.
+              left panel to layer custom, draggable pieces on top of this scene.
             </p>
           </div>
         </div>
