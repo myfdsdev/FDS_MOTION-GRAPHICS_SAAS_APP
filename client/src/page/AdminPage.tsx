@@ -565,7 +565,4 @@ function LottieTile({ asset }: { asset: LottieAssetSummary }) {
       </div>
     </div>
   );
-    </div>
-  );
-}
 }
