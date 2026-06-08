@@ -483,6 +483,17 @@ async function resolveAiConfig(userId) {
   const user = settings.allowUserApiKeys && userId ? await User.findById(userId).lean() : null;
   const userOpenAI = decryptSecret(user?.apiKeys?.openai);
   const userGemini = decryptSecret(user?.apiKeys?.gemini);
+  const userOpenRouter = decryptSecret(user?.apiKeys?.openrouter);
+
+  // OpenRouter first — OpenAI-compatible API, supports free models
+  if (userOpenRouter || process.env.OPENROUTER_API_KEY) {
+    return {
+      provider: "openrouter",
+      apiKey: userOpenRouter || process.env.OPENROUTER_API_KEY,
+      keySource: userOpenRouter ? "user" : "environment",
+      model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
+    };
+  }
 
   if (userOpenAI || process.env.OPENAI_API_KEY) {
     return {
@@ -513,7 +524,7 @@ export async function getAiProvider(userId) {
 
 export async function generationConfigError(userId) {
   if (!(await resolveAiConfig(userId))) {
-    return "AI generation is not configured. Add an API key in Profile or set OPENAI_API_KEY/GEMINI_API_KEY in backend/.env.";
+    return "AI generation is not configured. Add an API key in Profile or set OPENROUTER_API_KEY/OPENAI_API_KEY/GEMINI_API_KEY in backend/.env.";
   }
   return null;
 }
