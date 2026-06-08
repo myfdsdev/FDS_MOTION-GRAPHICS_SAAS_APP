@@ -71,12 +71,8 @@ export function elementsFromScene(scene: Scene): SceneElement[] {
 }
 
 /** Ensure a scene has an `elements` array.
- *
- *  CUSTOM mode: elements[] is the source of truth for all visible content.
- *  The AI generates headline/subtext as text elements directly.
- *
- *  TEMPLATE mode: headline/subtext belong to the template. elements[] are
- *  optional overlays (icons, shapes, charts). */
+ *  elements[] is the source of truth for all visible content.
+ *  The AI generates headline/subtext as text elements directly. */
 export function ensureElements(scene: Scene): Scene {
   if (scene.elements) return scene;
   return { ...scene, elements: [] };

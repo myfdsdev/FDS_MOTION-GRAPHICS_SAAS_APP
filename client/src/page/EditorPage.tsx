@@ -60,7 +60,7 @@ import { DEFAULT_PX_PER_SECOND, FPS, type SceneElement } from "@/lib/editor/edit
 import { cn } from "@/lib/utils";
 import type { VideoPlan } from "@/types";
 
-type PanelId = "chat" | "edit" | "layers" | "media" | "fonts" | "colors" | "projects" | "templates";
+type PanelId = "chat" | "edit" | "layers" | "media" | "fonts" | "colors" | "projects";
 
 const RAIL: { id: PanelId; label: string; icon: typeof MessageSquare }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
@@ -70,7 +70,6 @@ const RAIL: { id: PanelId; label: string; icon: typeof MessageSquare }[] = [
   { id: "fonts", label: "Fonts", icon: TypeIcon },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "projects", label: "Projects", icon: Library },
-  { id: "templates", label: "Templates", icon: Sparkles },
 ];
 
 const EMPTY_STATE = createInitialState([]);
@@ -547,7 +546,7 @@ export default function EditorPage() {
         </aside>
 
         {/* Preview — Canvas with LivePreview is the primary editing surface.
-            The actual Remotion <Player> renders the scene template in real time
+            The actual Remotion <Player> renders the scene in real time
             and draggable element overlays sit on top. After render the MP4
             opens in a popup — it never replaces this canvas. */}
         <main
@@ -567,7 +566,7 @@ export default function EditorPage() {
             style={{ backgroundColor: brand[0] ?? "#0a0a0f" }}
           >
             {sceneClip ? (
-              /* Live editable canvas — shows the scene template via Remotion
+              /* Live editable canvas — shows the scene via Remotion
                  <Player> and renders draggable element overlays on top. */
               <Canvas
                 elements={elements}

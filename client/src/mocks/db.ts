@@ -28,7 +28,6 @@ const seedUser: User = {
 const seedPlan: VideoPlan = {
   duration: 20,
   aspectRatio: "16:9",
-  template: "saas-product-promo",
   brandColors: ["#0a0a0a", "#8b5cf6"],
   scenes: [
     {
@@ -73,8 +72,7 @@ const seedProjects: Project[] = [
     prompt: "Launch video for an AI SaaS called Nimbus that helps designers ship faster",
     status: "DONE",
     sceneJson: seedPlan,
-    template: "saas-product-promo",
-    aspectRatio: "16:9",
+      aspectRatio: "16:9",
     durationSec: 20,
     outputUrl: "https://example.com/videos/proj_001.mp4",
     thumbnailUrl: "",
@@ -278,8 +276,7 @@ export const mockApi = {
       userId: db.user.id,
       prompt,
       status: "PLANNING",
-      template: "saas-product-promo",
-      aspectRatio: "16:9",
+          aspectRatio: "16:9",
       durationSec,
       sceneJson: seedPlan,
       progress: 0,
