@@ -8,6 +8,7 @@ import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";
 import { attachLottieAssetsToPlan } from "./src/lib/lottieLibrary.js";
+import { writeGeneratedCode } from "./src/lib/pipeline.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -241,25 +242,61 @@ export async function startWorker() {
 
 async function renderProject(serveUrl, project) {
   const id = String(project._id);
+  const hasGeneratedCode = !!project.generatedCode;
   console.log(
-    `[worker] rendering ${id} (${project.aspectRatio}, ${project.durationSec}s, attempt ${project.renderAttempts})…`
+    `[worker] rendering ${id} (${project.aspectRatio}, ${project.durationSec}s, attempt ${project.renderAttempts}, codegen=${hasGeneratedCode})…`
   );
 
   let lastPhase = "load-plan";
   try {
     await runPhase("load-plan", async () => {
       lastPhase = "load-plan";
-      if (!project.sceneJson) throw new Error("Project has no scene plan to render");
+      if (!project.sceneJson && !project.generatedCode) {
+        throw new Error("Project has no scene plan or generated code to render");
+      }
     });
 
-    const inputProps = await runPhase("attach-lottie", async () => {
-      lastPhase = "attach-lottie";
-      return await attachLottieAssetsToPlan(project.sceneJson);
-    });
+    // Decide render path: code-gen (AI wrote JSX) or JSON-driven (legacy).
+    let activeServeUrl = serveUrl;
+    let compositionId = "video";
+    let inputProps = null;
+
+    if (hasGeneratedCode) {
+      // CODE-GEN PATH: write the AI code to disk and re-bundle so Remotion
+      // picks up the new Current.jsx. This adds ~15-20s but produces
+      // custom animations that no pre-built template can match.
+      await runPhase("write-codegen", async () => {
+        lastPhase = "write-codegen";
+        writeGeneratedCode(project.generatedCode);
+        console.log(`[worker] wrote generated code for ${id}`);
+      });
+
+      await runPhase("bundle-codegen", async () => {
+        lastPhase = "bundle-codegen";
+        activeServeUrl = await bundle({ entryPoint: ENTRY });
+        console.log(`[worker] re-bundled for code-gen ${id}`);
+      });
+
+      compositionId = "generated";
+      inputProps = {
+        duration: project.durationSec || 20,
+        aspectRatio: project.aspectRatio || "16:9",
+      };
+    } else {
+      // JSON PATH: use the pre-bundled serve URL.
+      inputProps = await runPhase("attach-lottie", async () => {
+        lastPhase = "attach-lottie";
+        return await attachLottieAssetsToPlan(project.sceneJson);
+      });
+    }
 
     const composition = await runPhase("select-composition", async () => {
       lastPhase = "select-composition";
-      return await selectComposition({ serveUrl, id: "video", inputProps });
+      return await selectComposition({
+        serveUrl: activeServeUrl,
+        id: compositionId,
+        inputProps,
+      });
     });
 
     const outPath = path.join(VIDEOS_DIR, `${id}.mp4`);
@@ -268,13 +305,12 @@ async function renderProject(serveUrl, project) {
       lastPhase = "render";
       await renderMedia({
         composition,
-        serveUrl,
+        serveUrl: activeServeUrl,
         codec: "h264",
         outputLocation: outPath,
         inputProps,
         onProgress: ({ progress }) => {
           const pct = Math.min(99, Math.round(5 + progress * 90));
-          // Heartbeat: progress + a timestamp the watchdog watches.
           Project.updateOne(
             { _id: id },
             { progress: pct, renderHeartbeatAt: new Date() }

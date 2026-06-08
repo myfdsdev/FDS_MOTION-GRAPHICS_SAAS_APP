@@ -851,6 +851,169 @@ YOUR OUTPUT MUST INCLUDE ALL OF THESE:
 
 Be specific. Never generic. Reference the actual product/topic from the user's input.`;
 
+// ---------------------------------------------------------------------------
+// CODE-GEN: AI writes a complete Remotion React component per video.
+// The generated file is saved to remotion/generated/Current.jsx and the
+// worker re-bundles before rendering, so the code IS the video.
+// ---------------------------------------------------------------------------
+
+const CODEGEN_SYSTEM_PROMPT = `You are an expert Remotion developer. Given a video description, write a COMPLETE React component that renders an animated motion-graphics video using Remotion.
+
+RULES:
+1. Use ONLY these imports from "remotion": AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Sequence, Series.
+2. Export a SINGLE default functional component. It receives no props — read duration from useVideoConfig().
+3. ALL styles must be inline (no CSS files, no styled-components, no Tailwind).
+4. Define ALL sub-components in the SAME file. No external imports except "remotion".
+5. Use professional motion-graphics animation: spring physics, staggered entrances, smooth interpolations.
+6. Output ONLY the JSX code. No markdown fences, no explanations, no comments outside the code.
+7. Font stack: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif".
+
+ANIMATION TOOLKIT:
+- spring({ frame, fps, config: { damping: 12-20, stiffness: 120-200, mass: 0.5-1.2 } }) — bouncy entrances
+- interpolate(frame, [start, end], [from, to], { extrapolateRight: "clamp" }) — linear tweens
+- Stagger elements by offsetting their start frames: element 1 at frame 0, element 2 at frame 8, element 3 at frame 16
+- Use Sequence with from={frameNumber} to time scene appearances
+- Use Series + Series.Sequence for back-to-back scenes
+
+VISUAL QUALITY STANDARDS:
+- Dark gradient backgrounds (e.g. linear-gradient(135deg, #0f172a, #1e293b))
+- Accent colors: vivid purples (#8b5cf6), cyans (#38bdf8), greens (#34d399), ambers (#fbbf24)
+- Headlines: 48-72px, weight 800, white or near-white
+- Subtexts: 20-28px, weight 400-500, muted gray (#94a3b8)
+- Decorative shapes: rounded rects, circles, gradient overlays with low opacity
+- SVG icons/shapes drawn inline (simple paths for arrows, checkmarks, stars, charts)
+- Animated underlines, glowing accent borders, particle-like floating dots
+- Bar charts / stat counters that animate values counting up
+- Each scene should have 3-6 animated elements minimum
+
+SCENE STRUCTURE:
+- Scene 1 (Hook): Bold headline with spring entrance + subtitle fade + accent shape
+- Middle scenes (Features/Data): Left-aligned headline + right-side chart/visual OR centered layout with staggered icons
+- Final scene (CTA): Big centered text with zoom-in + animated button shape + arrow icon
+
+TIMING (30 fps):
+- Scene transitions: 0 frame gap (use Series.Sequence)
+- Element entrances: 6-12 frames per element, staggered 4-8 frames apart
+- Hold time after all elements appear: at least 30 frames before next scene
+- Total duration matches useVideoConfig().durationInFrames
+
+OUTPUT FORMAT: Raw JSX code starting with import statements. No wrapping, no markdown.`;
+
+const CODEGEN_GENERATED_DIR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "remotion",
+  "generated"
+);
+
+/**
+ * Ask AI to write a complete Remotion component for the given prompt.
+ * Returns the JSX code as a string.
+ */
+async function generateVideoCode(prompt, durationSec, config, userId, referenceImage) {
+  const totalFrames = durationSec * 30;
+  const userText = "Create a " + durationSec + "-second (" + totalFrames + " frames at 30fps) motion-graphics video:\n" + prompt + "\n\nRemember: output ONLY the JSX code, starting with the import statement. No markdown fences.";
+
+  if (config.provider === "openai") {
+    const userContent = referenceImage
+      ? [
+          { type: "text", text: userText + "\n\nREFERENCE IMAGE: Use ONLY as layout/style blueprint. Extract layout, colors, typography hierarchy. DO NOT copy text content or logos." },
+          { type: "image_url", image_url: { url: referenceImage, detail: "high" } },
+        ]
+      : userText;
+
+    const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + config.apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: "system", content: CODEGEN_SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+        temperature: 0.7,
+        max_tokens: 8000,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await readErrorBody(res);
+      throw new Error("OpenAI code generation failed (" + res.status + "): " + errBody);
+    }
+
+    const data = await res.json();
+    await recordApiUsage({
+      userId,
+      config,
+      purpose: "video_codegen",
+      usage: usageFromOpenAI(data.usage),
+    });
+    return extractCode(data.choices?.[0]?.message?.content);
+  }
+
+  // Gemini
+  const geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + config.model + ":generateContent?key=" + config.apiKey;
+  const parts = [];
+  let textContent = CODEGEN_SYSTEM_PROMPT + "\n\n" + userText;
+  if (referenceImage) {
+    textContent += "\n\nREFERENCE IMAGE: Use ONLY as layout/style blueprint. Extract layout, colors, typography hierarchy. DO NOT copy text content or logos.";
+    const match = referenceImage.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (match) parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+  }
+  parts.unshift({ text: textContent });
+
+  const res = await fetch(geminiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8000 },
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await readErrorBody(res);
+    throw new Error("Gemini code generation failed (" + res.status + "): " + errBody);
+  }
+
+  const data = await res.json();
+  await recordApiUsage({
+    userId,
+    config,
+    purpose: "video_codegen",
+    usage: usageFromGemini(data.usageMetadata),
+  });
+  return extractCode(data.candidates?.[0]?.content?.parts?.[0]?.text);
+}
+
+function extractCode(raw) {
+  if (!raw || typeof raw !== "string") throw new Error("AI returned empty code");
+  // Strip markdown fences if present
+  let code = raw.trim();
+  const fenceMatch = code.match(/^```(?:jsx|javascript|js|tsx)?\n([\s\S]*?)```$/);
+  if (fenceMatch) code = fenceMatch[1].trim();
+  // Must contain remotion import to be valid
+  if (!code.includes("remotion")) {
+    throw new Error("Generated code does not import from remotion — invalid output");
+  }
+  return code;
+}
+
+/**
+ * Write the generated JSX code to remotion/generated/Current.jsx so the
+ * Remotion bundler picks it up on the next bundle() call.
+ */
+export function writeGeneratedCode(code) {
+  fs.mkdirSync(CODEGEN_GENERATED_DIR, { recursive: true });
+  const filePath = path.join(CODEGEN_GENERATED_DIR, "Current.jsx");
+  fs.writeFileSync(filePath, code, "utf-8");
+  return filePath;
+}
+
 export async function enhancePromptWithAi(prompt, userId) {
   const config = await resolveAiConfig(userId);
   if (!config) throw new Error(await generationConfigError(userId));
@@ -1296,6 +1459,38 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
     // generation knows what to avoid. Power-user variety engine.
     await recordVideoSignature(userId, projectId, plan).catch(() => {});
 
+    // ---- CODE-GEN: Generate Remotion JSX code for this video ----
+    // The AI writes a complete React component that IS the video. This runs
+    // after the JSON plan so we have a fallback, and the script is already
+    // written for narration.
+    let generatedCode = null;
+    try {
+      const config = await resolveAiConfig(userId);
+      if (config) {
+        await Project.updateOne({ _id: projectId }, { progress: 20 });
+        generatedCode = await withRetry(
+          () => generateVideoCode(prompt, durationSec, config, userId, referenceImage),
+          3,
+          2000
+        );
+        console.log(`[pipeline] code-gen succeeded for ${projectId} (${generatedCode.length} chars)`);
+      }
+    } catch (codeErr) {
+      // Non-fatal: we still have the JSON plan as fallback.
+      console.warn(`[pipeline] code-gen failed for ${projectId}, falling back to JSON plan:`, codeErr.message);
+      await Project.updateOne(
+        { _id: projectId },
+        {
+          $push: {
+            warnings: {
+              $each: [{ phase: "codegen", message: `Code generation failed: ${codeErr.message?.slice(0, 200)}`, at: new Date() }],
+              $slice: -10,
+            },
+          },
+        }
+      ).catch(() => {});
+    }
+
     // Quality grading — surface warnings about narration length, missing
     // graphics, headline length, and cliché phrases so the user sees the
     // root cause when a video feels off. Never fails the project.
@@ -1384,6 +1579,7 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
         progress: 30,
         script,
         sceneJson: plan,
+        generatedCode,
         template: plan.template,
         aspectRatio: plan.aspectRatio,
         voiceoverUrl,

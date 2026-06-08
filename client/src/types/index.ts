@@ -109,6 +109,8 @@ export interface Project {
   status: ProjectStatus;
   script?: string;
   sceneJson?: VideoPlan;
+  /** True when the AI generated custom Remotion JSX code for this project. */
+  hasGeneratedCode?: boolean;
   template?: TemplateName;
   aspectRatio: AspectRatio;
   durationSec: number;
