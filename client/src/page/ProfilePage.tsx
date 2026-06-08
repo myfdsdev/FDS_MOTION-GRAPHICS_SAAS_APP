@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [keys, setKeys] = useState<Record<KeyName, string>>({
     openai: "",
     gemini: "",
+    openrouter: "",
     fal: "",
   });
 
@@ -39,7 +40,7 @@ export default function ProfilePage() {
         name: name.trim() || null,
         apiKeys: Object.keys(apiKeys).length ? apiKeys : undefined,
       });
-      setKeys({ openai: "", gemini: "", fal: "" });
+      setKeys({ openai: "", gemini: "", openrouter: "", fal: "" });
       toast.success("Profile saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Profile update failed");

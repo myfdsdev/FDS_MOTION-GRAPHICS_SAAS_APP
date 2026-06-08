@@ -104,6 +104,7 @@ export async function getProfile(): Promise<ProfileSettings> {
       apiKeys: {
         openai: { configured: false, last4: null },
         gemini: { configured: false, last4: null },
+        openrouter: { configured: false, last4: null },
         fal: { configured: false, last4: null },
       },
     };

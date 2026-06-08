@@ -103,7 +103,6 @@ export interface Project {
   voiceoverError?: string;
   progress: number;
   errorMessage?: string;
-  // Structured error telemetry from the render / AI pipeline.
   errorPhase?:
     | "load-plan"
     | "attach-lottie"
@@ -150,6 +149,7 @@ export interface ProfileSettings {
   apiKeys: {
     openai: ApiKeySummary;
     gemini: ApiKeySummary;
+    openrouter: ApiKeySummary;
     fal: ApiKeySummary;
   };
 }
@@ -201,7 +201,6 @@ export interface AdminOverview {
 export interface LottieAssetSummary {
   id: string;
   label: string;
-  // Admin-defined free-form category (not limited to VideoCategory).
   category: string;
   tags: string[];
   source: "starter" | "uploaded";

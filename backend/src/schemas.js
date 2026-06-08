@@ -414,6 +414,7 @@ export const UpdateProfileInput = z.object({
     .object({
       openai: z.string().max(300).optional(),
       gemini: z.string().max(300).optional(),
+      openrouter: z.string().max(300).optional(),
       fal: z.string().max(300).optional(),
     })
     .optional(),

@@ -14,6 +14,7 @@ function toProfileDTO(user) {
     apiKeys: {
       openai: secretSummary(user.apiKeys?.openai),
       gemini: secretSummary(user.apiKeys?.gemini),
+      openrouter: secretSummary(user.apiKeys?.openrouter),
       fal: secretSummary(user.apiKeys?.fal),
     },
   };
