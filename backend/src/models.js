@@ -70,6 +70,8 @@ const projectSchema = new Schema(
     durationSec: { type: Number, default: 20 },
     outputUrl: { type: String, default: null },
     thumbnailUrl: { type: String, default: null },
+    /** AI-generated Remotion JSX code for code-gen render mode. */
+    generatedCode: { type: String, default: null },
     /** Narration MP3 produced by ElevenLabs TTS from `script`. Optional. */
     voiceoverUrl: { type: String, default: null },
     voiceoverDuration: { type: Number, default: null },
