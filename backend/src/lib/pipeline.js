@@ -26,6 +26,7 @@ import { SCENE_THEMES, VIDEO_CATEGORIES } from "./videoAssets.js";
 import { getAvoidanceHints, recordVideoSignature } from "./variety.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
+const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const animations = [
   "fade-in",
