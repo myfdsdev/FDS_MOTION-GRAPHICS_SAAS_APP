@@ -88,7 +88,7 @@ export function ProjectCard({ project }: { project: Project }) {
           {project.prompt}
         </div>
         <div className="flex items-center justify-between text-xs text-muted">
-          <span>{project.template?.replace(/-/g, " ") ?? "—"}</span>
+          <span>{project.aspectRatio}</span>
           <span>{formatRelativeTime(project.createdAt)}</span>
         </div>
       </div>

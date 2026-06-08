@@ -210,7 +210,6 @@ export default function ProjectDetailPage() {
 
       {/* Meta */}
       <div className="mt-8 pt-6 border-t border-border-soft grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-        <Meta label="Template" value={project.template?.replace(/-/g, " ") ?? "—"} />
         <Meta label="Aspect ratio" value={project.aspectRatio} />
         <Meta label="Duration" value={`${project.durationSec}s`} />
         <Meta label="Scenes" value={String(project.sceneJson?.scenes.length ?? 0)} />
