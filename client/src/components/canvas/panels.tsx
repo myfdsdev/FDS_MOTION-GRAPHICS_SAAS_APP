@@ -91,8 +91,7 @@ interface PropertiesProps extends PanelCommon {
   selectedClip?: TimelineClip | null;
   /** The current scene clip (under the playhead). When no element is
    *  selected, the panel falls back to editing the scene's headline /
-   *  subtext / template — that text is drawn by the scene template, not
-   *  as an element, so it has no on-canvas selection target. */
+   *  subtext / theme. */
   sceneClip?: TimelineClip | null;
 }
 
@@ -168,10 +167,8 @@ export function PropertiesPanel({
     );
   }
 
-  // Nothing selected → fall back to scene-level editing. The scene template's
-  // headline / subtext / template choice can't be selected on the canvas
-  // (they're drawn by the Player, not as elements), so this is the only way
-  // to edit them. Always visible when a scene clip is under the playhead.
+  // Nothing selected → fall back to scene-level editing (headline, subtext,
+  // theme, animation). Always visible when a scene clip is under the playhead.
   if (!el) {
     if (sceneClip && sceneClip.scene && sceneClip.type === "scene") {
       const scene = sceneClip.scene;
