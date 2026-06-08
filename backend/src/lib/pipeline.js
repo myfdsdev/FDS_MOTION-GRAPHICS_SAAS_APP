@@ -1566,7 +1566,6 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
         script,
         sceneJson: plan,
         generatedCode,
-        template: plan.template,
         aspectRatio: plan.aspectRatio,
         voiceoverUrl,
         voiceoverDuration,
