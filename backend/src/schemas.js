@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  SCENE_TEMPLATES,
+  SCENE_THEMES,
   VIDEO_CATEGORIES,
 } from "./lib/videoAssets.js";
 
@@ -44,19 +44,11 @@ export const LottieCategory = z
   )
   .refine((s) => s.length >= 2, "Category must be at least 2 characters");
 
-export const SceneTemplate = z.enum(SCENE_TEMPLATES);
+export const SceneTheme = z.enum(SCENE_THEMES);
 
 export const LottieAssetId = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/);
-
-export const TemplateName = z.enum([
-  "saas-product-promo",
-  "app-launch",
-  "explainer-video",
-  "social-reel",
-  "local-business",
-]);
 
 // ---- Direct-manipulation scene elements (fractional 0..1 positions) ----
 
@@ -255,8 +247,6 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
 export const SceneSchema = z.object({
   scene: z.number().int().min(1),
   duration: z.number().min(0.1).max(600),
-  /** "custom" = elements-first motion graphics, "template" = legacy templates */
-  renderMode: z.enum(["custom", "template"]).optional(),
   // `text` is the per-scene NARRATION chunk — at 150 wpm a 10-second scene
   // is ~25 words ≈ 175 chars, so 140 was too tight and kept failing Zod.
   // Bumped to 800 with safe truncation in sanitizePlan as belt-and-suspenders.
@@ -264,7 +254,7 @@ export const SceneSchema = z.object({
   headline: z.string().max(140).optional(),
   subtext: z.string().max(240).optional(),
   visual: z.string(),
-  sceneTemplate: SceneTemplate.optional(),
+  sceneTheme: SceneTheme.optional(),
   // Optional per-word timing for karaoke-subtitle template. When absent the
   // template falls back to a character-length-weighted even split derived
   // from `text` + `duration`. Future forced-alignment can populate this.
@@ -330,8 +320,6 @@ export const TimelineSchema = z.object({
 export const VideoPlanSchema = z.object({
   duration: z.number().min(1).max(600),
   aspectRatio: AspectRatio,
-  template: TemplateName,
-  renderMode: z.enum(["custom", "template"]).optional(),
   category: VideoCategory.optional(),
   brandColors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional(),
   scenes: z.array(SceneSchema).min(1).max(50),

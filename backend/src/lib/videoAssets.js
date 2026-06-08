@@ -20,8 +20,6 @@ export const SCENE_THEMES = [
   "bold-color",        // Single saturated bg with contrasting accents
 ];
 
-// Keep legacy name for backward compat with existing projects
-export const SCENE_TEMPLATES = SCENE_THEMES;
 
 // Starter animations removed — the Lottie library is now populated only by
 // admin uploads (see backend/src/lib/lottieLibrary.js).

@@ -26,13 +26,6 @@ export type ProjectStatus =
 
 export type AspectRatio = "16:9" | "9:16" | "1:1";
 
-export type TemplateName =
-  | "saas-product-promo"
-  | "app-launch"
-  | "explainer-video"
-  | "social-reel"
-  | "local-business";
-
 export type AnimationType =
   | "fade-in"
   | "fade-out"
@@ -55,15 +48,6 @@ export type VideoCategory =
   | "saas"
   | "marketing"
   | "local-business";
-
-export type SceneTemplate =
-  | "kinetic-title"
-  | "animated-bg-text"
-  | "app-showcase"
-  | "offer-burst"
-  | "proof-cards"
-  | "final-cta"
-  | "karaoke-subtitle";
 
 export interface Scene {
   scene: number;
