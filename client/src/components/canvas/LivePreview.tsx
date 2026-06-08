@@ -38,7 +38,7 @@ interface LivePreviewProps {
 /**
  * Renders the active scene through Remotion's <Player>, sized to fill its
  * parent. Sits underneath the editing handles so the user sees the real
- * animated template (kinetic title, bar chart, karaoke subtitle, …) while
+ * animated scene (themed background, floating shapes, etc.) while
  * dragging / scrubbing.
  *
  * We pass a single-scene mini-plan to the composition so the Player's
@@ -57,20 +57,15 @@ export function LivePreview({
   const [width, height] = DIMENSIONS[aspectRatio] ?? DIMENSIONS["16:9"];
   const durationInFrames = Math.max(1, Math.round((sceneDuration || 1) * FPS));
 
-  // Strip `elements` (canvas overlay draws them interactively).
-  // In CUSTOM mode, also strip headline/subtext (they're in elements).
-  // In TEMPLATE mode, keep headline/subtext (template renders them).
+  // Strip `elements` (canvas overlay draws them interactively) and
+  // headline/subtext (they live in elements[] now).
   const inputProps = useMemo(() => {
     const cleaned = scene
       ? (() => {
           const raw = scene as Record<string, unknown>;
-          const mode = raw.renderMode || "custom";
           const { elements: _elements, ...rest } = raw as Record<string, unknown> & { elements?: unknown };
           void _elements;
-          if (mode === "custom") {
-            return { ...rest, headline: "", subtext: "", duration: sceneDuration };
-          }
-          return { ...rest, duration: sceneDuration };
+          return { ...rest, headline: "", subtext: "", duration: sceneDuration };
         })()
       : null;
     return {
