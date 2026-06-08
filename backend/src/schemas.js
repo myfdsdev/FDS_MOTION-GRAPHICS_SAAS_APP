@@ -125,6 +125,40 @@ export const SceneElementSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...ElementBase,
+    // Inline SVG illustration. The AI generates a custom SVG graphic relevant
+    // to the topic (laptop, chart, phone mockup, etc.). Rendered as raw SVG
+    // inside the element's bounding box. viewBox defaults to "0 0 200 200".
+    type: z.literal("svg"),
+    // Raw SVG inner content (paths, circles, rects — no outer <svg> tag).
+    paths: z.string().max(5000),
+    viewBox: z.string().max(40).optional(),
+    stroke: Hex.optional(),
+    fill: Hex.optional(),
+    strokeWidth: z.number().min(0).max(20).optional(),
+  }),
+  z.object({
+    ...ElementBase,
+    // Decorative animated gradient orb / glow. Renders as a soft blurred
+    // circle that floats/drifts. Used for ambient background decoration.
+    type: z.literal("glow"),
+    color: Hex.optional(),
+    blur: z.number().min(10).max(200).optional(),
+    pulse: z.boolean().optional(),
+  }),
+  z.object({
+    ...ElementBase,
+    // Animated progress/percentage ring. Draws an SVG donut that fills to
+    // the target percentage with an animated stroke.
+    type: z.literal("progress-ring"),
+    value: z.number().min(0).max(100),
+    label: z.string().max(80).optional(),
+    color: Hex.optional(),
+    trackColor: Hex.optional(),
+    thickness: z.number().min(2).max(30).optional(),
+    animationDuration: z.number().min(0.2).max(10).optional(),
+  }),
+  z.object({
+    ...ElementBase,
     type: z.literal("lottie"),
     assetId: LottieAssetId.optional(),
     animationData: z.unknown().optional(),

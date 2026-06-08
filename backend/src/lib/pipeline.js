@@ -162,7 +162,7 @@ function elementSchemaJson() {
     additionalProperties: false,
     required: ["type", "x", "y", "w", "h"],
     properties: {
-      type: { type: "string", enum: ["text", "icon", "image", "shape", "bar-chart", "line-chart", "stat", "subtitle"] },
+      type: { type: "string", enum: ["text", "icon", "image", "shape", "svg", "glow", "progress-ring", "bar-chart", "line-chart", "stat", "subtitle"] },
       x: { type: "number", minimum: 0, maximum: 1 },
       y: { type: "number", minimum: 0, maximum: 1 },
       w: { type: "number", minimum: 0.02, maximum: 1 },
@@ -241,6 +241,15 @@ function elementSchemaJson() {
       accent: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
       sparkline: { type: "array", minItems: 2, maxItems: 20, items: { type: "number" } },
       countUp: { type: "boolean" },
+      // SVG illustration
+      paths: { type: "string", maxLength: 5000 },
+      viewBox: { type: "string", maxLength: 40 },
+      // Glow orb
+      blur: { type: "number", minimum: 10, maximum: 200 },
+      pulse: { type: "boolean" },
+      // Progress ring
+      trackColor: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      thickness: { type: "number", minimum: 2, maximum: 30 },
       // Common
       bg: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
       fg: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
@@ -563,52 +572,76 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
     "  Available animation kinds: fade, slide-left, slide-right, slide-up, slide-down, zoom-in, zoom-out, scale, pop.",
     "  Stagger elements: headline at=0, subtext at=0.3, first icon at=0.5, second icon at=0.7, etc. This creates the motion-graphics feel.",
     "",
-    "MANDATORY STRUCTURE per scene (minimum 4 elements, maximum 8):",
-    "  1) HEADLINE text element — type='text', size 0.08-0.12, weight 800, color '#ffffff', centered. Animation: slide-up or zoom-in at 0s.",
-    "  2) SUBTEXT text element — type='text', size 0.03-0.05, weight 400-500, color '#94a3b8'. Animation: fade at 0.3s.",
-    "  3) At least ONE shape element — type='shape', decorative accent bar, card background, button, divider, or highlight. Shapes add visual weight and make scenes look designed, not just text on a background.",
-    "  4) At least ONE more visual element — icon, another shape, a chart (bar-chart, line-chart, stat), or an image. Mix it up across scenes.",
+    "MANDATORY STRUCTURE per scene (minimum 5 elements, maximum 8):",
+    "  1) HEADLINE text — type='text', size 0.08-0.12, weight 800, color '#ffffff'. Animation: slide-up or zoom-in at 0s.",
+    "  2) SUBTEXT text — type='text', size 0.03-0.05, weight 400-500, color '#94a3b8'. Animation: fade at 0.3s.",
+    "  3) At least ONE shape — accent bar, card bg, button, divider, glow circle. Shapes add visual weight.",
+    "  4) At least ONE glow element — type='glow', a soft blurred orb for cinematic atmosphere. Place in background (low z). w/h 0.25-0.50.",
+    "  5) At least ONE of: icon, svg illustration, progress-ring, chart (bar-chart, line-chart, stat). These are the VISUAL STAR of the scene.",
     "",
-    "VISUAL RICHNESS IS MANDATORY. A scene with ONLY text elements looks like a PowerPoint slide, not a motion graphic. Every scene must have at least 2 non-text elements (shapes, icons, charts). Use shapes creatively:",
-    "  - Accent bars: thin wide rectangles (w:0.30, h:0.005) as dividers or underlines",
-    "  - Card backgrounds: large rounded rects (radius:16, fill with low-opacity brand color) behind content groups",
-    "  - Pill buttons: rect with radius:99, behind CTA text",
-    "  - Decorative circles: ellipse shapes in corners or gutters with brand colors",
-    "  - Stat cards: rect backgrounds behind stat elements",
-    "  - At least ONE scene should have a chart element (bar-chart, line-chart, or stat) if the topic involves any kind of data, growth, comparison, or results.",
+    "AVAILABLE ELEMENT TYPES (use ALL of these across your video, not just text+icon):",
+    "  · text — headline, subtext, labels",
+    "  · icon — lucide-react icon by name",
+    "  · shape — rect or ellipse with fill/stroke/radius. Use for accent bars, buttons, cards, dividers",
+    "  · svg — CUSTOM inline SVG illustration! 'paths' field contains SVG inner markup (<path>, <circle>, <rect>, <line>). Use viewBox '0 0 200 200'. Draw topic-relevant graphics: laptops, phones, charts, buildings, people outlines, logos, arrows, abstract patterns. SIZE THEM BIG (w:0.25-0.45, h:0.25-0.45).",
+    "  · glow — soft blurred orb for ambient decoration. Set color to accent, blur 40-120, pulse:true for breathing effect",
+    "  · progress-ring — animated donut chart. value (0-100), label, color. Great for percentages and scores",
+    "  · bar-chart — animated horizontal bars with rows [{label, value}]",
+    "  · line-chart — animated line graph with points [{label, value}]",
+    "  · stat — big animated counter with sparkline",
     "",
-    "EXAMPLE SCENE (copy this structure, change the content):",
-    '  {"scene":1,"duration":5,"text":"Narration goes here...","sceneTheme":"gradient-flow","animation":"fade-in","transition":"fade",',
+    "VISUAL RICHNESS IS MANDATORY. Text-only = rejected. Every scene needs GRAPHICS:",
+    "  - At least 2 scenes MUST use 'svg' elements with custom illustrations relevant to the topic",
+    "  - At least 1 scene MUST use a data element (bar-chart, line-chart, stat, or progress-ring)",
+    "  - Every scene MUST have at least 1 'glow' orb for cinematic atmosphere",
+    "  - Every scene MUST have at least 1 'shape' for structure (accent bar, card, divider)",
+    "",
+    "SVG ILLUSTRATION EXAMPLES (use as starting points, adapt to the topic):",
+    "  Laptop: {\"type\":\"svg\",\"x\":0.30,\"y\":0.15,\"w\":0.40,\"h\":0.35,\"paths\":\"<rect x='30' y='20' width='140' height='100' rx='8' fill='none' stroke='#8b5cf6' stroke-width='3'/><rect x='50' y='40' width='100' height='60' rx='4' fill='#1e293b'/><path d='M20 130 L180 130' stroke='#8b5cf6' stroke-width='3'/>\",\"viewBox\":\"0 0 200 160\"}",
+    "  Phone: {\"type\":\"svg\",\"x\":0.40,\"y\":0.20,\"w\":0.20,\"h\":0.45,\"paths\":\"<rect x='40' y='10' width='120' height='180' rx='16' fill='none' stroke='#38bdf8' stroke-width='3'/><rect x='50' y='30' width='100' height='140' rx='4' fill='#0f172a'/><circle cx='100' cy='185' r='5' fill='#38bdf8'/>\",\"viewBox\":\"0 0 200 200\"}",
+    "  Play button: {\"type\":\"svg\",\"x\":0.42,\"y\":0.35,\"w\":0.16,\"h\":0.16,\"paths\":\"<circle cx='100' cy='100' r='80' fill='none' stroke='#ef4444' stroke-width='4'/><polygon points='80,60 80,140 140,100' fill='#ef4444'/>\",\"viewBox\":\"0 0 200 200\"}",
+    "  Chart: {\"type\":\"svg\",\"x\":0.55,\"y\":0.20,\"w\":0.35,\"h\":0.35,\"paths\":\"<line x1='20' y1='180' x2='20' y2='20' stroke='#475569' stroke-width='2'/><line x1='20' y1='180' x2='180' y2='180' stroke='#475569' stroke-width='2'/><polyline points='30,150 70,100 110,120 150,50 170,70' fill='none' stroke='#34d399' stroke-width='3'/><circle cx='150' cy='50' r='5' fill='#34d399'/>\",\"viewBox\":\"0 0 200 200\"}",
+    "",
+    "EXAMPLE HOOK SCENE (rich visuals — notice glow, svg, shape, not just text):",
+    '  {"scene":1,"duration":5,"text":"Narration here...","sceneTheme":"gradient-flow","animation":"fade-in","transition":"fade",',
     '   "elements":[',
-    '     {"type":"text","x":0.08,"y":0.30,"w":0.84,"h":0.18,"text":"Your Big Headline","size":0.10,"weight":800,"color":"#ffffff","align":"center","animation":{"in":{"kind":"slide-up","at":0,"duration":0.5}}},',
-    '     {"type":"text","x":0.15,"y":0.52,"w":0.70,"h":0.10,"text":"Supporting subtext line here","size":0.04,"weight":500,"color":"#94a3b8","align":"center","animation":{"in":{"kind":"fade","at":0.3,"duration":0.4}}},',
-    '     {"type":"icon","x":0.44,"y":0.72,"w":0.08,"h":0.08,"name":"Sparkles","color":"#8b5cf6","animation":{"in":{"kind":"pop","at":0.5,"duration":0.3}}},',
-    '     {"type":"shape","x":0.30,"y":0.88,"w":0.40,"h":0.06,"shape":"rect","fill":"#8b5cf6","radius":99,"animation":{"in":{"kind":"slide-up","at":0.6,"duration":0.4}}}',
+    '     {"type":"glow","x":0.10,"y":0.05,"w":0.35,"h":0.35,"z":0,"color":"#8b5cf6","blur":80,"pulse":true,"animation":{"in":{"kind":"fade","at":0,"duration":0.8}}},',
+    '     {"type":"glow","x":0.60,"y":0.55,"w":0.30,"h":0.30,"z":0,"color":"#38bdf8","blur":60,"pulse":true,"animation":{"in":{"kind":"fade","at":0.2,"duration":0.8}}},',
+    '     {"type":"svg","x":0.35,"y":0.08,"w":0.30,"h":0.30,"z":1,"paths":"<circle cx=\\"100\\" cy=\\"100\\" r=\\"80\\" fill=\\"none\\" stroke=\\"#8b5cf6\\" stroke-width=\\"3\\"/><polygon points=\\"80,60 80,140 140,100\\" fill=\\"#8b5cf6\\"/>","viewBox":"0 0 200 200","animation":{"in":{"kind":"zoom-in","at":0.1,"duration":0.5}}},',
+    '     {"type":"text","x":0.08,"y":0.42,"w":0.84,"h":0.16,"z":2,"text":"Your Big Headline","size":0.10,"weight":800,"color":"#ffffff","align":"center","animation":{"in":{"kind":"slide-up","at":0.2,"duration":0.5}}},',
+    '     {"type":"shape","x":0.35,"y":0.60,"w":0.30,"h":0.005,"z":2,"shape":"rect","fill":"#8b5cf6","radius":99,"animation":{"in":{"kind":"scale","at":0.4,"duration":0.4}}},',
+    '     {"type":"text","x":0.15,"y":0.64,"w":0.70,"h":0.08,"z":2,"text":"Supporting subtext here","size":0.04,"weight":500,"color":"#94a3b8","align":"center","animation":{"in":{"kind":"fade","at":0.5,"duration":0.4}}},',
+    '     {"type":"icon","x":0.44,"y":0.78,"w":0.08,"h":0.08,"z":3,"name":"Sparkles","color":"#8b5cf6","animation":{"in":{"kind":"pop","at":0.7,"duration":0.3}}}',
     "  ]}",
     "",
-    "EXAMPLE DATA SCENE:",
+    "EXAMPLE DATA SCENE (charts + progress ring + svg):",
     '  {"scene":2,"duration":6,"text":"Revenue grew 340% in one quarter.","sceneTheme":"spotlight","animation":"slide-left","transition":"cut",',
     '   "elements":[',
-    '     {"type":"text","x":0.05,"y":0.08,"w":0.50,"h":0.14,"text":"Revenue Growth","size":0.08,"weight":800,"color":"#ffffff","align":"left","animation":{"in":{"kind":"slide-left","at":0,"duration":0.5}}},',
-    '     {"type":"line-chart","x":0.52,"y":0.12,"w":0.44,"h":0.50,"points":[{"label":"Q1","value":20},{"label":"Q2","value":45},{"label":"Q3","value":78},{"label":"Q4","value":120}],"finalValue":120,"valueSuffix":"K","valuePrefix":"$","line":"#34d399","showGrid":true,"animationDuration":1.8,"animation":{"in":{"kind":"fade","at":0.2,"duration":0.4}}},',
-    '     {"type":"stat","x":0.05,"y":0.55,"w":0.40,"h":0.35,"value":340,"valueSuffix":"%","label":"GROWTH","caption":"year over year","accent":"#fbbf24","sparkline":[10,18,25,40,55,70,88,120],"animation":{"in":{"kind":"zoom-in","at":0.5,"duration":0.5}}}',
+    '     {"type":"glow","x":0.50,"y":0.30,"w":0.40,"h":0.40,"z":0,"color":"#34d399","blur":100,"animation":{"in":{"kind":"fade","at":0,"duration":0.6}}},',
+    '     {"type":"text","x":0.05,"y":0.06,"w":0.50,"h":0.12,"z":2,"text":"Revenue Growth","size":0.08,"weight":800,"color":"#ffffff","align":"left","animation":{"in":{"kind":"slide-left","at":0,"duration":0.5}}},',
+    '     {"type":"shape","x":0.05,"y":0.19,"w":0.15,"h":0.004,"z":2,"shape":"rect","fill":"#34d399","radius":99,"animation":{"in":{"kind":"scale","at":0.2,"duration":0.3}}},',
+    '     {"type":"line-chart","x":0.52,"y":0.10,"w":0.44,"h":0.50,"z":2,"points":[{"label":"Q1","value":20},{"label":"Q2","value":45},{"label":"Q3","value":78},{"label":"Q4","value":120}],"finalValue":120,"valueSuffix":"K","valuePrefix":"$","line":"#34d399","showGrid":true,"animationDuration":1.8,"animation":{"in":{"kind":"fade","at":0.2,"duration":0.4}}},',
+    '     {"type":"progress-ring","x":0.05,"y":0.35,"w":0.20,"h":0.20,"z":2,"value":92,"label":"SCORE","color":"#fbbf24","animationDuration":1.5,"animation":{"in":{"kind":"zoom-in","at":0.4,"duration":0.5}}},',
+    '     {"type":"stat","x":0.05,"y":0.62,"w":0.40,"h":0.30,"z":2,"value":340,"valueSuffix":"%","label":"GROWTH","caption":"year over year","accent":"#fbbf24","sparkline":[10,18,25,40,55,70,88,120],"animation":{"in":{"kind":"zoom-in","at":0.6,"duration":0.5}}}',
     "  ]}",
     "",
-    "EXAMPLE CTA SCENE:",
+    "EXAMPLE CTA SCENE (shapes + glow + icons):",
     '  {"scene":4,"duration":4,"text":"Try it free today.","sceneTheme":"bold-color","animation":"zoom-in","transition":"fade",',
     '   "elements":[',
-    '     {"type":"text","x":0.10,"y":0.30,"w":0.80,"h":0.16,"text":"Start Free Today","size":0.11,"weight":800,"color":"#ffffff","align":"center","animation":{"in":{"kind":"zoom-in","at":0,"duration":0.4}}},',
-    '     {"type":"shape","x":0.30,"y":0.60,"w":0.40,"h":0.10,"shape":"rect","fill":"#ffffff","radius":99,"animation":{"in":{"kind":"slide-up","at":0.3,"duration":0.4}}},',
-    '     {"type":"text","x":0.32,"y":0.61,"w":0.36,"h":0.08,"text":"Get Started →","size":0.04,"weight":700,"color":"#0f172a","align":"center","animation":{"in":{"kind":"fade","at":0.4,"duration":0.3}}},',
-    '     {"type":"icon","x":0.82,"y":0.74,"w":0.10,"h":0.10,"name":"ArrowRight","color":"#ffffff","animation":{"in":{"kind":"slide-right","at":0.5,"duration":0.3}}}',
+    '     {"type":"glow","x":0.25,"y":0.20,"w":0.50,"h":0.50,"z":0,"color":"#8b5cf6","blur":120,"pulse":true,"animation":{"in":{"kind":"fade","at":0,"duration":0.5}}},',
+    '     {"type":"text","x":0.10,"y":0.25,"w":0.80,"h":0.16,"z":2,"text":"Start Free Today","size":0.11,"weight":800,"color":"#ffffff","align":"center","animation":{"in":{"kind":"zoom-in","at":0,"duration":0.4}}},',
+    '     {"type":"shape","x":0.25,"y":0.50,"w":0.50,"h":0.10,"z":2,"shape":"rect","fill":"#ffffff","radius":99,"animation":{"in":{"kind":"slide-up","at":0.3,"duration":0.4}}},',
+    '     {"type":"text","x":0.27,"y":0.51,"w":0.46,"h":0.08,"z":3,"text":"Get Started →","size":0.04,"weight":700,"color":"#0f172a","align":"center","animation":{"in":{"kind":"fade","at":0.4,"duration":0.3}}},',
+    '     {"type":"shape","x":0.10,"y":0.72,"w":0.80,"h":0.003,"z":1,"shape":"rect","fill":"#8b5cf644","radius":99,"animation":{"in":{"kind":"scale","at":0.5,"duration":0.4}}},',
+    '     {"type":"icon","x":0.82,"y":0.74,"w":0.10,"h":0.10,"z":3,"name":"ArrowRight","color":"#ffffff","animation":{"in":{"kind":"slide-right","at":0.5,"duration":0.3}}}',
     "  ]}",
     "",
     "SCENE TYPE PATTERNS — pick the right one for each scene's job:",
-    "  · HOOK (scene 1): headline (slide-up) + subtext (fade) + accent bar shape (slide-up) + 1-2 icons (pop). 4-5 elements.",
-    "  · FEATURE: headline (slide-left) + accent shape divider + 2-3 icons in row (staggered pop) + subtext. 5-6 elements.",
-    "  · DATA: headline (top-left) + card shape background + chart element (right half) + stat tile (bottom-left). 4-5 elements.",
-    "  · SOCIAL PROOF: headline + ellipse shape (avatar placeholder) + quote text + accent bar. 4-5 elements.",
-    "  · CTA: big headline (zoom-in) + pill shape button (slide-up) + button label text + arrow icon + decorative shapes. 5-6 elements.",
+    "  · HOOK: 2 glow orbs (bg) + svg illustration (topic-relevant, big) + headline + accent bar shape + subtext + icon. 6-7 elements.",
+    "  · FEATURE: glow orb + headline + accent divider shape + svg illustration or device mockup + 2 icons + subtext. 6-7 elements.",
+    "  · DATA: glow orb + headline + accent bar + chart (line/bar) + progress-ring or stat + shape card bg. 5-6 elements.",
+    "  · SOCIAL PROOF: glow orb + headline + ellipse shape (avatar) + quote text + accent bar + icon. 5-6 elements.",
+    "  · CTA: glow orb (centered, big) + headline (zoom-in) + pill button shape + button label text + accent line + arrow icon. 6-7 elements.",
     "",
     "LAYOUT RULES:",
     "  - Headline: centered y 0.28-0.42 for centered layouts, or x 0.05 y 0.08 for left-aligned with chart.",
@@ -856,47 +889,200 @@ Be specific. Never generic. Reference the actual product/topic from the user's i
 // worker re-bundles before rendering, so the code IS the video.
 // ---------------------------------------------------------------------------
 
-const CODEGEN_SYSTEM_PROMPT = `You are an expert Remotion developer. Given a video description, write a COMPLETE React component that renders an animated motion-graphics video using Remotion.
+const CODEGEN_SYSTEM_PROMPT = `You are a world-class motion graphics artist who writes Remotion React code. You create CINEMATIC, visually stunning animated videos — not slideshows with text. Every frame must look like it belongs in a professional broadcast or a premium product launch.
 
 RULES:
 1. Use ONLY these imports from "remotion": AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Sequence, Series.
-2. Export a SINGLE default functional component. It receives no props — read duration from useVideoConfig().
-3. ALL styles must be inline (no CSS files, no styled-components, no Tailwind).
-4. Define ALL sub-components in the SAME file. No external imports except "remotion".
-5. Use professional motion-graphics animation: spring physics, staggered entrances, smooth interpolations.
-6. Output ONLY the JSX code. No markdown fences, no explanations, no comments outside the code.
-7. Font stack: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif".
+2. Export a SINGLE default functional component. No props — read duration from useVideoConfig().
+3. ALL styles inline. No CSS files, no styled-components, no Tailwind.
+4. ALL sub-components in the SAME file. No external imports except "remotion".
+5. Output ONLY the JSX code. No markdown fences, no explanations.
+6. Font: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif".
 
-ANIMATION TOOLKIT:
-- spring({ frame, fps, config: { damping: 12-20, stiffness: 120-200, mass: 0.5-1.2 } }) — bouncy entrances
-- interpolate(frame, [start, end], [from, to], { extrapolateRight: "clamp" }) — linear tweens
-- Stagger elements by offsetting their start frames: element 1 at frame 0, element 2 at frame 8, element 3 at frame 16
-- Use Sequence with from={frameNumber} to time scene appearances
-- Use Series + Series.Sequence for back-to-back scenes
+═══════════════════════════════════════════════════════════════
+ANIMATION TOOLKIT
+═══════════════════════════════════════════════════════════════
 
-VISUAL QUALITY STANDARDS:
-- Dark gradient backgrounds (e.g. linear-gradient(135deg, #0f172a, #1e293b))
-- Accent colors: vivid purples (#8b5cf6), cyans (#38bdf8), greens (#34d399), ambers (#fbbf24)
-- Headlines: 48-72px, weight 800, white or near-white
-- Subtexts: 20-28px, weight 400-500, muted gray (#94a3b8)
-- Decorative shapes: rounded rects, circles, gradient overlays with low opacity
-- SVG icons/shapes drawn inline (simple paths for arrows, checkmarks, stars, charts)
-- Animated underlines, glowing accent borders, particle-like floating dots
-- Bar charts / stat counters that animate values counting up
-- Each scene should have 3-6 animated elements minimum
+spring({ frame, fps, config: { damping: 12-20, stiffness: 120-200, mass: 0.5-1.2 } })
+interpolate(frame, [start, end], [from, to], { extrapolateRight: "clamp" })
+Sequence with from={frameNumber} for timing
+Series + Series.Sequence for back-to-back scenes
 
-SCENE STRUCTURE:
-- Scene 1 (Hook): Bold headline with spring entrance + subtitle fade + accent shape
-- Middle scenes (Features/Data): Left-aligned headline + right-side chart/visual OR centered layout with staggered icons
-- Final scene (CTA): Big centered text with zoom-in + animated button shape + arrow icon
+ADVANCED PATTERNS you MUST use:
+- Easing curves: const ease = (t) => t < 0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2
+- Continuous motion: Math.sin(frame * 0.05) for floating/breathing
+- Parallax layers: multiple backgrounds moving at different speeds
+- Camera push: scale 1 → 1.08 over the scene duration for cinematic drift
+- Blur reveals: filter blur going from 20px → 0px as element enters
 
-TIMING (30 fps):
-- Scene transitions: 0 frame gap (use Series.Sequence)
-- Element entrances: 6-12 frames per element, staggered 4-8 frames apart
-- Hold time after all elements appear: at least 30 frames before next scene
-- Total duration matches useVideoConfig().durationInFrames
+═══════════════════════════════════════════════════════════════
+CINEMATIC VISUAL SYSTEM — THIS IS THE MOST IMPORTANT SECTION
+═══════════════════════════════════════════════════════════════
 
-OUTPUT FORMAT: Raw JSX code starting with import statements. No wrapping, no markdown.`;
+Your videos must be VISUALLY RICH. Text alone is a slideshow. You are making MOTION GRAPHICS.
+
+EVERY SCENE MUST HAVE ALL OF THESE LAYERS (back to front):
+
+LAYER 1 — ANIMATED BACKGROUND (mandatory):
+  Create a function like AnimatedBackground that renders MULTIPLE moving elements:
+  - Gradient mesh: 2-3 radial gradients that MOVE (shift position with interpolate)
+  - Floating orbs: 4-8 blurred circles (blur 40-80px) drifting slowly across frame
+  - Grid/dot pattern: subtle CSS background-image with backgroundPosition animating
+  - Noise texture: repeating-conic-gradient or radial-gradient patterns at low opacity
+  Example: Large soft circle at 20% opacity, position shifts with Math.sin(frame*0.03)*50
+
+LAYER 2 — GEOMETRIC DECORATION (mandatory):
+  Create a function like GeometricElements that renders 3-6 decorative shapes:
+  - Rotating rings: SVG circles with strokeDasharray, rotating via transform
+  - Animated lines: thin lines that grow from 0% to 100% width
+  - Corner brackets: L-shaped lines in 2 corners (top-left, bottom-right)
+  - Floating diamonds/hexagons: small shapes with rotate + translateY animation
+  - Parallax dots: grid of small dots moving at 0.5x scroll speed
+  - Glowing accent lines: thin horizontal/vertical bars with boxShadow glow
+  Example SVG ring: <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" fill="none" stroke={accent} strokeWidth="2" strokeDasharray="502" strokeDashoffset={502 * (1 - progress)} transform={\`rotate(\${frame * 0.5} 100 100)\`}/></svg>
+
+LAYER 3 — INLINE SVG ILLUSTRATIONS (mandatory for at least 2 scenes):
+  Draw CUSTOM SVG graphics relevant to the topic. NOT just circles and rects.
+  Examples by topic:
+  - Tech/SaaS: laptop outline, browser window, code brackets, server rack, cloud shape
+  - Business: rising bar chart, pie chart, briefcase, handshake, target/bullseye
+  - Social media: phone mockup, play button, heart/like, notification bell, chat bubble
+  - Education: book, graduation cap, lightbulb, brain outline
+  - Health: heartbeat line (animated SVG path), shield with cross
+  - Food: plate/utensils, chef hat, delivery bag
+  - Finance: dollar sign, credit card, trending arrow, wallet
+  - YouTube: play button triangle, subscriber bell, video camera
+  Build these from basic SVG: <path>, <rect>, <circle>, <polygon>, <line>.
+  Animate them: strokeDashoffset for draw-on effect, scale for pop-in, opacity for fade.
+  SIZE THEM BIG: 150-300px. They should be a major visual, not a tiny icon.
+
+LAYER 4 — DATA VISUALIZATION (at least 1 scene):
+  Animated charts built from divs or SVG:
+  - Bar chart: divs with height animating from 0 to target via spring
+  - Line chart: SVG polyline with strokeDashoffset animation (draw-on)
+  - Donut/ring chart: SVG circle with strokeDasharray showing percentage
+  - Counter: number counting from 0 to target with Math.round(interpolate(...))
+  - Progress bar: div width growing from 0% to target%
+  - Stat grid: 2x2 grid of big numbers with labels, each counting up staggered
+
+LAYER 5 — TYPOGRAPHY (this is the ONLY text layer):
+  Headlines: 52-80px, weight 800-900, white. Max 6 words.
+  Subtexts: 22-30px, weight 400, #94a3b8. Max 12 words.
+  Entrance: spring translateY + opacity, or clip-path reveal, or blur reveal.
+  Text effects to use:
+  - Gradient text: background clip + linear-gradient on the text
+  - Glow: textShadow with accent color "0 0 40px #8b5cf688"
+  - Letter spacing animation: letterSpacing interpolating from 0.2em to -0.02em
+  - Word-by-word reveal: split text into words, stagger each word's entrance
+
+LAYER 6 — PARTICLE SYSTEM (mandatory):
+  Create a Particles component. Generate 15-30 small elements:
+  const particles = Array.from({length: 20}, (_, i) => ({
+    x: (i * 37 + 13) % 100,
+    y: (i * 53 + 7) % 100,
+    size: 2 + (i % 4) * 2,
+    speed: 0.3 + (i % 5) * 0.2,
+    delay: i * 3,
+  }));
+  Render each as a small circle/diamond, floating upward, fading in/out.
+  Opacity: 0.1-0.3. Adds cinematic atmosphere without being distracting.
+
+═══════════════════════════════════════════════════════════════
+COLOR PALETTES (pick one per video, stay consistent)
+═══════════════════════════════════════════════════════════════
+
+DARK PREMIUM: bg #0a0a1a, surface #141428, accent #8b5cf6, secondary #38bdf8, text #f1f5f9
+MIDNIGHT BLUE: bg #0c1222, surface #162032, accent #3b82f6, secondary #06b6d4, text #e2e8f0
+DARK EMERALD: bg #021a0f, surface #052e16, accent #10b981, secondary #34d399, text #ecfdf5
+WARM DARK: bg #1c1210, surface #292018, accent #f59e0b, secondary #ef4444, text #fef3c7
+NEON: bg #09090b, surface #18181b, accent #a855f7, secondary #ec4899, text #fafafa
+
+═══════════════════════════════════════════════════════════════
+SCENE TEMPLATES (adapt these, don't copy verbatim)
+═══════════════════════════════════════════════════════════════
+
+HOOK SCENE (scene 1, 4-6 sec):
+  - Background: animated gradient mesh shifting left to right
+  - Particles floating up
+  - Large SVG illustration related to topic (centered, 250px, fades + scales in)
+  - Headline with spring bounce entrance from below
+  - Subtitle fading in 0.4s later
+  - Accent line growing from center outward under the headline
+  - Corner brackets animating in at top-left and bottom-right
+
+FEATURE SCENE (middle, 4-6 sec):
+  - Background: subtle grid pattern + floating orbs
+  - Left half: headline + 2-3 bullet points appearing with stagger
+  - Right half: large SVG illustration or device mockup
+  - Decorative ring rotating slowly behind the illustration
+  - Small icon badges popping in near the feature bullets
+  - Accent bar on the left edge sliding down
+
+DATA SCENE (middle, 5-7 sec):
+  - Background: dot grid with parallax
+  - Large animated chart (bar chart or line chart) taking 40-50% of the frame
+  - 2-3 stat counters around the chart, counting up
+  - Headline at top describing the data
+  - Glowing accent line under the chart
+  - Numbers should count up with spring easing
+
+SHOWCASE SCENE (middle, 4-6 sec):
+  - Background: radial gradient spotlight
+  - Center: device mockup or browser window (drawn with SVG/CSS)
+  - Inside mockup: simplified UI representation (colored rectangles for content)
+  - Floating badge with "NEW" or a checkmark popping in
+  - Subtle scale animation on the mockup (1 → 1.02 breathing)
+
+CTA SCENE (final, 3-5 sec):
+  - Background: intensified gradient, all orbs converging to center
+  - Big headline zooming in with spring
+  - Animated button shape (rounded rect) sliding up from below
+  - Button text fading in after button appears
+  - Arrow icon animating to the right repeatedly
+  - Particle burst effect (particles exploding outward from center)
+  - Pulsing glow ring around the button
+
+═══════════════════════════════════════════════════════════════
+CINEMATIC EFFECTS — use at least 3 per video
+═══════════════════════════════════════════════════════════════
+
+1. CAMERA DRIFT: entire scene slowly scales from 1.0 to 1.06 over its duration
+2. LIGHT SWEEP: a diagonal white gradient bar (10% opacity) moves across the frame
+3. VIGNETTE: radial-gradient(ellipse, transparent 50%, rgba(0,0,0,0.4) 100%)
+4. FILM GRAIN: tiny noise overlay via repeating-conic-gradient at 2% opacity
+5. LENS FLARE: bright circle (blur 60px) that moves along a diagonal path
+6. REVEAL WIPE: clip-path: inset(0 100% 0 0) → inset(0 0% 0 0) for side reveals
+7. SCALE PULSE: element breathing between scale 1.0 and 1.03 with Math.sin
+8. GLOW PULSE: boxShadow opacity pulsing with Math.sin for attention
+9. PATH DRAW: SVG with strokeDasharray + animated strokeDashoffset
+10. MORPH TRANSITION: borderRadius animating from 0% to 50% (square → circle)
+
+═══════════════════════════════════════════════════════════════
+TIMING (30 fps)
+═══════════════════════════════════════════════════════════════
+
+- 3-5 scenes per video
+- Use Series + Series.Sequence for sequential scenes
+- Element stagger: 4-8 frames apart
+- Entrances: 8-15 frames each (spring for bounce, interpolate for smooth)
+- Camera drift: runs the ENTIRE scene duration
+- Particles: run continuously
+- Hold after all entrances: at least 30 frames
+- Total matches useVideoConfig().durationInFrames exactly
+
+═══════════════════════════════════════════════════════════════
+ABSOLUTE REQUIREMENTS — FAILURE TO FOLLOW = REJECTED
+═══════════════════════════════════════════════════════════════
+
+1. NO scene may be text-only. Every scene MUST have shapes, SVG graphics, or charts.
+2. EVERY scene MUST have animated background + particles + geometric decoration.
+3. At least 2 scenes MUST have custom inline SVG illustrations relevant to the topic.
+4. At least 1 scene MUST have animated data (chart, counter, or progress bar).
+5. Minimum 8 animated elements per scene (shapes + text + SVG + particles count).
+6. Use spring() for at least 3 entrance animations. Use interpolate() for continuous motion.
+7. Text is NEVER more than 30% of the visual. Graphics dominate.
+
+OUTPUT: Raw JSX code starting with import. No markdown, no fences, no explanation.`;
 
 const CODEGEN_GENERATED_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -1160,12 +1346,18 @@ function sanitizePlan(plan) {
             "points", "line", "finalValue", "finalLabel", "valuePrefix",
             "value", "label", "caption", "sparkline", "countUp", "showGrid",
             "animationDuration",
+            // SVG illustration
+            "paths", "viewBox",
+            // Glow orb
+            "blur", "pulse",
+            // Progress ring
+            "trackColor", "thickness",
           ];
           // Hex-only color fields. If the AI emits "transparent", "none",
           // "black", "rgb(…)", or any non-hex value, drop the field entirely
           // — they're all optional, the renderer falls back to brand colors.
           const hexFields = new Set([
-            "color", "fill", "stroke", "accent", "bg", "fg", "bar", "line",
+            "color", "fill", "stroke", "accent", "bg", "fg", "bar", "line", "trackColor",
           ]);
           // Strict-range numeric fields. Each is { min, max, default? }.
           // `default` is used when the AI emits something completely

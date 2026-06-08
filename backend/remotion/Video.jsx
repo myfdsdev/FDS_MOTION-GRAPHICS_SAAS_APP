@@ -199,6 +199,9 @@ function ElBody({ el, height }) {
     case "icon": return <IconEl el={el} />;
     case "image": return <ImageEl el={el} />;
     case "shape": return <ShapeEl el={el} />;
+    case "svg": return <SvgEl el={el} />;
+    case "glow": return <GlowEl el={el} />;
+    case "progress-ring": return <ProgressRingEl el={el} />;
     case "bar-chart": return <BarChartEl el={el} height={height} />;
     case "line-chart": return <LineChartEl el={el} height={height} />;
     case "stat": return <StatEl el={el} height={height} />;
@@ -246,6 +249,76 @@ function ShapeEl({ el }) {
       border: el.stroke ? `${el.strokeWidth ?? 2}px solid ${el.stroke}` : "none",
       borderRadius: el.shape === "ellipse" ? "50%" : (el.radius ?? 8),
     }} />
+  );
+}
+
+// ── Custom SVG illustration ──────────────────────────────────────────────
+
+function SvgEl({ el }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const drawProgress = easeOut(Math.min(1, (frame / fps) / (el.animationDuration ?? 1.2)));
+  return (
+    <svg
+      viewBox={el.viewBox || "0 0 200 200"}
+      style={{ width: "100%", height: "100%", overflow: "visible" }}
+      fill={el.fill || "none"}
+      stroke={el.stroke || "#8b5cf6"}
+      strokeWidth={el.strokeWidth ?? 2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeDasharray={800}
+      strokeDashoffset={800 * (1 - drawProgress)}
+    >
+      <g dangerouslySetInnerHTML={{ __html: el.paths || "" }} />
+    </svg>
+  );
+}
+
+// ── Glow orb ─────────────────────────────────────────────────────────────
+
+function GlowEl({ el }) {
+  const frame = useCurrentFrame();
+  const pulse = el.pulse !== false ? 0.85 + 0.15 * Math.sin(frame * 0.08) : 1;
+  const color = el.color || "#8b5cf6";
+  const blur = el.blur ?? 60;
+  return (
+    <div style={{
+      width: "100%", height: "100%", borderRadius: "50%",
+      background: `radial-gradient(circle, ${color}88 0%, ${color}22 50%, transparent 70%)`,
+      filter: `blur(${blur}px)`, opacity: pulse * 0.6,
+      transform: `translateY(${Math.sin(frame * 0.04) * 8}px)`,
+    }} />
+  );
+}
+
+// ── Progress ring ────────────────────────────────────────────────────────
+
+function ProgressRingEl({ el }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = easeOut(Math.min(1, (frame / fps) / (el.animationDuration ?? 1.5)));
+  const value = Math.max(0, Math.min(100, Number(el.value) || 0));
+  const r = 80;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - (value / 100) * p);
+  const color = el.color || "#8b5cf6";
+  const track = el.trackColor || "#1e293b";
+  const thickness = el.thickness ?? 8;
+  return (
+    <div style={{ width: "100%", height: "100%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <svg viewBox="0 0 200 200" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
+        <circle cx="100" cy="100" r={r} fill="none" stroke={track} strokeWidth={thickness} />
+        <circle cx="100" cy="100" r={r} fill="none" stroke={color} strokeWidth={thickness}
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ filter: `drop-shadow(0 0 8px ${color})` }}
+        />
+      </svg>
+      <div style={{ position: "absolute", fontSize: 32, fontWeight: 800, color: "#fff", fontFamily: FONT }}>
+        {Math.round(value * p)}{el.label ? "" : "%"}
+      </div>
+      {el.label && <div style={{ position: "absolute", marginTop: 44, fontSize: 14, fontWeight: 600, color: "#94a3b8", fontFamily: FONT, textTransform: "uppercase", letterSpacing: "0.1em" }}>{el.label}</div>}
+    </div>
   );
 }
 
