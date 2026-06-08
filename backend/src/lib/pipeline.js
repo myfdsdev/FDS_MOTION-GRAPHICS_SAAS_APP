@@ -478,43 +478,53 @@ function createGeminiResponseSchema(lottieAssetIds) {
   };
 }
 
-async function resolveAiConfig(userId) {
+/**
+ * Returns a prioritised list of all configured AI providers. The first entry
+ * is the primary; the rest are fallbacks tried on 429/503 rate-limit errors.
+ */
+async function resolveAllAiConfigs(userId) {
   const settings = await getAppSettings();
   const user = settings.allowUserApiKeys && userId ? await User.findById(userId).lean() : null;
   const userOpenAI = decryptSecret(user?.apiKeys?.openai);
   const userGemini = decryptSecret(user?.apiKeys?.gemini);
   const userOpenRouter = decryptSecret(user?.apiKeys?.openrouter);
 
-  // OpenRouter first — OpenAI-compatible API, supports free models
-  console.log("[resolveAiConfig] OPENROUTER_API_KEY set:", !!process.env.OPENROUTER_API_KEY, "userOpenRouter:", !!userOpenRouter);
+  const configs = [];
+
   if (userOpenRouter || process.env.OPENROUTER_API_KEY) {
-    return {
+    configs.push({
       provider: "openrouter",
       apiKey: userOpenRouter || process.env.OPENROUTER_API_KEY,
       keySource: userOpenRouter ? "user" : "environment",
       model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
-    };
+    });
   }
 
   if (userOpenAI || process.env.OPENAI_API_KEY) {
-    return {
+    configs.push({
       provider: "openai",
       apiKey: userOpenAI || process.env.OPENAI_API_KEY,
       keySource: userOpenAI ? "user" : "environment",
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    };
+    });
   }
 
   if (userGemini || process.env.GEMINI_API_KEY) {
-    return {
+    configs.push({
       provider: "gemini",
       apiKey: userGemini || process.env.GEMINI_API_KEY,
       keySource: userGemini ? "user" : "environment",
       model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
-    };
+    });
   }
 
-  return null;
+  return configs;
+}
+
+/** Backwards-compat: returns the primary (first) provider config or null. */
+async function resolveAiConfig(userId) {
+  const configs = await resolveAllAiConfigs(userId);
+  return configs[0] ?? null;
 }
 
 export async function getAiProvider(userId) {
@@ -1238,10 +1248,7 @@ export function writeGeneratedCode(code) {
   return filePath;
 }
 
-export async function enhancePromptWithAi(prompt, userId) {
-  const config = await resolveAiConfig(userId);
-  if (!config) throw new Error(await generationConfigError(userId));
-
+async function _enhanceWithConfig(prompt, config, userId) {
   if (config.provider === "openai" || config.provider === "openrouter") {
     const isOR = config.provider === "openrouter";
     const headers = {
@@ -1272,30 +1279,19 @@ export async function enhancePromptWithAi(prompt, userId) {
     }
 
     const data = await res.json();
-    await recordApiUsage({
-      userId,
-      config,
-      purpose: "prompt_enhancement",
-      usage: usageFromOpenAI(data.usage),
-    });
+    await recordApiUsage({ userId, config, purpose: "prompt_enhancement", usage: usageFromOpenAI(data.usage) });
     const enhanced = data.choices?.[0]?.message?.content?.trim();
     if (!enhanced) throw new Error("AI returned an empty enhanced prompt");
     return enhanced;
   }
 
+  // Gemini
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: `${ENHANCE_SYSTEM_PROMPT}\n\nUser's idea: ${prompt}` },
-          ],
-        },
-      ],
+      contents: [{ role: "user", parts: [{ text: `${ENHANCE_SYSTEM_PROMPT}\n\nUser's idea: ${prompt}` }] }],
       generationConfig: { temperature: 0.8 },
     }),
   });
@@ -1305,15 +1301,32 @@ export async function enhancePromptWithAi(prompt, userId) {
   }
 
   const data = await res.json();
-  await recordApiUsage({
-    userId,
-    config,
-    purpose: "prompt_enhancement",
-    usage: usageFromGemini(data.usageMetadata),
-  });
+  await recordApiUsage({ userId, config, purpose: "prompt_enhancement", usage: usageFromGemini(data.usageMetadata) });
   const enhanced = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
   if (!enhanced) throw new Error("AI returned an empty enhanced prompt");
   return enhanced;
+}
+
+export async function enhancePromptWithAi(prompt, userId) {
+  const configs = await resolveAllAiConfigs(userId);
+  if (!configs.length) throw new Error(await generationConfigError(userId));
+
+  let lastErr;
+  for (const config of configs) {
+    try {
+      return await _enhanceWithConfig(prompt, config, userId);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      // Only fallback on rate-limit (429) or overload (503) errors
+      if (/\(429\)|\(503\)/.test(msg) && configs.length > 1) {
+        console.warn(`[pipeline] ${config.provider} rate-limited, falling back to next provider…`);
+        continue;
+      }
+      throw err; // Non-retryable error — don't fallback
+    }
+  }
+  throw lastErr;
 }
 
 // Tidy minor model drift before strict Zod validation: keep only valid hex
@@ -1577,52 +1590,40 @@ function gradePlanQuality(plan, script, durationSec) {
 }
 
 async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
-  const config = await resolveAiConfig(userId);
-  if (!config) throw new Error(await generationConfigError(userId));
+  const configs = await resolveAllAiConfigs(userId);
+  if (!configs.length) throw new Error(await generationConfigError(userId));
 
   const lottieAssets = await listLottieAssetSummaries();
   const lottieAssetIds = lottieAssets.map((asset) => asset.id);
   const lottieAssetPrompt = lottieAssetPromptListFromSummaries(lottieAssets);
 
-  // Pull recent structural signatures for this user so the AI knows what
-  // NOT to repeat. Power-user variety lives here.
   const avoidance = await getAvoidanceHints(userId).catch(() => null);
-
-  // Roll a fresh writing brief — voice + hook + framework + temperature.
-  // Same input prompt twice → two distinct creative directions because this
-  // is picked per generation and not anchored to anything stable.
   const briefing = pickCopyBriefing();
   console.log(
     `[pipeline] copy brief: voice="${briefing.voice.slice(0, 32)}…" hook="${briefing.hook.slice(0, 32)}…" T=${briefing.temperature}`
   );
 
-  const payload = await withRetry(() =>
-    config.provider === "openai" || config.provider === "openrouter"
-      ? generateWithOpenAI(
-          prompt,
-          durationSec,
-          config,
-          userId,
-          "video_generation",
-          lottieAssetIds,
-          lottieAssetPrompt,
-          avoidance,
-          briefing,
-          referenceImage
-        )
-      : generateWithGemini(
-          prompt,
-          durationSec,
-          config,
-          userId,
-          "video_generation",
-          lottieAssetIds,
-          lottieAssetPrompt,
-          avoidance,
-          briefing,
-          referenceImage
-        )
-  );
+  let payload, lastErr;
+  for (const config of configs) {
+    try {
+      const genFn = config.provider === "openai" || config.provider === "openrouter"
+        ? generateWithOpenAI : generateWithGemini;
+      payload = await withRetry(() =>
+        genFn(prompt, durationSec, config, userId, "video_generation",
+          lottieAssetIds, lottieAssetPrompt, avoidance, briefing, referenceImage)
+      );
+      break; // success
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/\(429\)|\(503\)/.test(msg) && configs.length > 1) {
+        console.warn(`[pipeline] ${config.provider} rate-limited, falling back to next provider…`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (!payload) throw lastErr;
 
   if (!payload || typeof payload.script !== "string") {
     throw new Error("AI response did not include a script");
@@ -1698,14 +1699,28 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
     // written for narration.
     let generatedCode = null;
     try {
-      const config = await resolveAiConfig(userId);
-      if (config) {
+      const codeConfigs = await resolveAllAiConfigs(userId);
+      if (codeConfigs.length) {
         await Project.updateOne({ _id: projectId }, { progress: 20 });
-        generatedCode = await withRetry(
-          () => generateVideoCode(prompt, durationSec, config, userId, referenceImage),
-          3,
-          2000
-        );
+        let codeLastErr;
+        for (const config of codeConfigs) {
+          try {
+            generatedCode = await withRetry(
+              () => generateVideoCode(prompt, durationSec, config, userId, referenceImage),
+              3, 2000
+            );
+            break;
+          } catch (err) {
+            codeLastErr = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            if (/\(429\)|\(503\)/.test(msg) && codeConfigs.length > 1) {
+              console.warn(`[pipeline] code-gen: ${config.provider} rate-limited, trying next…`);
+              continue;
+            }
+            throw err;
+          }
+        }
+        if (!generatedCode && codeLastErr) throw codeLastErr;
         console.log(`[pipeline] code-gen succeeded for ${projectId} (${generatedCode.length} chars)`);
       }
     } catch (codeErr) {
