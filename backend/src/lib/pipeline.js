@@ -1131,7 +1131,8 @@ async function generateVideoCode(prompt, durationSec, config, userId, referenceI
   const totalFrames = durationSec * 30;
   const userText = "Create a " + durationSec + "-second (" + totalFrames + " frames at 30fps) motion-graphics video:\n" + prompt + "\n\nRemember: output ONLY the JSX code, starting with the import statement. No markdown fences.";
 
-  if (config.provider === "openai") {
+  if (config.provider === "openai" || config.provider === "openrouter") {
+    const isOR = config.provider === "openrouter";
     const userContent = referenceImage
       ? [
           { type: "text", text: userText + "\n\nREFERENCE IMAGE: Use ONLY as layout/style blueprint. Extract layout, colors, typography hierarchy. DO NOT copy text content or logos." },
@@ -1139,12 +1140,18 @@ async function generateVideoCode(prompt, durationSec, config, userId, referenceI
         ]
       : userText;
 
-    const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+    const headers = {
+      Authorization: "Bearer " + config.apiKey,
+      "Content-Type": "application/json",
+    };
+    if (isOR) {
+      headers["HTTP-Referer"] = process.env.WEB_ORIGIN || "http://localhost:5173";
+      headers["X-Title"] = "AI Video Generator";
+    }
+
+    const res = await fetch(isOR ? OPENROUTER_CHAT_URL : OPENAI_CHAT_COMPLETIONS_URL, {
       method: "POST",
-      headers: {
-        Authorization: "Bearer " + config.apiKey,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         model: config.model,
         messages: [
@@ -1158,7 +1165,7 @@ async function generateVideoCode(prompt, durationSec, config, userId, referenceI
 
     if (!res.ok) {
       const errBody = await readErrorBody(res);
-      throw new Error("OpenAI code generation failed (" + res.status + "): " + errBody);
+      throw new Error((isOR ? "OpenRouter" : "OpenAI") + " code generation failed (" + res.status + "): " + errBody);
     }
 
     const data = await res.json();
@@ -1234,13 +1241,20 @@ export async function enhancePromptWithAi(prompt, userId) {
   const config = await resolveAiConfig(userId);
   if (!config) throw new Error(await generationConfigError(userId));
 
-  if (config.provider === "openai") {
-    const res = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+  if (config.provider === "openai" || config.provider === "openrouter") {
+    const isOR = config.provider === "openrouter";
+    const headers = {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    };
+    if (isOR) {
+      headers["HTTP-Referer"] = process.env.WEB_ORIGIN || "http://localhost:5173";
+      headers["X-Title"] = "AI Video Generator";
+    }
+
+    const res = await fetch(isOR ? OPENROUTER_CHAT_URL : OPENAI_CHAT_COMPLETIONS_URL, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         model: config.model,
         messages: [
@@ -1253,7 +1267,7 @@ export async function enhancePromptWithAi(prompt, userId) {
     });
 
     if (!res.ok) {
-      throw new Error(`OpenAI prompt enhancement failed (${res.status}): ${await readErrorBody(res)}`);
+      throw new Error(`${isOR ? "OpenRouter" : "OpenAI"} prompt enhancement failed (${res.status}): ${await readErrorBody(res)}`);
     }
 
     const data = await res.json();
