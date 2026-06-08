@@ -1,18 +1,12 @@
 /**
- * DUAL-MODE REMOTION COMPOSITION
+ * ELEMENTS-FIRST REMOTION COMPOSITION
  *
- * Mode 1 — TEMPLATE: scene.renderMode === "template"
- *   Uses legacy scene templates (kinetic-title, app-showcase, etc.).
- *   Text lives in scene.headline / scene.subtext.
- *   Elements are optional overlays.
+ * ALL visible content lives in elements[]. Scene themes provide animated
+ * backgrounds. Every element has per-element entrance/exit animations.
+ * Fully editable and draggable in the editor.
  *
- * Mode 2 — CUSTOM (default): scene.renderMode === "custom" or absent
- *   Elements-first motion graphics. ALL visible content is in elements[].
- *   Scene theme provides animated background.
- *   Every element has its own entrance/exit animation.
- *   Fully editable and draggable in the editor.
- *
- * The mode is set at generation time and persisted on each scene.
+ * For final renders, the AI-generated JSX code (generated/Current.jsx)
+ * is used instead — this composition serves editor preview and fallback.
  */
 
 import { Lottie } from "@remotion/lottie";
@@ -51,7 +45,7 @@ export const Video = ({ brandColors, scenes, timeline, structureSeed = 0 }) => {
       <Series>
         {list.map((scene, i) => (
           <Series.Sequence key={i} durationInFrames={Math.max(1, Math.round((Number(scene.duration) || 4) * fps))}>
-            <SceneRouter scene={scene} colors={colors} index={i} structureSeed={structureSeed} />
+            <SceneRenderer scene={scene} colors={colors} index={i} structureSeed={structureSeed} />
           </Series.Sequence>
         ))}
       </Series>
@@ -60,21 +54,10 @@ export const Video = ({ brandColors, scenes, timeline, structureSeed = 0 }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SCENE ROUTER — dispatches to template or custom renderer
-// ═══════════════════════════════════════════════════════════════════════════
-function SceneRouter({ scene, colors, index, clipDurationInFrames, structureSeed = 0 }) {
-  const mode = scene.renderMode || "custom";
-  if (mode === "template") {
-    return <TemplateScene scene={scene} colors={colors} index={index} clipDurationInFrames={clipDurationInFrames} structureSeed={structureSeed} />;
-  }
-  return <CustomScene scene={scene} colors={colors} index={index} clipDurationInFrames={clipDurationInFrames} structureSeed={structureSeed} />;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MODE 2: CUSTOM MOTION GRAPHICS (elements-first)
+// SCENE RENDERER — elements-first motion graphics
 // ═══════════════════════════════════════════════════════════════════════════
 
-function CustomScene({ scene, colors, index, clipDurationInFrames, structureSeed = 0 }) {
+function SceneRenderer({ scene, colors, index, clipDurationInFrames, structureSeed = 0 }) {
   const frame = useCurrentFrame();
   const cfg = useVideoConfig();
   const { fps, width, height } = cfg;
@@ -104,231 +87,7 @@ function CustomScene({ scene, colors, index, clipDurationInFrames, structureSeed
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MODE 1: TEMPLATE RENDERING (legacy)
-// ═══════════════════════════════════════════════════════════════════════════
-
-const TEMPLATE_NAMES = [
-  "kinetic-title", "animated-bg-text", "app-showcase",
-  "offer-burst", "proof-cards", "final-cta", "karaoke-subtitle",
-];
-
-function TemplateScene({ scene, colors, index, clipDurationInFrames, structureSeed = 0 }) {
-  const frame = useCurrentFrame();
-  const cfg = useVideoConfig();
-  const { fps, width, height } = cfg;
-  const dur = clipDurationInFrames ?? cfg.durationInFrames;
-  const style = getSceneStyle(scene.animation, frame, fps, dur);
-  const template = scene.sceneTemplate || TEMPLATE_NAMES[index % TEMPLATE_NAMES.length];
-
-  const base = colors[0] ?? DEFAULT_COLORS[0];
-  const accent = colors[(index % Math.max(1, colors.length - 1)) + 1] ?? colors[1] ?? DEFAULT_COLORS[1];
-  const secondary = colors[(index + 2) % colors.length] ?? DEFAULT_COLORS[2];
-  const variant = pickVariant(scene, index, structureSeed);
-
-  const headline = scene.headline || "";
-  const subtext = scene.subtext || "";
-  const hasElements = Array.isArray(scene.elements) && scene.elements.length > 0;
-
-  const common = { headline, subtext, accent, secondary, base, width, height, frame, fps, dur, variant, index };
-
-  return (
-    <AbsoluteFill style={{ ...style, overflow: "hidden", ...shellBackground(base, accent, secondary, frame, dur, variant) }}>
-      <ChromeOverlay accent={accent} index={index} variant={variant} frame={frame} dur={dur} />
-      <FloatingShapes accent={accent} secondary={secondary} frame={frame} dur={dur} />
-
-      {/* Template-specific layout */}
-      {template === "kinetic-title" && <KineticTitle {...common} />}
-      {template === "animated-bg-text" && <AnimatedBgText {...common} />}
-      {template === "app-showcase" && <AppShowcase {...common} />}
-      {template === "offer-burst" && <OfferBurst {...common} />}
-      {template === "proof-cards" && <ProofCards {...common} />}
-      {template === "final-cta" && <FinalCta {...common} />}
-      {template === "karaoke-subtitle" && <KaraokeTemplate scene={scene} accent={accent} frame={frame} fps={fps} dur={dur} height={height} />}
-      {!TEMPLATE_NAMES.includes(template) && <KineticTitle {...common} />}
-
-      {/* Overlay elements on top of template */}
-      {hasElements && (
-        <ElementsLayer elements={scene.elements} width={width} height={height} sceneTime={frame / fps} sceneDuration={dur / fps} />
-      )}
-    </AbsoluteFill>
-  );
-}
-
-// ── Template Components ──────────────────────────────────────────────────
-
-function KineticTitle({ headline, subtext, accent, frame, fps, dur, variant }) {
-  const fadeIn = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
-  const slideUp = interpolate(frame, [0, 16], [40, 0], { extrapolateRight: "clamp" });
-  const subDelay = interpolate(frame, [8, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const scale = variant?.flip
-    ? interpolate(frame, [0, dur], [1, 1.04], { extrapolateRight: "clamp" })
-    : 1;
-
-  return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%", transform: `scale(${scale})` }}>
-      {headline && (
-        <div style={{ opacity: fadeIn, transform: `translateY(${slideUp}px)`, fontSize: 72, fontWeight: 850, letterSpacing: "-0.03em", textAlign: "center", lineHeight: 0.96, textWrap: "balance", fontFamily: FONT, textShadow: `0 4px 30px ${accent}55` }}>
-          {headline}
-        </div>
-      )}
-      {subtext && (
-        <div style={{ marginTop: 28, opacity: subDelay, fontSize: 28, fontWeight: 550, textAlign: "center", color: "rgba(255,255,255,0.75)", textWrap: "balance", fontFamily: FONT }}>
-          {subtext}
-        </div>
-      )}
-    </AbsoluteFill>
-  );
-}
-
-function AnimatedBgText({ headline, subtext, accent, frame, dur }) {
-  const fadeIn = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
-  const drift = interpolate(frame, [0, dur], [0, -30]);
-  return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "10%" }}>
-      {/* Big background text watermark */}
-      <div style={{ position: "absolute", fontSize: 180, fontWeight: 900, opacity: 0.04, letterSpacing: "-0.05em", transform: `translateY(${drift}px)`, fontFamily: FONT, whiteSpace: "nowrap" }}>
-        {headline || "MOTION"}
-      </div>
-      {headline && (
-        <div style={{ opacity: fadeIn, fontSize: 68, fontWeight: 850, letterSpacing: "-0.03em", textAlign: "center", lineHeight: 0.96, textWrap: "balance", fontFamily: FONT, zIndex: 1 }}>
-          {headline}
-        </div>
-      )}
-      {subtext && (
-        <div style={{ marginTop: 24, opacity: fadeIn * 0.8, fontSize: 26, fontWeight: 500, textAlign: "center", color: "rgba(255,255,255,0.7)", fontFamily: FONT, zIndex: 1 }}>
-          {subtext}
-        </div>
-      )}
-    </AbsoluteFill>
-  );
-}
-
-function AppShowcase({ headline, subtext, accent, secondary, frame, dur, width, variant }) {
-  const fadeIn = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
-  const phoneSlide = interpolate(frame, [4, 20], [60, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const phoneW = Math.min(320, width * 0.22);
-  const phoneH = phoneW * 2;
-  const isFlipped = variant?.flip;
-
-  return (
-    <AbsoluteFill style={{ flexDirection: isFlipped ? "row-reverse" : "row", alignItems: "center", padding: "6% 8%" }}>
-      {/* Phone mockup */}
-      <div style={{ opacity: fadeIn, transform: `translateY(${phoneSlide}px)`, width: phoneW, height: phoneH, maxHeight: "80%", background: "#1a1a2e", borderRadius: 28, border: "3px solid rgba(255,255,255,0.15)", boxShadow: `0 20px 60px ${accent}33`, display: "flex", flexDirection: "column", gap: 12, padding: 16, justifyContent: "center", flexShrink: 0 }}>
-        {[1, 2, 3].map((n) => (
-          <div key={n} style={{ height: "18%", borderRadius: 12, background: `rgba(255,255,255,0.06)` }} />
-        ))}
-        <div style={{ height: 36, borderRadius: 18, background: "#fff", margin: "8px 24px 0", display: "flex", alignItems: "center", justifyContent: "center", color: "#111", fontSize: 13, fontWeight: 700, fontFamily: FONT }}>
-          Order now
-        </div>
-      </div>
-      {/* Text */}
-      <div style={{ flex: 1, padding: "0 5%", opacity: fadeIn }}>
-        {headline && <div style={{ fontSize: 58, fontWeight: 850, lineHeight: 0.96, letterSpacing: "-0.03em", textWrap: "balance", fontFamily: FONT }}>{headline}</div>}
-        {subtext && <div style={{ marginTop: 20, fontSize: 24, fontWeight: 500, color: "rgba(255,255,255,0.7)", fontFamily: FONT }}>{subtext}</div>}
-      </div>
-    </AbsoluteFill>
-  );
-}
-
-function OfferBurst({ headline, subtext, accent, frame }) {
-  const s = spring({ frame, fps: 30, config: { damping: 10, stiffness: 140, mass: 0.8 } });
-  return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%" }}>
-      <div style={{ transform: `scale(${s})`, textAlign: "center" }}>
-        {headline && <div style={{ fontSize: 80, fontWeight: 900, letterSpacing: "-0.03em", textShadow: `0 0 40px ${accent}88`, fontFamily: FONT, lineHeight: 0.95, textWrap: "balance" }}>{headline}</div>}
-        {subtext && <div style={{ marginTop: 24, fontSize: 28, fontWeight: 600, color: "rgba(255,255,255,0.8)", fontFamily: FONT }}>{subtext}</div>}
-      </div>
-    </AbsoluteFill>
-  );
-}
-
-function ProofCards({ headline, subtext, accent, frame, dur }) {
-  const fadeIn = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
-  return (
-    <AbsoluteFill style={{ padding: "6% 8%" }}>
-      <div style={{ opacity: fadeIn, marginBottom: 30 }}>
-        {headline && <div style={{ fontSize: 52, fontWeight: 850, letterSpacing: "-0.02em", fontFamily: FONT, lineHeight: 1 }}>{headline}</div>}
-        {subtext && <div style={{ marginTop: 16, fontSize: 22, color: "rgba(255,255,255,0.65)", fontFamily: FONT }}>{subtext}</div>}
-      </div>
-      <div style={{ display: "flex", gap: 16, flex: 1 }}>
-        {[0, 1, 2].map((n) => {
-          const delay = 6 + n * 6;
-          const cardFade = interpolate(frame, [delay, delay + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-          const cardSlide = interpolate(frame, [delay, delay + 10], [30, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-          return (
-            <div key={n} style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.08)", padding: 24, opacity: cardFade, transform: `translateY(${cardSlide}px)` }}>
-              <div style={{ width: 40, height: 40, borderRadius: "50%", background: `${accent}33`, marginBottom: 16 }} />
-              <div style={{ height: 12, background: "rgba(255,255,255,0.15)", borderRadius: 6, marginBottom: 8, width: "80%" }} />
-              <div style={{ height: 12, background: "rgba(255,255,255,0.08)", borderRadius: 6, width: "60%" }} />
-            </div>
-          );
-        })}
-      </div>
-    </AbsoluteFill>
-  );
-}
-
-function FinalCta({ headline, subtext, accent, frame }) {
-  const fadeIn = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
-  const btnSpring = spring({ frame: Math.max(0, frame - 10), fps: 30, config: { damping: 12, stiffness: 160 } });
-  return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%" }}>
-      {headline && <div style={{ opacity: fadeIn, fontSize: 72, fontWeight: 900, letterSpacing: "-0.03em", textAlign: "center", fontFamily: FONT, lineHeight: 0.96, textWrap: "balance" }}>{headline}</div>}
-      {subtext && <div style={{ marginTop: 20, opacity: fadeIn, fontSize: 24, textAlign: "center", color: "rgba(255,255,255,0.7)", fontFamily: FONT }}>{subtext}</div>}
-      <div style={{ marginTop: 40, transform: `scale(${btnSpring})`, background: accent, borderRadius: 99, padding: "16px 48px", fontSize: 20, fontWeight: 700, fontFamily: FONT, color: "#fff", boxShadow: `0 8px 30px ${accent}55` }}>
-        Get Started →
-      </div>
-    </AbsoluteFill>
-  );
-}
-
-function KaraokeTemplate({ scene, accent, frame, fps, dur, height }) {
-  const totalSeconds = (Number(scene.duration) || dur / fps) || 1;
-  const seconds = frame / fps;
-  const text = scene.headline || scene.text || "";
-  const tokens = text.split(/\s+/).filter(Boolean);
-  if (!tokens.length) return null;
-
-  const weights = tokens.map((t) => t.replace(/[^\p{L}\p{N}']/gu, "").length + 1);
-  const sum = weights.reduce((a, b) => a + b, 0) || tokens.length;
-  let cursor = 0;
-  const timings = tokens.map((word, i) => {
-    const slice = (weights[i] / sum) * totalSeconds;
-    const start = cursor;
-    cursor += slice;
-    return { word, start, end: cursor };
-  });
-
-  let currentIndex = -1;
-  for (let i = 0; i < timings.length; i++) {
-    if (seconds >= timings[i].start && seconds < timings[i].end) { currentIndex = i; break; }
-  }
-  if (currentIndex === -1 && timings.length && seconds >= timings[timings.length - 1].end) currentIndex = timings.length;
-
-  const fontSize = height * 0.07;
-  return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%" }}>
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: `${fontSize * 0.18}px ${fontSize * 0.35}px`, fontFamily: FONT, fontWeight: 800 }}>
-        {timings.map((t, i) => (
-          <span key={`${t.word}-${i}`} style={{
-            color: i === currentIndex ? accent : "#fff",
-            opacity: i <= currentIndex ? 1 : 0.4,
-            fontSize,
-            transform: `scale(${i === currentIndex ? 1.1 : 1})`,
-            transformOrigin: "center bottom",
-            textShadow: i === currentIndex ? `0 0 18px ${accent}aa` : "none",
-            transition: "all 90ms linear",
-          }}>
-            {t.word}
-          </span>
-        ))}
-      </div>
-    </AbsoluteFill>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SHARED: Theme Backgrounds (used by custom mode)
+// Theme Backgrounds
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ThemeBackground({ theme, base, accent, secondary, frame, dur }) {
@@ -348,19 +107,8 @@ function ThemeBackground({ theme, base, accent, secondary, frame, dur }) {
   return <AbsoluteFill style={{ background: bgs[theme] || bgs["gradient-flow"], color: theme === "minimal-light" ? "#1e293b" : "#fff" }} />;
 }
 
-// Shell background for template mode (legacy)
-function shellBackground(base, accent, secondary, frame, dur, variant) {
-  const d = interpolate(frame, [0, dur], [-24, 24], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  return {
-    background: `radial-gradient(circle at ${48 + d / 8}% 34%, ${accent}66 0%, transparent 34%), radial-gradient(circle at ${78 - d / 12}% 78%, ${secondary}44 0%, transparent 30%), linear-gradient(135deg, ${base} 0%, #0b1020 100%)`,
-    color: "#fff",
-    fontFamily: FONT,
-    overflow: "hidden",
-  };
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
-// SHARED: Chrome & Floating Shapes
+// Chrome & Floating Shapes
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CORNERS = ["tl", "tr", "bl", "br"];
@@ -408,7 +156,7 @@ function FloatingShapes({ accent, secondary, frame, dur }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SHARED: Fallback Text (no elements)
+// Fallback Text (no elements)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function FallbackText({ headline, subtext, accent, frame }) {
@@ -424,7 +172,7 @@ function FallbackText({ headline, subtext, accent, frame }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SHARED: Elements Layer (renders ALL element types with animations)
+// Elements Layer (renders ALL element types with animations)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ElementsLayer({ elements, width, height, sceneTime, sceneDuration }) {
@@ -600,7 +348,6 @@ function SubtitleEl({ el, height }) {
   const accent = el.accent || "#8b5cf6";
   const future = el.futureOpacity ?? 0.45;
 
-  // Build word timings
   let timings = [];
   if (Array.isArray(el.wordTimings) && el.wordTimings.length) {
     timings = el.wordTimings.map((w) => ({ word: String(w.word || ""), start: Number(w.start) || 0, end: Number(w.end) || 0 }));
@@ -637,7 +384,7 @@ function SubtitleEl({ el, height }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MULTI-TRACK TIMELINE (unchanged, uses SceneRouter)
+// MULTI-TRACK TIMELINE
 // ═══════════════════════════════════════════════════════════════════════════
 
 const fStart = (s, fps) => Math.max(0, Math.round((Number(s) || 0) * fps));
@@ -698,5 +445,5 @@ function ClipView({ clip, colors, index, fps }) {
     return <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%" }}><div style={{ opacity: fadeIn, fontSize: 72, fontWeight: 850, letterSpacing: "-0.03em", textAlign: "center", color: "#fff", fontFamily: FONT }}>{clip.text || clip.label || ""}</div></AbsoluteFill>;
   }
   const scene = clip.scene || { text: clip.label || "", animation: clip.animation || "fade-in" };
-  return <SceneRouter scene={scene} colors={colors} index={index} clipDurationInFrames={fDur(clip.duration, fps)} />;
+  return <SceneRenderer scene={scene} colors={colors} index={index} clipDurationInFrames={fDur(clip.duration, fps)} />;
 }
