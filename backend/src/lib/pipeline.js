@@ -44,13 +44,6 @@ const animations = [
 
 const transitions = ["cut", "quick-slide", "zoom-cut", "fade", "blur"];
 
-const templates = [
-  "saas-product-promo",
-  "app-launch",
-  "explainer-video",
-  "social-reel",
-  "local-business",
-];
 
 // ---------------------------------------------------------------------------
 // Random copywriting brief. Picked fresh on every generation so the AI never
@@ -269,11 +262,10 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
       plan: {
         type: "object",
         additionalProperties: false,
-        required: ["duration", "aspectRatio", "template", "category", "brandColors", "scenes"],
+        required: ["duration", "aspectRatio", "category", "brandColors", "scenes"],
         properties: {
           duration: { type: "number", minimum: 5, maximum: 60 },
           aspectRatio: { type: "string", enum: ["16:9", "9:16", "1:1"] },
-          template: { type: "string", enum: templates },
           category: { type: "string", enum: VIDEO_CATEGORIES },
           brandColors: {
             type: "array",
@@ -335,7 +327,6 @@ function createGeminiResponseSchema(lottieAssetIds) {
         properties: {
           duration: { type: "NUMBER" },
           aspectRatio: { type: "STRING", enum: ["16:9", "9:16", "1:1"] },
-          template: { type: "STRING", enum: templates },
           category: { type: "STRING", enum: VIDEO_CATEGORIES },
           brandColors: { type: "ARRAY", items: { type: "STRING" } },
           scenes: {
@@ -464,7 +455,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
             },
           },
         },
-        required: ["duration", "aspectRatio", "template", "category", "brandColors", "scenes"],
+        required: ["duration", "aspectRatio", "category", "brandColors", "scenes"],
       },
     },
     required: ["script", "plan"],
@@ -527,7 +518,6 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
     "Use 3 to 5 scenes. Each scene text must be short and suitable for on-screen typography.",
     // ---- NARRATION TIMING (fixes "narration shorter/longer than video") ---
     `NARRATION SCRIPT LENGTH IS A HARD REQUIREMENT. The combined narration must take ${durationSec} seconds to read aloud at 150 words per minute. Target: ${targetWords} words total. Acceptable range: ${minWords}-${maxWords} words. Count your words before returning — if you're outside the range, rewrite. Distribute words across scenes proportional to each scene's duration (a 6-second scene gets ~${Math.round(6 * 2.5)} words; a 3-second scene gets ~${Math.round(3 * 2.5)} words).`,
-    `Available templates: ${templates.join(", ")}.`,
     `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
     `Available scene themes (animated backgrounds): ${SCENE_THEMES.join(", ")}.`,
     `Available animations: ${animations.join(", ")}.`,
@@ -643,16 +633,16 @@ function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
 
   // Anti-repetition: tell the model what this user has already seen recently
   // so we don't keep producing the same structural fingerprint for power users.
-  if (avoidance && (avoidance.templates?.length || avoidance.sequences?.length)) {
+  if (avoidance && (avoidance.themes?.length || avoidance.sequences?.length)) {
     const parts = [];
-    if (avoidance.templates?.length) {
+    if (avoidance.themes?.length) {
       parts.push(
-        `This user has used these templates a lot recently — AVOID them: ${avoidance.templates.join(", ")}.`
+        `This user has used these themes a lot recently — AVOID them: ${avoidance.themes.join(", ")}.`
       );
     }
     if (avoidance.sequences?.length) {
       parts.push(
-        `Do NOT reuse these recent scene-template sequences: ${avoidance.sequences.map((s) => `"${s}"`).join("; ")}.`
+        `Do NOT reuse these recent scene-theme sequences: ${avoidance.sequences.map((s) => `"${s}"`).join("; ")}.`
       );
     }
     parts.push(
@@ -1107,9 +1097,6 @@ function sanitizePlan(plan) {
 
   if (Array.isArray(out.scenes)) {
     out.scenes = out.scenes.slice(0, 6).map((s, i) => {
-      // renderMode is set by the pipeline caller. Default to "custom"
-      // (elements-first motion graphics). "template" uses legacy templates.
-      const renderMode = plan.renderMode || "custom";
       const scene = {
         ...s,
         scene: Number.isInteger(s?.scene) && s.scene > 0 ? s.scene : i + 1,
@@ -1118,8 +1105,7 @@ function sanitizePlan(plan) {
         headline: truncate(s?.headline ?? "", 140),
         subtext: truncate(s?.subtext ?? "", 240),
         visual: truncate(s?.visual ?? "", 800),
-        sceneTemplate: s?.sceneTheme || s?.sceneTemplate || "gradient-flow",
-        renderMode,
+        sceneTheme: s?.sceneTheme || s?.sceneTemplate || "gradient-flow",
       };
 
       // Stamp ids + z + sensible defaults onto every AI-generated element.
