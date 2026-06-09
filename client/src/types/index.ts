@@ -112,7 +112,9 @@ export interface Project {
     | "upload"
     | "finalize"
     | "tts"
-    | "ai";
+    | "ai"
+    | "bundle-codegen"
+    | "codegen";
   errorCode?: string;
   errorStack?: string;
   errorAt?: string;
@@ -212,5 +214,4 @@ export interface UploadLottieAssetInput {
   label: string;
   category: string;
   tags?: string[];
-  animationData: Record<string, unknown>;
-}
+  ani

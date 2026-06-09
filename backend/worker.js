@@ -265,23 +265,50 @@ async function renderProject(serveUrl, project) {
       // CODE-GEN PATH: write the AI code to disk and re-bundle so Remotion
       // picks up the new Current.jsx. This adds ~15-20s but produces
       // custom animations that no pre-built template can match.
-      await runPhase("write-codegen", async () => {
-        lastPhase = "write-codegen";
-        writeGeneratedCode(project.generatedCode);
-        console.log(`[worker] wrote generated code for ${id}`);
-      });
+      let codeGenOk = false;
+      try {
+        await runPhase("write-codegen", async () => {
+          lastPhase = "write-codegen";
+          // Validate the generated code isn't truncated/broken before writing
+          const code = project.generatedCode;
+          if (!code || code.length < 100) throw new Error("Generated code too short");
+          if (!code.includes("export default")) throw new Error("Generated code missing default export");
+          // Check balanced braces as a quick syntax sanity check
+          const opens = (code.match(/\{/g) || []).length;
+          const closes = (code.match(/\}/g) || []).length;
+          if (Math.abs(opens - closes) > 2) throw new Error(`Unbalanced braces: ${opens} open vs ${closes} close — code likely truncated`);
+          writeGeneratedCode(code);
+          console.log(`[worker] wrote generated code for ${id} (${code.length} chars)`);
+        });
 
-      await runPhase("bundle-codegen", async () => {
-        lastPhase = "bundle-codegen";
-        activeServeUrl = await bundle({ entryPoint: ENTRY });
-        console.log(`[worker] re-bundled for code-gen ${id}`);
-      });
+        await runPhase("bundle-codegen", async () => {
+          lastPhase = "bundle-codegen";
+          activeServeUrl = await bundle({ entryPoint: ENTRY });
+          console.log(`[worker] re-bundled for code-gen ${id}`);
+        });
 
-      compositionId = "generated";
-      inputProps = {
-        duration: project.durationSec || 20,
-        aspectRatio: project.aspectRatio || "16:9",
-      };
+        compositionId = "generated";
+        inputProps = {
+          duration: project.durationSec || 20,
+          aspectRatio: project.aspectRatio || "16:9",
+        };
+        codeGenOk = true;
+      } catch (codeErr) {
+        const msg = codeErr instanceof Error ? codeErr.message : String(codeErr);
+        console.warn(`[worker] code-gen render failed for ${id}, falling back to JSON plan: ${msg}`);
+        await recordWarning(id, "bundle-codegen", `Code-gen failed, using JSON fallback: ${msg}`);
+        // Fall through to JSON path below
+      }
+
+      if (!codeGenOk && project.sceneJson) {
+        // Fallback to JSON-driven render
+        inputProps = await runPhase("attach-lottie", async () => {
+          lastPhase = "attach-lottie";
+          return await attachLottieAssetsToPlan(project.sceneJson);
+        });
+      } else if (!codeGenOk) {
+        throw new Error("Code-gen failed and no JSON plan available as fallback");
+      }
     } else {
       // JSON PATH: use the pre-bundled serve URL.
       inputProps = await runPhase("attach-lottie", async () => {
@@ -337,52 +364,3 @@ async function renderProject(serveUrl, project) {
         {
           status: "DONE",
           progress: 100,
-          outputUrl,
-          errorMessage: null,
-          errorPhase: null,
-          errorCode: null,
-          errorStack: null,
-          errorAt: null,
-          renderHeartbeatAt: new Date(),
-        }
-      );
-    });
-
-    console.log(`[worker] ✓ done ${id}`);
-  } catch (err) {
-    const desc = describeError(err);
-    const phase = err?.phase || lastPhase || "render";
-    console.error(`[worker] ✗ ${id} failed in phase=${phase} code=${desc.code} :`, desc.message);
-    if (desc.stack) console.error(desc.stack);
-
-    await Project.updateOne(
-      { _id: id },
-      {
-        status: "FAILED",
-        progress: 0,
-        errorMessage: desc.message,
-        errorCode: desc.code,
-        errorStack: desc.stack,
-        errorPhase: phase,
-        errorAt: new Date(),
-        outputUrl: null,
-      }
-    );
-    await refundCredits(String(project.userId), costForDuration(project.durationSec), id).catch(
-      (refundErr) => console.error(`[worker] refund failed for ${id}:`, refundErr)
-    );
-  }
-}
-
-// Public — pipeline.js / TTS code can call this to attach non-fatal warnings.
-export { recordWarning };
-
-// Only auto-run when launched directly (`npm run worker`). When imported by
-// the backend (INLINE_WORKER mode) the server calls startWorker() itself.
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (isDirectRun) {
-  startWorker().catch((err) => {
-    console.error("[worker] fatal:", err);
-    process.exit(1);
-  });
-}

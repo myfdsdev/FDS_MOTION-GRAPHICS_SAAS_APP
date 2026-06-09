@@ -1131,7 +1131,7 @@ async function generateVideoCode(prompt, durationSec, config, userId, referenceI
           { role: "user", content: userContent },
         ],
         temperature: 0.7,
-        max_tokens: 8000,
+        max_tokens: 16000,
       }),
     });
 
@@ -1166,7 +1166,7 @@ async function generateVideoCode(prompt, durationSec, config, userId, referenceI
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ role: "user", parts }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 8000 },
+      generationConfig: { temperature: 0.7, maxOutputTokens: 16000 },
     }),
   });
 
@@ -1194,6 +1194,16 @@ function extractCode(raw) {
   // Must contain remotion import to be valid
   if (!code.includes("remotion")) {
     throw new Error("Generated code does not import from remotion — invalid output");
+  }
+  // Must have a default export
+  if (!code.includes("export default")) {
+    throw new Error("Generated code missing default export — likely truncated");
+  }
+  // Check balanced braces to detect truncation
+  const opens = (code.match(/\{/g) || []).length;
+  const closes = (code.match(/\}/g) || []).length;
+  if (opens > closes + 2) {
+    throw new Error(`Generated code appears truncated: ${opens} opening braces vs ${closes} closing (diff=${opens - closes})`);
   }
   return code;
 }
@@ -1800,22 +1810,4 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
     const code = err instanceof Error ? err.code || err.name || null : null;
     const stack = err instanceof Error ? err.stack || null : null;
     console.error(`[pipeline] project ${projectId} failed:`, err);
-    await Project.updateOne(
-      { _id: projectId },
-      {
-        status: "FAILED",
-        progress: 0,
-        errorMessage: message,
-        errorPhase: "ai",
-        errorCode: code,
-        errorStack: stack,
-        errorAt: new Date(),
-        outputUrl: null,
-        thumbnailUrl: null,
-      }
-    );
-    await refundCredits(userId, cost, projectId).catch((refundErr) => {
-      console.error(`[pipeline] credit refund failed for ${projectId}:`, refundErr);
-    });
-  }
-}
+    await Proje

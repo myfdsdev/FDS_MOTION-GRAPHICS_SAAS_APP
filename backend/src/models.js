@@ -99,6 +99,9 @@ const projectSchema = new Schema(
         "finalize",
         "tts",
         "ai",
+        "write-codegen",
+        "bundle-codegen",
+        "codegen",
       ],
       default: null,
     },
@@ -216,5 +219,4 @@ export const CreditTx = mongoose.models.CreditTx || mongoose.model("CreditTx", c
 export const ApiUsage = mongoose.models.ApiUsage || mongoose.model("ApiUsage", apiUsageSchema);
 export const AppSetting =
   mongoose.models.AppSetting || mongoose.model("AppSetting", appSettingSchema);
-export const LottieAsset =
-  mongoose.models.LottieAsset || mongoose.model("Lot
+export co
