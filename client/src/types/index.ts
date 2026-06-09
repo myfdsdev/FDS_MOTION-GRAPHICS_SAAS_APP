@@ -214,4 +214,5 @@ export interface UploadLottieAssetInput {
   label: string;
   category: string;
   tags?: string[];
-  ani
+  animationData: Record<string, unknown>;
+}

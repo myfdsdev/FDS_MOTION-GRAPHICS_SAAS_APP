@@ -931,159 +931,64 @@ Be specific. Never generic. Reference the actual product/topic from the user's i
 // worker re-bundles before rendering, so the code IS the video.
 // ---------------------------------------------------------------------------
 
-const CODEGEN_SYSTEM_PROMPT = `You are an elite motion-graphics engineer. You write ONE self-contained Remotion JSX file that produces broadcast-quality animated video. You build EVERYTHING in code — real UI components, interactive-looking elements, device mockups, buttons, charts, progress bars — all coded from scratch as React components within ONE file. The result must look like a professional After Effects export, NOT a slideshow.
+const CODEGEN_SYSTEM_PROMPT = `You are an elite motion-graphics engineer. You write ONE self-contained Remotion JSX file that produces broadcast-quality animated video by COMPOSING a pre-built component library — NOT by rebuilding components from scratch. The result must look like a hand-crafted After Effects export, never a slideshow of centered text on a gradient.
 
-HARD RULES:
-1. Imports ONLY from "remotion": AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Sequence, Series.
-2. Export ONE default component. Read duration from useVideoConfig(). NO props.
-3. ALL styles inline. NO CSS files, NO Tailwind, NO styled-components.
-4. ALL helper components defined in the SAME file. NO external imports except "remotion".
-5. Output ONLY raw JSX code. NO markdown fences, NO explanations, NO comments outside code.
-6. Font stack: "Inter, system-ui, -apple-system, sans-serif".
-7. EXACT DURATION: your Series.Sequence durations MUST sum to EXACTLY durationInFrames from useVideoConfig(). Calculate scene frames from the total. Never hardcode frame counts.
+OUTPUT RULES (non-negotiable):
+1. Import animation primitives ONLY from "remotion": AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Series.
+2. Import visual building blocks from the library (these already exist — DO NOT redefine them):
+   import { RetroGrid, FloatingConfetti, GlowOrb, GlitchTitle, KineticHeadline, NeonButton, EngageRow, StatCounter, DeviceMockup, FeatureCard, CornerBrackets, LightSweep } from "./lib";
+   import { getTheme } from "./lib/themes";
+   import { ease, mulberry32 } from "./lib/helpers";
+3. Export ONE default component. Read duration from useVideoConfig(). NO props.
+4. ALL styles inline. No CSS files, Tailwind, or extra imports beyond the two above.
+5. You MAY define small scene-wrapper components in-file, but compose visuals from the library — do NOT re-implement grids, confetti, glitch text, buttons, charts, etc.
+6. Output ONLY raw JSX. No markdown fences, no prose, no comments outside code.
+7. Series.Sequence durations MUST sum to EXACTLY durationInFrames from useVideoConfig().
+8. Determinism: seed any randomness with mulberry32(SEED) where SEED is a fixed integer. NEVER Math.random.
 
-ARCHITECTURE — BUILD THESE REUSABLE COMPONENTS INSIDE THE FILE:
+OBEY THE CREATIVE CONSTRAINTS:
+A "CREATIVE CONSTRAINTS" block is appended to the user brief. You MUST honor every field:
+- theme: pass this name to getTheme(name) and use its colors throughout.
+- layout: left-anchored | right-anchored | split | diagonal | centered | bottom-third — apply consistently.
+- typePersonality: glitch | kinetic | oversized | outlined — pick the matching library title component (GlitchTitle or KineticHeadline).
+- signatureMotion: snap-cuts | cinematic-push | parallax-drift | elastic — set pacing and easing to match.
+- sceneCount + rhythm: use exactly this many scenes with DELIBERATELY uneven durations (no equal-length scenes).
+Different constraints MUST produce visibly different videos. Do not drift toward a default.
 
-// --- GLOBAL HELPERS (always include) ---
-const ease = (t) => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
+VISUAL FLOOR (every scene):
+- Background = at least 3 moving layers: a theme gradient base + a structural layer (RetroGrid or GlowOrb cluster) + foreground FloatingConfetti.
+- At least one non-text graphic relevant to the topic (DeviceMockup, StatCounter, NeonButton, EngageRow, FeatureCard, or a topic SVG you draw inline).
+- Staggered entrances: elements arrive on different frames, never all at once.
+- Depth: one blurred GlowOrb behind content, one sharp element in front.
+A scene that is only text on a background is a FAILURE — add structure from the library.
 
-// --- COMPONENT LIBRARY (build what fits the topic) ---
+COMPONENT API REFERENCE:
 
-AnimatedBg({ colors, frame })
-  - 3+ radial-gradient blobs drifting with Math.sin/cos
-  - Subtle dot-grid overlay animating backgroundPosition
-  - Vignette: radial-gradient(ellipse, transparent 40%, rgba(0,0,0,0.5))
+RetroGrid: <RetroGrid color={T.gridColor} speed={0.5} position="bottom" />
+FloatingConfetti: <FloatingConfetti colors={T.confettiColors} count={25} seed={42} speed={1} />
+GlowOrb: <GlowOrb x="50%" y="50%" size={300} color={T.glowColor} blur={80} opacity={0.25} />
+GlitchTitle: <GlitchTitle text="Headline" fontSize={72} fontWeight={900} colors={T.titleColors} y="35%" />
+KineticHeadline: <KineticHeadline text="Word By Word" fontSize={64} fontWeight={900} color={T.text} y="35%" stagger={4} />
+NeonButton: <NeonButton label="Subscribe" color={T.accent} delay={20} x="50%" y="75%" />
+EngageRow: <EngageRow likes="12K" comments="840" shares="2.1K" color="#fff" delay={10} y="82%" />
+StatCounter: <StatCounter value={10000} suffix="+" label="Active Users" color={T.text} accentColor={T.accent} delay={10} x="50%" y="50%" fontSize={72} />
+DeviceMockup: <DeviceMockup type="phone" delay={15} x="50%" y="55%" scale={0.9}>{children}</DeviceMockup>
+FeatureCard: <FeatureCard iconPath={svgPath} title="Fast" description="Lightning speed" color={T.accent} bg={T.surface} delay={10} x="50%" y="50%" width={320} />
+CornerBrackets: <CornerBrackets color={T.accent} delay={5} />
+LightSweep: <LightSweep speed={1} opacity={0.06} />
 
-Particles({ count, color, frame })
-  - 20-30 deterministic particles (seeded from index, NOT Math.random)
-  - Small circles/diamonds drifting upward, opacity pulses with sin wave
+THEME USAGE:
+const T = getTheme("theme-name");
+T has: bgTop, bgBottom, glowColor, gridColor, accent, secondary, titleColors, confettiColors, fontFamily, text, muted, surface
 
-SubscribeButton({ frame, delay, accent })
-  - Rounded-rect button (200x50) with bell icon (SVG path) + "Subscribe" text
-  - Slides up with spring, pulses glow with Math.sin
-  - Bell icon shakes (rotate -15 to 15 to 0) after button lands
+SCENE ARCHETYPES (compose, vary order):
+HOOK: GlitchTitle or KineticHeadline + FloatingConfetti + CornerBrackets. 1.5-2.5s.
+PROOF: StatCounter or FeatureCard over RetroGrid.
+DEMO: DeviceMockup(phone|browser) showing the product.
+CTA (last scene): NeonButton or EngageRow + confetti burst.
 
-ProgressBar({ progress, label, color, frame, delay })
-  - Track (dark rect) + fill bar animating width 0 to progress%
-  - Percentage number counting up beside it, label above
-
-CircularProgress({ value, label, color, size, frame, delay })
-  - SVG donut ring: strokeDasharray animating to value%
-  - Number counting up in center, label below
-
-BarChart({ data, frame, delay })
-  - data = [{label, value, color}]
-  - Each bar grows from bottom with staggered spring
-  - Value labels count up above bars
-  - Grid lines at 25/50/75/100% behind bars
-
-StatCounter({ value, prefix, suffix, label, frame, delay })
-  - Large number (60-80px, weight 900) counting from 0 to value
-  - Small label below (14px, muted color)
-
-DeviceMockup({ type, children, frame, delay })
-  - type = "phone" | "laptop" | "browser"
-  - Phone: rounded-rect (280x560) with notch, status bar, content area
-  - Laptop: rect with keyboard base, screen bezel
-  - Browser: top bar with 3 dots + URL bar + content area
-  - Scales in with spring, subtle float with Math.sin
-
-ChatBubble({ messages, frame })
-  - Array of message objects [{text, isUser, delay}]
-  - Each bubble slides in from left(bot)/right(user) with stagger
-  - Typing indicator (3 bouncing dots) before bot messages
-
-FeatureCard({ icon, title, description, frame, delay })
-  - Rounded-rect card with SVG icon, title, description
-  - Slides up + fades in with spring, subtle glow on entry
-
-NotificationBadge({ count, frame, delay })
-  - Red circle with white number, pops in with overshoot spring (scale 0 to 1.2 to 1.0)
-
-PricingTable({ plans, frame })
-  - 2-3 plan columns as cards: name, price, features, CTA button
-  - Cards slide up staggered, "popular" card highlighted with accent border
-
-FloatingIcon({ path, x, y, size, color, frame, delay })
-  - SVG icon that fades in then gently floats with sin/cos drift
-
-GlowOrb({ x, y, size, color, frame })
-  - Large blurred circle (filter: blur 60-120px) at low opacity, drifts with sin/cos
-
-CornerBrackets({ frame, delay })
-  - L-shaped lines in top-left and bottom-right corners
-  - Grow from 0 to full length with interpolate
-
-LightSweep({ frame })
-  - Diagonal white gradient bar (8% opacity) sweeping across frame
-
-SCENE STRUCTURE — build 3-5 scenes using Series + Series.Sequence:
-
-function SceneN({ durationInFrames }) {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const progress = frame / durationInFrames;
-  const cameraDrift = interpolate(frame, [0, durationInFrames], [1, 1.05], {extrapolateRight:"clamp"});
-  return (
-    <AbsoluteFill style={{transform: \`scale(\${cameraDrift})\`, transformOrigin:"50% 50%"}}>
-      <AnimatedBg ... />
-      <Particles ... />
-      {/* Scene content using components above */}
-    </AbsoluteFill>
-  );
-}
-
-SCENE TYPES — pick what fits the prompt:
-
-HOOK (scene 1): Large animated headline + topic SVG illustration + CornerBrackets + GlowOrbs + LightSweep. Grab attention in 4-5 seconds.
-
-FEATURES: 2-3 FeatureCards staggered + DeviceMockup showing product + FloatingIcons. Split layout: text left, mockup right.
-
-SOCIAL PROOF / DATA: BarChart or CircularProgress + StatCounters counting up + relevant labels (Users, Downloads, Revenue).
-
-DEMO / SHOWCASE: DeviceMockup with ChatBubble inside (AI/chat topics), or browser with PricingTable, or phone with app UI.
-
-CTA (last scene): Big headline + SubscribeButton animating in + arrow icon pulsing + particle burst + "Get Started" / "Subscribe" / "Try Free".
-
-TOPIC-SPECIFIC COMPONENTS:
-
-YouTube → SubscribeButton + play button SVG + view counter + ChatBubble for comments
-SaaS → DeviceMockup("browser") + FeatureCards + PricingTable + ProgressBars
-Mobile app → DeviceMockup("phone") + NotificationBadge + chat interface + StatCounters
-Business → BarChart + StatCounters + growth arrow SVG + milestone timeline
-Education → book/graduation SVG + ProgressBar for completion + StatCounters + FeatureCards
-Social media → phone mockup + heart/like animations + follower counter + ChatBubble
-E-commerce → product card mockup + star rating + "Add to Cart" button + price counter
-Finance → line chart SVG + dollar counters + CircularProgress for allocation
-Health/fitness → CircularProgress for goals + ProgressBars + heartbeat SVG animation
-AI/tech → ChatBubble showing AI conversation + code bracket SVGs + speed counters
-
-ANIMATION RULES:
-spring({ frame: frame - delay, fps, config: { damping: 14, stiffness: 150, mass: 0.8 } })
-interpolate(frame, [start, end], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
-Stagger: each element enters 4-8 frames after previous
-Entrances: spring for bouncy (buttons, cards), interpolate for smooth (backgrounds, text)
-Continuous: Math.sin(frame * 0.04) for floating, Math.sin(frame * 0.08) for pulsing
-Camera drift: EVERY scene scales 1.0 to 1.05 over its duration
-Hold time: after all elements enter, hold at least 1 second before scene ends
-
-COLOR PALETTES (pick ONE, stay consistent):
-PREMIUM: bg=#0a0a1a surface=#141430 accent=#8b5cf6 secondary=#38bdf8 muted=#64748b text=#f1f5f9
-OCEAN: bg=#0c1222 surface=#162035 accent=#3b82f6 secondary=#06b6d4 muted=#64748b text=#e2e8f0
-EMERALD: bg=#021a0f surface=#052e1a accent=#10b981 secondary=#34d399 muted=#6b8f71 text=#ecfdf5
-SUNSET: bg=#1c1210 surface=#2a2018 accent=#f59e0b secondary=#ef4444 muted=#a08060 text=#fef3c7
-NEON: bg=#09090b surface=#18181b accent=#a855f7 secondary=#ec4899 muted=#71717a text=#fafafa
-
-ABSOLUTE REQUIREMENTS:
-1. DURATION: Scene frame counts MUST sum to EXACTLY durationInFrames. Calculate: const sceneFrames = Math.floor(durationInFrames / numberOfScenes). Give remainder to last scene.
-2. NO TEXT-ONLY SCENES. Every scene has animated graphics — charts, mockups, buttons, SVG art.
-3. BUILD REAL COMPONENTS: subscribe buttons, progress bars, device mockups, chat bubbles, charts — not just circles and rectangles.
-4. MINIMUM 10 animated elements per scene (components + decorations + particles).
-5. Use spring() for at least 5 entrances total. Use interpolate() for all continuous motion.
-6. Graphics must be 70%+ of visual area. Text is secondary.
-7. Last scene ALWAYS has a CTA with an animated button component.
-8. SVG illustrations must be RELEVANT to the topic (not generic shapes).
-9. Every number displayed must COUNT UP from 0 with interpolate.
+TOPIC TAILORING:
+SaaS: DeviceMockup(browser)+FeatureCard. YouTube: NeonButton+EngageRow. Finance: StatCounter. AI/tech: DeviceMockup+GlitchTitle.
 
 OUTPUT: Raw JSX code starting with import statement. Nothing else.`;
 
@@ -1099,9 +1004,50 @@ const CODEGEN_GENERATED_DIR = path.join(
  * Ask AI to write a complete Remotion component for the given prompt.
  * Returns the JSX code as a string.
  */
+// Available themes for creative constraints (must match lib/themes.js)
+const CODEGEN_THEMES = [
+  "midnight-purple", "ocean-blue", "emerald-dark", "sunset-warm",
+  "neon-pink", "cyber-green", "fire-red", "arctic-white",
+  "gold-luxury", "vibrant-coral",
+];
+const CODEGEN_LAYOUTS = ["left-anchored", "right-anchored", "split", "diagonal", "centered", "bottom-third"];
+const CODEGEN_TYPE_PERSONALITIES = ["glitch", "kinetic", "oversized", "outlined"];
+const CODEGEN_MOTIONS = ["snap-cuts", "cinematic-push", "parallax-drift", "elastic"];
+
+function generateCreativeConstraints(prompt, durationSec) {
+  let hash = 0;
+  for (let i = 0; i < prompt.length; i++) {
+    hash = ((hash << 5) - hash + prompt.charCodeAt(i)) | 0;
+  }
+  const pick = (arr, offset = 0) => arr[Math.abs((hash + offset) % arr.length)];
+  const sceneCount = durationSec <= 10 ? 3 : durationSec <= 20 ? 4 : 5;
+  const totalFrames = durationSec * 30;
+  const rhythmParts = [];
+  let remaining = totalFrames;
+  for (let i = 0; i < sceneCount; i++) {
+    if (i === sceneCount - 1) {
+      rhythmParts.push(remaining);
+    } else {
+      const frac = 0.2 + (Math.abs(hash + i * 7) % 15) / 100;
+      const frames = Math.round(remaining * frac);
+      rhythmParts.push(Math.max(45, frames));
+      remaining -= rhythmParts[i];
+    }
+  }
+  return "\n\nCREATIVE CONSTRAINTS:\n" +
+    "theme: " + pick(CODEGEN_THEMES, 1) + "\n" +
+    "layout: " + pick(CODEGEN_LAYOUTS, 2) + "\n" +
+    "typePersonality: " + pick(CODEGEN_TYPE_PERSONALITIES, 3) + "\n" +
+    "signatureMotion: " + pick(CODEGEN_MOTIONS, 4) + "\n" +
+    "sceneCount: " + sceneCount + "\n" +
+    "rhythm: [" + rhythmParts.join(", ") + "] frames (" + rhythmParts.map(f => (f/30).toFixed(1) + "s").join(", ") + ")\n" +
+    "totalFrames: " + totalFrames + " (MUST match exactly)";
+}
+
 async function generateVideoCode(prompt, durationSec, config, userId, referenceImage) {
   const totalFrames = durationSec * 30;
-  const userText = "Create a " + durationSec + "-second (" + totalFrames + " frames at 30fps) motion-graphics video:\n" + prompt + "\n\nRemember: output ONLY the JSX code, starting with the import statement. No markdown fences.";
+  const constraints = generateCreativeConstraints(prompt, durationSec);
+  const userText = "Create a " + durationSec + "-second (" + totalFrames + " frames at 30fps) motion-graphics video:\n" + prompt + constraints + "\n\nRemember: output ONLY the JSX code, starting with the import statement. No markdown fences.";
 
   if (config.provider === "openai" || config.provider === "openrouter") {
     const isOR = config.provider === "openrouter";
@@ -1187,23 +1133,19 @@ async function generateVideoCode(prompt, durationSec, config, userId, referenceI
 
 function extractCode(raw) {
   if (!raw || typeof raw !== "string") throw new Error("AI returned empty code");
-  // Strip markdown fences if present
   let code = raw.trim();
   const fenceMatch = code.match(/^```(?:jsx|javascript|js|tsx)?\n([\s\S]*?)```$/);
   if (fenceMatch) code = fenceMatch[1].trim();
-  // Must contain remotion import to be valid
   if (!code.includes("remotion")) {
     throw new Error("Generated code does not import from remotion — invalid output");
   }
-  // Must have a default export
   if (!code.includes("export default")) {
     throw new Error("Generated code missing default export — likely truncated");
   }
-  // Check balanced braces to detect truncation
   const opens = (code.match(/\{/g) || []).length;
   const closes = (code.match(/\}/g) || []).length;
   if (opens > closes + 2) {
-    throw new Error(`Generated code appears truncated: ${opens} opening braces vs ${closes} closing (diff=${opens - closes})`);
+    throw new Error("Generated code appears truncated: " + opens + " opening braces vs " + closes + " closing");
   }
   return code;
 }
@@ -1810,4 +1752,22 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
     const code = err instanceof Error ? err.code || err.name || null : null;
     const stack = err instanceof Error ? err.stack || null : null;
     console.error(`[pipeline] project ${projectId} failed:`, err);
-    await Proje
+    await Project.updateOne(
+      { _id: projectId },
+      {
+        status: "FAILED",
+        progress: 0,
+        errorMessage: message,
+        errorPhase: "ai",
+        errorCode: code,
+        errorStack: stack,
+        errorAt: new Date(),
+        outputUrl: null,
+        thumbnailUrl: null,
+      }
+    );
+    await refundCredits(userId, cost, projectId).catch((refundErr) => {
+      console.error(`[pipeline] credit refund failed for ${projectId}:`, refundErr);
+    });
+  }
+}

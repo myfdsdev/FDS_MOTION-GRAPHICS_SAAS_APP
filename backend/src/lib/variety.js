@@ -118,4 +118,5 @@ export function structureVariantId(scene, index, seed) {
   const align = ["left", "center", "right"][(h >> 9) % 3];
   const size = ["xs", "s", "m", "l", "xl"][(h >> 12) % 5];
   const flip = ((h >> 15) & 1) ? "flip" : "norm";
-  return `${tpl}/${bg}/${corner}/${grid}/${align}/${size}/${fl
+  return `${tpl}/${bg}/${corner}/${grid}/${align}/${size}/${flip}`;
+}

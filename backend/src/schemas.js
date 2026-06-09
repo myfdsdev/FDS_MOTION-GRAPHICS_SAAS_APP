@@ -399,4 +399,53 @@ export const GenerateProjectInput = z.object({
   referenceImage: z.string().max(6_000_000).optional(),
 });
 
-export con
+export const TopUpInput = z.object({
+  packId: z.enum(["pack_100", "pack_500", "pack_2000"]),
+});
+
+export const PresignInput = z.object({
+  filename: z.string().min(1),
+  contentType: z.string().min(1),
+});
+
+export const UpdateProfileInput = z.object({
+  name: z.string().min(2).max(80).nullable().optional(),
+  apiKeys: z
+    .object({
+      openai: z.string().max(300).optional(),
+      gemini: z.string().max(300).optional(),
+      openrouter: z.string().max(300).optional(),
+      fal: z.string().max(300).optional(),
+    })
+    .optional(),
+});
+
+export const UpdateAdminSettingsInput = z.object({
+  allowUserApiKeys: z.boolean().optional(),
+});
+
+export const LottieAnimationDataInput = z
+  .object({
+    fr: z.number().positive(),
+    op: z.number().positive(),
+    w: z.number().positive(),
+    h: z.number().positive(),
+    layers: z.array(z.unknown()),
+  })
+  .passthrough();
+
+export const CreateLottieAssetInput = z.object({
+  id: LottieAssetId.optional(),
+  label: z.string().trim().min(2).max(80),
+  category: LottieCategory.default("business"),
+  tags: z.array(z.string().trim().min(1).max(32)).max(10).optional().default([]),
+  animationData: LottieAnimationDataInput,
+});
+
+// ---- Static data ----
+
+export const CREDIT_PACKS = [
+  { id: "pack_100", credits: 100, priceUsd: 9 },
+  { id: "pack_500", credits: 500, priceUsd: 39, popular: true },
+  { id: "pack_2000", credits: 2000, priceUsd: 129 },
+];

@@ -364,3 +364,52 @@ async function renderProject(serveUrl, project) {
         {
           status: "DONE",
           progress: 100,
+          outputUrl,
+          errorMessage: null,
+          errorPhase: null,
+          errorCode: null,
+          errorStack: null,
+          errorAt: null,
+          renderHeartbeatAt: new Date(),
+        }
+      );
+    });
+
+    console.log(`[worker] ✓ done ${id}`);
+  } catch (err) {
+    const desc = describeError(err);
+    const phase = err?.phase || lastPhase || "render";
+    console.error(`[worker] ✗ ${id} failed in phase=${phase} code=${desc.code} :`, desc.message);
+    if (desc.stack) console.error(desc.stack);
+
+    await Project.updateOne(
+      { _id: id },
+      {
+        status: "FAILED",
+        progress: 0,
+        errorMessage: desc.message,
+        errorCode: desc.code,
+        errorStack: desc.stack,
+        errorPhase: phase,
+        errorAt: new Date(),
+        outputUrl: null,
+      }
+    );
+    await refundCredits(String(project.userId), costForDuration(project.durationSec), id).catch(
+      (refundErr) => console.error(`[worker] refund failed for ${id}:`, refundErr)
+    );
+  }
+}
+
+// Public — pipeline.js / TTS code can call this to attach non-fatal warnings.
+export { recordWarning };
+
+// Only auto-run when launched directly (`npm run worker`). When imported by
+// the backend (INLINE_WORKER mode) the server calls startWorker() itself.
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) {
+  startWorker().catch((err) => {
+    console.error("[worker] fatal:", err);
+    process.exit(1);
+  });
+}

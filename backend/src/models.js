@@ -219,4 +219,5 @@ export const CreditTx = mongoose.models.CreditTx || mongoose.model("CreditTx", c
 export const ApiUsage = mongoose.models.ApiUsage || mongoose.model("ApiUsage", apiUsageSchema);
 export const AppSetting =
   mongoose.models.AppSetting || mongoose.model("AppSetting", appSettingSchema);
-export co
+export const LottieAsset =
+  mongoose.models.LottieAsset || mongoose.model("LottieAsset", lottieAssetSchema);

@@ -458,4 +458,65 @@ function SubtitleEl({ el, height }) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MULTI-TRACK TIMELINE
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+const fStart = (s, fps) => Math.max(0, Math.round((Number(s) || 0) * fps));
+const fDur = (s, fps) => Math.max(1, Math.round((Number(s) || 0) * fps));
+
+function TimelineVideo({ timeline, colors }) {
+  const { fps } = useVideoConfig();
+  const tracks = Array.isArray(timeline.tracks) ? timeline.tracks : [];
+  const zoomRegions = Array.isArray(timeline.zoomRegions) ? timeline.zoomRegions : [];
+  const visualTracks = tracks.filter((t) => t.kind !== "audio");
+  const audioTracks = tracks.filter((t) => t.kind === "audio");
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: colors[0] }}>
+      <ZoomCamera zoomRegions={zoomRegions} fps={fps}>
+        {visualTracks.map((track) =>
+          (track.clips ?? []).map((clip, i) => (
+            <Sequence key={clip.id ?? `${track.id}-${i}`} from={fStart(clip.start, fps)} durationInFrames={fDur(clip.duration, fps)} layout="none">
+              <ClipView clip={clip} colors={colors} index={i} fps={fps} />
+            </Sequence>
+          ))
+        )}
+      </ZoomCamera>
+      {audioTracks.map((track) =>
+        track.muted ? null : (track.clips ?? []).filter((c) => c.src).map((clip, i) => (
+          <Sequence key={clip.id ?? `${track.id}-a${i}`} from={fStart(clip.start, fps)} durationInFrames={fDur(clip.duration, fps)}>
+            <Audio src={clip.src} startFrom={fStart(clip.trimStart ?? 0, fps)} volume={clip.volume == null ? 1 : clip.volume} />
+          </Sequence>
+        ))
+      )}
+    </AbsoluteFill>
+  );
+}
+
+function ZoomCamera({ zoomRegions, fps, children }) {
+  const frame = useCurrentFrame();
+  let scale = 1, ox = 50, oy = 50;
+  for (const r of zoomRegions) {
+    const s = fStart(r.start, fps), e = fStart(r.end, fps);
+    if (frame < s || frame > e) continue;
+    const span = Math.max(1, e - s), ramp = Math.min(span / 2, Math.round(span * 0.3));
+    let p;
+    if (frame < s + ramp) p = interpolate(frame, [s, s + ramp], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    else if (frame > e - ramp) p = interpolate(frame, [e - ramp, e], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    else p = 1;
+    scale = 1 + (Math.max(1, Math.min(4, Number(r.scale) || 1.4)) - 1) * p;
+    ox = (r.x == null ? 0.5 : r.x) * 100;
+    oy = (r.y == null ? 0.5 : r.y) * 100;
+    break;
+  }
+  return <AbsoluteFill style={{ transform: `scale(${scale})`, transformOrigin: `${ox}% ${oy}%` }}>{children}</AbsoluteFill>;
+}
+
+function ClipView({ clip, colors, index, fps }) {
+  if (clip.type === "image" && clip.src) return <AbsoluteFill style={{ backgroundColor: "#000" }}><Img src={clip.src} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></AbsoluteFill>;
+  if (clip.type === "text") {
+    const fadeIn = interpolate(useCurrentFrame(), [0, 12], [0, 1], { extrapolateRight: "clamp" });
+    return <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%" }}><div style={{ opacity: fadeIn, fontSize: 72, fontWeight: 850, letterSpacing: "-0.03em", textAlign: "center", color: "#fff", fontFamily: FONT }}>{clip.text || clip.label || ""}</div></AbsoluteFill>;
+  }
+  const scene = clip.scene || { text: clip.label || "", animation: clip.animation || "fade-in" };
+  return <SceneRenderer scene={scene} colors={colors} index={index} clipDurationInFrames={fDur(clip.duration, fps)} />;
+}
