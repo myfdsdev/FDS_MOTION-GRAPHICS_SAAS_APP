@@ -265,50 +265,29 @@ async function renderProject(serveUrl, project) {
       // CODE-GEN PATH: write the AI code to disk and re-bundle so Remotion
       // picks up the new Current.jsx. This adds ~15-20s but produces
       // custom animations that no pre-built template can match.
-      let codeGenOk = false;
-      try {
-        await runPhase("write-codegen", async () => {
-          lastPhase = "write-codegen";
-          // Validate the generated code isn't truncated/broken before writing
-          const code = project.generatedCode;
-          if (!code || code.length < 100) throw new Error("Generated code too short");
-          if (!code.includes("export default")) throw new Error("Generated code missing default export");
-          // Check balanced braces as a quick syntax sanity check
-          const opens = (code.match(/\{/g) || []).length;
-          const closes = (code.match(/\}/g) || []).length;
-          if (Math.abs(opens - closes) > 2) throw new Error(`Unbalanced braces: ${opens} open vs ${closes} close — code likely truncated`);
-          writeGeneratedCode(code);
-          console.log(`[worker] wrote generated code for ${id} (${code.length} chars)`);
-        });
+      await runPhase("write-codegen", async () => {
+        lastPhase = "write-codegen";
+        const code = project.generatedCode;
+        if (!code || code.length < 100) throw new Error("Generated code too short");
+        if (!code.includes("export default")) throw new Error("Generated code missing default export");
+        const opens = (code.match(/\{/g) || []).length;
+        const closes = (code.match(/\}/g) || []).length;
+        if (Math.abs(opens - closes) > 2) throw new Error(`Unbalanced braces: ${opens} open vs ${closes} close — code likely truncated`);
+        writeGeneratedCode(code);
+        console.log(`[worker] wrote generated code for ${id} (${code.length} chars)`);
+      });
 
-        await runPhase("bundle-codegen", async () => {
-          lastPhase = "bundle-codegen";
-          activeServeUrl = await bundle({ entryPoint: ENTRY });
-          console.log(`[worker] re-bundled for code-gen ${id}`);
-        });
+      await runPhase("bundle-codegen", async () => {
+        lastPhase = "bundle-codegen";
+        activeServeUrl = await bundle({ entryPoint: ENTRY });
+        console.log(`[worker] re-bundled for code-gen ${id}`);
+      });
 
-        compositionId = "generated";
-        inputProps = {
-          duration: project.durationSec || 20,
-          aspectRatio: project.aspectRatio || "16:9",
-        };
-        codeGenOk = true;
-      } catch (codeErr) {
-        const msg = codeErr instanceof Error ? codeErr.message : String(codeErr);
-        console.warn(`[worker] code-gen render failed for ${id}, falling back to JSON plan: ${msg}`);
-        await recordWarning(id, "bundle-codegen", `Code-gen failed, using JSON fallback: ${msg}`);
-        // Fall through to JSON path below
-      }
-
-      if (!codeGenOk && project.sceneJson) {
-        // Fallback to JSON-driven render
-        inputProps = await runPhase("attach-lottie", async () => {
-          lastPhase = "attach-lottie";
-          return await attachLottieAssetsToPlan(project.sceneJson);
-        });
-      } else if (!codeGenOk) {
-        throw new Error("Code-gen failed and no JSON plan available as fallback");
-      }
+      compositionId = "generated";
+      inputProps = {
+        duration: project.durationSec || 20,
+        aspectRatio: project.aspectRatio || "16:9",
+      };
     } else {
       // JSON PATH: use the pre-bundled serve URL.
       inputProps = await runPhase("attach-lottie", async () => {
