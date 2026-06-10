@@ -355,96 +355,22 @@ export async function generationConfigError(userId) {
   return null;
 }
 
-function systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing) {
-  // Narration pace target — 150 words per minute = 2.5 words/sec. Real
-  // explainer-video VOs land around 140-160 wpm, so 2.5 is a safe middle.
-  // We give the model a hard target window so the script length actually
-  // matches the rendered video instead of finishing 6 seconds early.
-  const targetWords = Math.round(durationSec * 2.5);
-  const minWords = Math.round(durationSec * 2.2);
-  const maxWords = Math.round(durationSec * 2.8);
-
+function systemPrompt(durationSec, lottieAssetPrompt) {
   const lines = [
-    "You are a motion-graphics director AND explainer-video copywriter.",
+    "You are a motion-graphics director.",
     "Return only valid JSON that matches the requested schema.",
     `Create a ${durationSec}-second video plan from the user's prompt.`,
     "Use 3 to 5 scenes. Each scene text must be short and suitable for on-screen typography.",
-    // ---- NARRATION TIMING (fixes "narration shorter/longer than video") ---
-    `NARRATION SCRIPT LENGTH IS A HARD REQUIREMENT. The combined narration must take ${durationSec} seconds to read aloud at 150 words per minute. Target: ${targetWords} words total. Acceptable range: ${minWords}-${maxWords} words. Count your words before returning — if you're outside the range, rewrite. Distribute words across scenes proportional to each scene's duration (a 6-second scene gets ~${Math.round(6 * 2.5)} words; a 3-second scene gets ~${Math.round(3 * 2.5)} words).`,
     `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
     `Available scene themes (animated backgrounds): ${SCENE_THEMES.join(", ")}.`,
     `Available animations: ${animations.join(", ")}.`,
     `Available transitions: ${transitions.join(", ")}.`,
-    "For every scene, choose one sceneTheme from the allowed list. The theme provides the animated background AND draws the headline + subtext.",
-    "VARY the sceneTheme across scenes — do NOT use the same theme for every scene. Mix dark and light themes for contrast. No theme should repeat back-to-back.",
-    "Favor modern ad motion: bold kinetic typography, animated dark backgrounds, glowing accent shapes, punchy reveals.",
+    "For every scene, choose one sceneTheme, one animation, and one transition from the allowed lists.",
+    "Put the scene's title in `headline`, the subtitle in `subtext`, and the narration in `text`.",
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
     "No labels inside the script. No markdown.",
-    "Put the scene's title in `headline`. The subtitle line goes in `subtext`. Put narration in `text`. That's all you need for visuals — the chosen sceneTheme owns the entire look.",
-
-    // ---- COPYWRITING RULES — kill the SaaS-cliché vibe -----------------
-    // The big quality complaint is generic taglines ("Unleash Your Creativity",
-    // "Stunning Results, Fast", "Elevate Your Content"). They feel AI-written
-    // because they ARE AI-written without constraints. These rules force the
-    // model to write copy that sounds like a human ad-copywriter would write.
-    "COPY QUALITY RULES (these are not optional):",
-    "1) BANNED PHRASES — never use any of: 'unleash your', 'elevate your', 'take your X to the next level', 'stunning results', 'effortless', 'seamless', 'game-changer', 'revolutionize', 'transform your', 'unlock your potential', 'empower', 'cutting-edge', 'state-of-the-art', 'world-class', 'next-gen', 'simplify your workflow', 'your idea in motion', 'tap order done', 'limited time', 'get started now', 'try it free', 'visit X dot com now', 'in minutes', 'fast simple and ready to share', 'built for high-converting ads'. If you find yourself reaching for any of these, rewrite.",
-    "2) BE SPECIFIC TO THE USER'S PROMPT. Reference the actual product, audience, problem, or outcome the user described. If the prompt is 'AI accounting tool for freelancers', headlines should mention freelancers, invoices, tax, time saved — not generic 'creativity' or 'workflow'. A reader should be able to guess the product from any single scene's headline.",
-    "3) USE CONCRETE NOUNS AND VERBS, NOT ABSTRACTIONS. Replace 'efficiency' with 'cuts 4 hours a week'. Replace 'powerful' with 'handles 1,000 invoices an hour'. Replace 'stunning' with the specific visual thing the user sees.",
-    "4) NUMBERS, WHEN HONEST, ARE GOLD. '$3.2M raised', '40% fewer clicks', '12-second checkout', '6 fonts auto-paired'. Invent reasonable numbers only when the user prompt implies them; otherwise omit.",
-    "5) STRUCTURE THE NARRATIVE. Scene 1 = hook (a tension, a question, a specific 'before'). Middle scenes = 1 specific proof per scene (a feature, a number, a quote, a moment). Final scene = a verb-led, time-bound CTA tied to the product, not a generic 'Start creating today'.",
-    "6) HEADLINES ≤ 7 WORDS AND ≤ 60 CHARS. Subtext ≤ 12 words. Cut every adjective that doesn't add information.",
-    "7) WRITE LIKE A HUMAN COPYWRITER, NOT LIKE AN AI. Vary sentence shapes. Use fragments. Use surprise. Use rhythm. Boring is the only failure mode.",
-
-    // ---- EXPLAINER-VIDEO NARRATION STYLE (fixes "narration is generic") ----
-    "NARRATION SCRIPT STYLE — write a true explainer-video voiceover, not a list of marketing taglines:",
-    "  - Address the viewer directly as 'you'. Use contractions ('you're', 'we'll', 'it's').",
-    "  - Open with a relatable problem, a curiosity hook, or a specific 'before' state — not the product name.",
-    "  - Each middle scene's narration EXPLAINS one feature or benefit in plain language, not lists it.",
-    "  - End with a clear, low-friction next step ('Sign up free at <domain>', 'Open the app and try it today', 'Book a 10-minute demo this week').",
-    "  - Sentences flow like speech: short, varied length, occasionally a fragment for emphasis.",
-    "  - NO bullet-point feel. NO lists of three adjectives ('fast, simple, powerful'). NO 'introducing X'.",
-    "  - The narration should make sense played alone with the screen black — it should TELL the whole story even without the visuals.",
-
-    // The AI no longer generates icons, shapes, charts, or per-element
-    // animations. The scene theme provides all visuals; AI just writes copy.
-    "Color fields (brandColors) MUST be #RRGGBB hex strings only. Never 'white', 'transparent', 'none', 'rgb(...)'.",
+    "Color fields (brandColors) MUST be #RRGGBB hex strings only.",
   ];
-
-  // ---- Random copy briefing — sprinkled near the top so it sets the tone
-  // before the rules. We push it onto the prompt array AFTER the boilerplate
-  // headers but BEFORE the copy-quality rules so it actually frames how the
-  // copy gets written.
-  if (briefing) {
-    lines.push(
-      "WRITING BRIEF FOR THIS GENERATION (chosen at random — do not break character):",
-      `  VOICE: ${briefing.voice}`,
-      `  HOOK STYLE for scene 1: ${briefing.hook}`,
-      `  NARRATIVE FRAMEWORK: ${briefing.framework}`,
-      "Stay consistent with this brief across all scenes. The brief is binding."
-    );
-  }
-
-  // Anti-repetition: tell the model what this user has already seen recently
-  // so we don't keep producing the same structural fingerprint for power users.
-  if (avoidance && (avoidance.themes?.length || avoidance.sequences?.length)) {
-    const parts = [];
-    if (avoidance.themes?.length) {
-      parts.push(
-        `This user has used these themes a lot recently — AVOID them: ${avoidance.themes.join(", ")}.`
-      );
-    }
-    if (avoidance.sequences?.length) {
-      parts.push(
-        `Do NOT reuse these recent scene-theme sequences: ${avoidance.sequences.map((s) => `"${s}"`).join("; ")}.`
-      );
-    }
-    parts.push(
-      "Pick a deliberately different structural shape than the recent sequences — different opener, different middle pattern, different closer if possible."
-    );
-    lines.push(parts.join(" "));
-  }
-
   return lines.join(" ");
 }
 
@@ -549,12 +475,12 @@ async function generateWithOpenAI(
       messages: [
         {
           role: "system",
-          content: systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing),
+          content: systemPrompt(durationSec, lottieAssetPrompt),
         },
         { role: "user", content: userContent },
       ],
       response_format: responseFormat,
-      temperature: briefing?.temperature ?? 0.7,
+      temperature: 0.7,
     }),
   });
 
@@ -580,15 +506,13 @@ async function generateWithGemini(
   purpose,
   lottieAssetIds,
   lottieAssetPrompt,
-  avoidance,
-  briefing,
   referenceImage
 ) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
 
   // Build parts — text + optional reference image.
   const parts = [];
-  let textPrompt = `${systemPrompt(durationSec, lottieAssetPrompt, avoidance, briefing)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`;
+  let textPrompt = `${systemPrompt(durationSec, lottieAssetPrompt)}\n\nReturn this JSON shape: {"script":"...","plan":{...}}.\n\nPrompt: ${prompt}`;
   if (referenceImage) {
     textPrompt += "\n\nREFERENCE IMAGE ATTACHED — use it ONLY as a design layout blueprint. Extract layout structure, color palette, typography hierarchy, element arrangement, and visual density. DO NOT copy any text content, brand names, or specific imagery from it. Content comes from the user's prompt only.";
     // Extract base64 data and mime type from data URL.
