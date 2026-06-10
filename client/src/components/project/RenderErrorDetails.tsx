@@ -13,6 +13,8 @@ const PHASE_LABEL: Record<NonNullable<Project["errorPhase"]>, string> = {
   finalize: "Finalizing the project",
   tts: "Generating narration",
   ai: "AI scene plan generation",
+  codegen: "AI Remotion code generation",
+  "bundle-codegen": "Bundling generated Remotion code",
 };
 
 interface Props {
