@@ -80,7 +80,7 @@ function SceneRenderer({ scene, colors, index, clipDurationInFrames, structureSe
       {hasElements ? (
         <ElementsLayer elements={scene.elements} width={width} height={height} sceneTime={frame / fps} sceneDuration={dur / fps} />
       ) : (
-        <FallbackText headline={scene.headline} subtext={scene.subtext} accent={accent} frame={frame} />
+        <FallbackText headline={scene.headline} subtext={scene.subtext} accent={accent} frame={frame} theme={theme} />
       )}
     </AbsoluteFill>
   );
@@ -103,8 +103,32 @@ function ThemeBackground({ theme, base, accent, secondary, frame, dur }) {
     "particle-field": `radial-gradient(circle at ${30 + d / 4}% ${50 - d / 8}%, ${accent}33 0%, transparent 25%), radial-gradient(circle at ${70 - d / 6}% ${60 + d / 12}%, ${secondary}28 0%, transparent 22%), linear-gradient(180deg, ${base} 0%, #080818 100%)`,
     "aurora": `linear-gradient(${90 + d}deg, ${accent}44 0%, transparent 30%), linear-gradient(${180 + d / 2}deg, ${secondary}33 10%, transparent 40%), linear-gradient(${270 - d / 3}deg, ${accent}22 20%, transparent 50%), linear-gradient(180deg, ${base} 0%, #0b0b20 100%)`,
     "bold-color": `radial-gradient(circle at 50% 50%, ${accent}88 0%, ${accent}44 60%, ${base} 100%)`,
+    // ---- New 10 themes ----
+    // Bold dark background with a sweeping diagonal accent stripe that drifts.
+    "kinetic-type": `linear-gradient(${110 + d / 3}deg, ${accent}aa 0%, ${accent}33 22%, transparent 35%), linear-gradient(180deg, #06060c 0%, #0e0e1c 100%)`,
+    // Synthwave perspective grid + magenta-on-purple vibe.
+    "neon-grid": `linear-gradient(180deg, rgba(255, 0, 200, 0.10) 0%, transparent 50%), linear-gradient(180deg, #120428 0%, #2a0848 60%, #4c0863 100%)`,
+    // Layered cream "cut paper" feel with soft drop-shadow stacks.
+    "paper-craft": `radial-gradient(circle at ${30 + d / 8}% ${40 - d / 12}%, #ffffff 0%, transparent 35%), radial-gradient(circle at ${70 - d / 6}% ${60 + d / 10}%, #e2d6c2 0%, transparent 40%), linear-gradient(160deg, #f4ecd8 0%, #d8c8a8 100%)`,
+    // Frosted-glass card vibe over a slowly drifting tri-color gradient.
+    "glass-card": `linear-gradient(${135 + d / 5}deg, ${accent}66 0%, ${secondary}44 50%, ${base} 100%)`,
+    // News ticker — dark bg with two horizontal accent stripes drifting.
+    "ticker-tape": `linear-gradient(180deg, transparent 18%, ${accent}22 18.2%, ${accent}22 22%, transparent 22.2%, transparent 76%, ${secondary}22 76.2%, ${secondary}22 80%, transparent 80.2%), linear-gradient(180deg, #07080d 0%, #0d0e18 100%)`,
+    // Near-black terminal with monospace green-on-black + faint scanlines.
+    "code-terminal": `repeating-linear-gradient(180deg, transparent 0px, transparent 3px, rgba(0,255,140,0.04) 3px, rgba(0,255,140,0.04) 4px), linear-gradient(180deg, #020503 0%, #050b07 100%)`,
+    // CRT scanlines + chromatic split feel — repeating gradient stripes.
+    "retro-tv": `repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 3px), linear-gradient(180deg, #1a0820 0%, #07020a 100%)`,
+    // Data-viz — dark bg with a faint chart-grid backdrop.
+    "data-viz": `linear-gradient(0deg, ${accent}11 0%, transparent 50%), repeating-linear-gradient(0deg, transparent 0px, transparent 38px, rgba(255,255,255,0.06) 38px, rgba(255,255,255,0.06) 39px), repeating-linear-gradient(90deg, transparent 0px, transparent 38px, rgba(255,255,255,0.06) 38px, rgba(255,255,255,0.06) 39px), linear-gradient(135deg, ${base} 0%, #0a0d18 100%)`,
+    // Editorial magazine cover — warm cream with a soft vignette.
+    "magazine-cover": `radial-gradient(ellipse at 50% 50%, transparent 25%, rgba(0,0,0,0.18) 90%), linear-gradient(180deg, #f6efe2 0%, #ead9b8 100%)`,
+    // Deep space — slow-moving dot pattern simulating stars.
+    "starfield": `radial-gradient(circle at ${20 + d / 4}% 20%, #ffffff 0.5px, transparent 1.2px), radial-gradient(circle at ${70 - d / 6}% 35%, #ffffff 0.4px, transparent 1px), radial-gradient(circle at ${40 + d / 8}% 60%, #ffffff 0.6px, transparent 1.4px), radial-gradient(circle at ${85 - d / 10}% 78%, #ffffff 0.5px, transparent 1.2px), linear-gradient(180deg, #050516 0%, #0a0a28 100%)`,
   };
-  return <AbsoluteFill style={{ background: bgs[theme] || bgs["gradient-flow"], color: theme === "minimal-light" ? "#1e293b" : "#fff" }} />;
+  // Themes that read better with dark text on a light surface.
+  const lightThemes = new Set(["minimal-light", "paper-craft", "magazine-cover"]);
+  const inkColor = lightThemes.has(theme) ? "#1e293b" : "#fff";
+  return <AbsoluteFill style={{ background: bgs[theme] || bgs["gradient-flow"], color: inkColor }} />;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -159,14 +183,104 @@ function FloatingShapes({ accent, secondary, frame, dur }) {
 // Fallback Text (no elements)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function FallbackText({ headline, subtext, accent, frame }) {
+// Themes that render dark text — light backgrounds.
+const LIGHT_THEMES = new Set(["minimal-light", "paper-craft", "magazine-cover"]);
+const SERIF_THEMES = new Set(["magazine-cover", "paper-craft"]);
+const MONO_THEMES = new Set(["code-terminal", "data-viz"]);
+
+function fontStackFor(theme) {
+  if (MONO_THEMES.has(theme)) return "ui-monospace, 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace";
+  if (SERIF_THEMES.has(theme)) return "'Playfair Display', 'Times New Roman', Georgia, serif";
+  return FONT;
+}
+
+function FallbackText({ headline, subtext, accent, frame, theme = "gradient-flow" }) {
+  if (!headline && !subtext) return null;
+  const isLight = LIGHT_THEMES.has(theme);
+  const ink = isLight ? "#1e293b" : "#ffffff";
+  const subInk = isLight ? "rgba(30, 41, 59, 0.70)" : "rgba(255, 255, 255, 0.75)";
+  const font = fontStackFor(theme);
+
+  // ---- KINETIC-TYPE — words stagger in one at a time ----
+  if (theme === "kinetic-type" && headline) {
+    const words = String(headline).split(/\s+/).filter(Boolean);
+    return (
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0 24px", maxWidth: "90%" }}>
+          {words.map((w, i) => {
+            const p = interpolate(frame, [i * 4, i * 4 + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+            return (
+              <span key={i} style={{ fontSize: 84, fontWeight: 950, letterSpacing: "-0.04em", lineHeight: 0.9, color: ink, fontFamily: font, opacity: p, transform: `translateY(${(1 - p) * 36}px) scale(${0.92 + p * 0.08})`, textShadow: `0 8px 40px ${accent}66` }}>
+                {w}
+              </span>
+            );
+          })}
+        </div>
+        {subtext && (
+          <div style={{ marginTop: 32, fontSize: 26, fontWeight: 550, textAlign: "center", color: subInk, fontFamily: font, opacity: interpolate(frame, [words.length * 4 + 6, words.length * 4 + 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
+            {subtext}
+          </div>
+        )}
+      </AbsoluteFill>
+    );
+  }
+
+  // ---- CODE-TERMINAL — typewriter reveal ----
+  if (theme === "code-terminal" && headline) {
+    const fullLen = String(headline).length;
+    const charsShown = Math.min(fullLen, Math.floor(interpolate(frame, [0, fullLen * 1.6], [0, fullLen], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })));
+    const cursorOn = (frame % 24) < 14;
+    return (
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%", flexDirection: "column", color: "#7CFC9F", fontFamily: font }}>
+        <div style={{ fontSize: 56, fontWeight: 700, letterSpacing: "-0.01em", textAlign: "center", maxWidth: "90%" }}>
+          <span style={{ color: "#7CFC9F", opacity: 0.55 }}>$ </span>
+          {String(headline).slice(0, charsShown)}
+          <span style={{ opacity: cursorOn ? 1 : 0 }}>▌</span>
+        </div>
+        {subtext && (
+          <div style={{ marginTop: 24, fontSize: 22, opacity: 0.6, textAlign: "center" }}>
+            {/* "comment" styling */}
+            {`// ${subtext}`}
+          </div>
+        )}
+      </AbsoluteFill>
+    );
+  }
+
+  // ---- TICKER-TAPE — headline crawls right-to-left ----
+  if (theme === "ticker-tape" && headline) {
+    const x = interpolate(frame, [0, 90], [100, -40], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    return (
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", whiteSpace: "nowrap", fontSize: 90, fontWeight: 900, letterSpacing: "-0.02em", color: ink, fontFamily: font, left: `${x}%` }}>
+          {headline}
+        </div>
+        {subtext && <div style={{ position: "absolute", top: "78%", fontSize: 24, fontWeight: 550, color: subInk, fontFamily: font, opacity: interpolate(frame, [30, 50], [0, 1], { extrapolateRight: "clamp" }) }}>{subtext}</div>}
+      </AbsoluteFill>
+    );
+  }
+
+  // ---- MAGAZINE-COVER — large serif, big drop, centered ----
+  if (theme === "magazine-cover") {
+    const p = interpolate(frame, [0, 22], [0, 1], { extrapolateRight: "clamp" });
+    return (
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "10%", flexDirection: "column" }}>
+        <div style={{ fontSize: 22, letterSpacing: "0.35em", textTransform: "uppercase", color: `rgba(30,41,59,${0.6 * p})`, fontFamily: font, marginBottom: 16 }}>
+          Featured
+        </div>
+        {headline && <div style={{ fontSize: 88, fontWeight: 800, letterSpacing: "-0.03em", textAlign: "center", lineHeight: 0.98, color: ink, fontFamily: font, opacity: p, textWrap: "balance" }}>{headline}</div>}
+        {subtext && <div style={{ marginTop: 24, fontSize: 24, fontStyle: "italic", textAlign: "center", color: subInk, fontFamily: font, opacity: interpolate(frame, [12, 26], [0, 1], { extrapolateRight: "clamp" }) }}>{subtext}</div>}
+      </AbsoluteFill>
+    );
+  }
+
+  // ---- DEFAULT — fade-up center, theme-tinted ----
   const fadeIn = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
   const slideUp = interpolate(frame, [0, 14], [30, 0], { extrapolateRight: "clamp" });
-  if (!headline && !subtext) return null;
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "8%", opacity: fadeIn, transform: `translateY(${slideUp}px)` }}>
-      {headline && <div style={{ fontSize: 72, fontWeight: 850, letterSpacing: "-0.03em", textAlign: "center", lineHeight: 0.96, textWrap: "balance", fontFamily: FONT, textShadow: `0 4px 30px ${accent}55` }}>{headline}</div>}
-      {subtext && <div style={{ marginTop: 28, fontSize: 28, fontWeight: 550, textAlign: "center", color: "rgba(255,255,255,0.75)", textWrap: "balance", fontFamily: FONT }}>{subtext}</div>}
+      {headline && <div style={{ fontSize: 72, fontWeight: 850, letterSpacing: "-0.03em", textAlign: "center", lineHeight: 0.96, textWrap: "balance", fontFamily: font, color: ink, textShadow: `0 4px 30px ${accent}55` }}>{headline}</div>}
+      {subtext && <div style={{ marginTop: 28, fontSize: 28, fontWeight: 550, textAlign: "center", color: subInk, textWrap: "balance", fontFamily: font }}>{subtext}</div>}
     </AbsoluteFill>
   );
 }
