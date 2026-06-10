@@ -1123,17 +1123,9 @@ function gradePlanQuality(plan, script, durationSec) {
     }
   }
 
-  // 2. Every scene should have at least one visual (icon/shape/image/chart).
+  // (Removed the "scenes have no graphical elements" check — the AI no
+  // longer generates elements; the scene theme owns all visuals.)
   const scenes = Array.isArray(plan?.scenes) ? plan.scenes : [];
-  const textOnlyScenes = scenes.filter((s) => {
-    const els = Array.isArray(s.elements) ? s.elements : [];
-    return !els.some((el) => ["icon", "image", "shape", "lottie", "bar-chart"].includes(el.type));
-  });
-  if (textOnlyScenes.length) {
-    warnings.push(
-      `${textOnlyScenes.length} of ${scenes.length} scene(s) have no graphical elements — they'll feel text-heavy.`
-    );
-  }
 
   // 3. Headline length sanity.
   const longHeadlines = scenes.filter(
