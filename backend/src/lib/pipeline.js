@@ -424,8 +424,6 @@ async function generateWithOpenAI(
   purpose,
   lottieAssetIds,
   lottieAssetPrompt,
-  avoidance,
-  briefing,
   referenceImage
 ) {
   // Build user message — text only, or multimodal with reference image.
