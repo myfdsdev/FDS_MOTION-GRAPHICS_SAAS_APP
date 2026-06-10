@@ -529,7 +529,7 @@ async function generateWithGemini(
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: createGeminiResponseSchema(lottieAssetIds),
-        temperature: briefing?.temperature ?? 0.7,
+        temperature: 0.7,
       },
     }),
   });
@@ -1031,12 +1031,6 @@ async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
   const lottieAssetIds = lottieAssets.map((asset) => asset.id);
   const lottieAssetPrompt = lottieAssetPromptListFromSummaries(lottieAssets);
 
-  const avoidance = await getAvoidanceHints(userId).catch(() => null);
-  const briefing = pickCopyBriefing();
-  console.log(
-    `[pipeline] copy brief: voice="${briefing.voice.slice(0, 32)}…" hook="${briefing.hook.slice(0, 32)}…" T=${briefing.temperature}`
-  );
-
   let payload, lastErr;
   for (const config of configs) {
     try {
@@ -1044,7 +1038,7 @@ async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
         ? generateWithOpenAI : generateWithGemini;
       payload = await withRetry(() =>
         genFn(prompt, durationSec, config, userId, "video_generation",
-          lottieAssetIds, lottieAssetPrompt, avoidance, briefing, referenceImage)
+          lottieAssetIds, lottieAssetPrompt, referenceImage)
       );
       break; // success
     } catch (err) {
