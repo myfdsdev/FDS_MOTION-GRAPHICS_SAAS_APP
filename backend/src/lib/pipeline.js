@@ -23,7 +23,7 @@ import {
 import { decryptSecret } from "./secrets.js";
 import { getAppSettings } from "./settings.js";
 import { SCENE_THEMES, VIDEO_CATEGORIES } from "./videoAssets.js";
-import { getAvoidanceHints, recordVideoSignature } from "./variety.js";
+// variety.js retained on disk for future use but no longer imported.
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -1109,17 +1109,6 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
     );
 
     const { script, plan } = await generateVideoPlan(prompt, durationSec, userId, referenceImage);
-
-    // Stamp the project's structureSeed (random per-video) and the user's
-    // structureSeed onto the plan so the renderer's variant picker derives a
-    // unique chrome/grid/align combo every time, even for repeat prompts.
-    const projectDoc = await Project.findById(projectId).select("structureSeed");
-    const userDoc = await User.findById(userId).select("structureSeed");
-    plan.structureSeed = (projectDoc?.structureSeed ?? 0) ^ (userDoc?.structureSeed ?? 0);
-
-    // Persist this video's structural signature on the user so the NEXT
-    // generation knows what to avoid. Power-user variety engine.
-    await recordVideoSignature(userId, projectId, plan).catch(() => {});
 
     // ---- CODE-GEN: Generate Remotion JSX code for this video ----
     // The AI writes a complete React component that IS the video. This runs
