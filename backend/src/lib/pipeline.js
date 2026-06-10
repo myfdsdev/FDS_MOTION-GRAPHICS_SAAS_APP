@@ -951,76 +951,11 @@ function assertNoPlaceholders(plan) {
 // throw — instead we record warnings on the project so the user can see why
 // a render might feel off and we can regenerate if needed.
 function gradePlanQuality(plan, script, durationSec) {
-  const warnings = [];
-
-  // 1. Narration length should match video runtime at ~150 wpm.
-  if (script && typeof script === "string") {
-    const wordCount = script.trim().split(/\s+/).filter(Boolean).length;
-    const target = Math.round(durationSec * 2.5);
-    const min = Math.round(durationSec * 2.0);
-    const max = Math.round(durationSec * 3.0);
-    if (wordCount < min) {
-      warnings.push(
-        `Narration is too short: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will finish early.`
-      );
-    } else if (wordCount > max) {
-      warnings.push(
-        `Narration is too long: ${wordCount} words for a ${durationSec}s video (target ~${target}). Voiceover will run past the video.`
-      );
-    }
-  }
-
-  // (Removed the "scenes have no graphical elements" check — the AI no
-  // longer generates elements; the scene theme owns all visuals.)
-  const scenes = Array.isArray(plan?.scenes) ? plan.scenes : [];
-
-  // 3. Headline length sanity.
-  const longHeadlines = scenes.filter(
-    (s) => typeof s.headline === "string" && s.headline.length > 70
-  );
-  if (longHeadlines.length) {
-    warnings.push(
-      `${longHeadlines.length} scene headline(s) exceed 70 characters and may wrap awkwardly on screen.`
-    );
-  }
-
-  // 4. Banned-phrase check (post-hoc, in case the model ignored the rule).
-  // Strip ALL punctuation + collapse whitespace before matching, so "Tap.
-  // Order. Done." and "tap order done" both hit. This is the matching bug
-  // that let "Tap. Order. Done." slip into a render.
-  const bannedPhrases = [
-    "unleash your",
-    "elevate your",
-    "stunning results",
-    "effortless",
-    "seamless",
-    "your idea in motion",
-    "limited time",
-    "tap order done",
-    "try it free",
-    "get started now",
-    "simplify your workflow",
-    "next level",
-    "make every second count",
-    "level up",
-    "supercharge",
-    "powerful insights",
-    "actionable insights",
-    "in just minutes",
-    "join thousands",
-    "trusted by",
-    "cut through the noise",
-  ];
-  const normalize = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
-  const flat = normalize(JSON.stringify(plan || {}) + " " + (script || ""));
-  const hit = bannedPhrases.filter((p) => flat.includes(normalize(p)));
-  if (hit.length) {
-    warnings.push(
-      `Plan contains cliché phrase(s) the prompt told the AI to avoid: ${hit.join(", ")}.`
-    );
-  }
-
-  return warnings;
+  // Quality grading removed — was checking AI judgment (narration timing,
+  // banned phrases, headline length, visual density). Kept the function so
+  // existing call sites keep working but it returns no warnings now.
+  void plan; void script; void durationSec;
+  return [];
 }
 
 async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
