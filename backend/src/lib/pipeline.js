@@ -348,111 +348,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
                 sceneTheme: { type: "STRING", enum: SCENE_THEMES },
                 animation: { type: "STRING", enum: animations },
                 transition: { type: "STRING", enum: transitions },
-                // *** THE FIX *** — same root cause as OpenAI: without this
-                // entry, Gemini's structured output drops every element and
-                // you get text-only videos.
-                elements: {
-                  type: "ARRAY",
-                  items: {
-                    type: "OBJECT",
-                    properties: {
-                      type: {
-                        type: "STRING",
-                        enum: ["text", "icon", "image", "shape", "bar-chart", "line-chart", "stat", "subtitle", "svg", "glow", "progress-ring"],
-                      },
-                      x: { type: "NUMBER" },
-                      y: { type: "NUMBER" },
-                      w: { type: "NUMBER" },
-                      h: { type: "NUMBER" },
-                      rotation: { type: "NUMBER" },
-                      // Per-element entrance/exit animation
-                      animation: {
-                        type: "OBJECT",
-                        properties: {
-                          in: {
-                            type: "OBJECT",
-                            properties: {
-                              kind: { type: "STRING", enum: ["fade", "slide-left", "slide-right", "slide-up", "slide-down", "zoom-in", "zoom-out", "scale", "pop"] },
-                              at: { type: "NUMBER" },
-                              duration: { type: "NUMBER" },
-                            },
-                            required: ["kind", "at", "duration"],
-                          },
-                          out: {
-                            type: "OBJECT",
-                            properties: {
-                              kind: { type: "STRING", enum: ["fade", "slide-left", "slide-right", "slide-up", "slide-down", "zoom-in", "zoom-out", "scale", "pop"] },
-                              at: { type: "NUMBER" },
-                              duration: { type: "NUMBER" },
-                            },
-                            required: ["kind", "at", "duration"],
-                          },
-                        },
-                      },
-                      text: { type: "STRING" },
-                      color: { type: "STRING" },
-                      size: { type: "NUMBER" },
-                      weight: { type: "INTEGER" },
-                      align: { type: "STRING", enum: ["left", "center", "right"] },
-                      font: { type: "STRING" },
-                      name: { type: "STRING", enum: ICON_VOCAB },
-                      src: { type: "STRING" },
-                      fit: { type: "STRING", enum: ["cover", "contain"] },
-                      shape: { type: "STRING", enum: ["rect", "ellipse"] },
-                      fill: { type: "STRING" },
-                      stroke: { type: "STRING" },
-                      strokeWidth: { type: "NUMBER" },
-                      radius: { type: "NUMBER" },
-                      title: { type: "STRING" },
-                      subtitle: { type: "STRING" },
-                      rows: {
-                        type: "ARRAY",
-                        items: {
-                          type: "OBJECT",
-                          properties: {
-                            label: { type: "STRING" },
-                            value: { type: "NUMBER" },
-                          },
-                          required: ["label", "value"],
-                        },
-                      },
-                      points: {
-                        type: "ARRAY",
-                        items: {
-                          type: "OBJECT",
-                          properties: {
-                            label: { type: "STRING" },
-                            value: { type: "NUMBER" },
-                          },
-                          required: ["value"],
-                        },
-                      },
-                      line: { type: "STRING" },
-                      finalValue: { type: "NUMBER" },
-                      finalLabel: { type: "STRING" },
-                      valuePrefix: { type: "STRING" },
-                      valueSuffix: { type: "STRING" },
-                      showGrid: { type: "BOOLEAN" },
-                      animationDuration: { type: "NUMBER" },
-                      value: { type: "NUMBER" },
-                      label: { type: "STRING" },
-                      caption: { type: "STRING" },
-                      accent: { type: "STRING" },
-                      sparkline: { type: "ARRAY", items: { type: "NUMBER" } },
-                      countUp: { type: "BOOLEAN" },
-                      bg: { type: "STRING" },
-                      fg: { type: "STRING" },
-                      bar: { type: "STRING" },
-                      paths: { type: "STRING" },
-                      viewBox: { type: "STRING" },
-                      blur: { type: "NUMBER" },
-                      pulse: { type: "BOOLEAN" },
-                      trackColor: { type: "STRING" },
-                      thickness: { type: "NUMBER" },
-                    },
-                    required: ["type", "x", "y", "w", "h"],
-                  },
-                },
+                // elements field removed — themes own the visuals now.
               },
               required: [
                 "scene",
@@ -461,7 +357,6 @@ function createGeminiResponseSchema(lottieAssetIds) {
                 "sceneTheme",
                 "animation",
                 "transition",
-                "elements",
               ],
             },
           },
@@ -1178,127 +1073,11 @@ function sanitizePlan(plan) {
         sceneTheme: s?.sceneTheme || s?.sceneTemplate || "gradient-flow",
       };
 
-      // Stamp ids + z + sensible defaults onto every AI-generated element.
-      // The structured-output schema can't require fields the AI shouldn't
-      // worry about (random ids, stacking order), so we add them here.
-      if (Array.isArray(s?.elements)) {
-        scene.elements = s.elements.slice(0, 8).map((el, j) => {
-          // Enforce minimum element size — 4% of frame width/height. Anything
-          // smaller is invisible at typical viewing sizes (the AI sometimes
-          // emits 0.01 thinking it's pixels).
-          const minDim = 0.04;
-          // Staggered entrance animations — each element enters slightly
-          // later than the previous one, creating the motion-graphics feel.
-          const staggerKinds = ["slide-up", "fade", "pop", "zoom-in", "slide-left"];
-          const defaultAnim = {
-            in: {
-              kind: staggerKinds[j % staggerKinds.length],
-              at: Math.round(j * 0.2 * 100) / 100,
-              duration: 0.4,
-            },
-          };
-          const base = {
-            id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
-            x: clampFrac(el?.x, 0.1),
-            y: clampFrac(el?.y, 0.5),
-            w: Math.max(minDim, clampFrac(el?.w, 0.2)),
-            h: Math.max(minDim, clampFrac(el?.h, 0.1)),
-            rotation: Number(el?.rotation) || 0,
-            z: j,
-            // Use AI-provided animation if present, otherwise staggered default.
-            animation: el?.animation?.in ? el.animation : defaultAnim,
-          };
-          // Pass through type-specific fields the schema collected, with
-          // per-field sanitization to absorb the AI's small mistakes (font
-          // weight outside 100-900, "transparent" instead of #hex, etc.) so
-          // they don't blow up Zod validation and fail the whole project.
-          const passthrough = [
-            "type", "text", "color", "size", "weight", "align", "font",
-            "name", "src", "fit",
-            "shape", "fill", "stroke", "strokeWidth", "radius",
-            "title", "subtitle", "rows", "accent", "axisMax",
-            "showAxis", "showValues", "valueSuffix", "bg", "fg", "bar",
-            "points", "line", "finalValue", "finalLabel", "valuePrefix",
-            "value", "label", "caption", "sparkline", "countUp", "showGrid",
-            "animationDuration",
-            // SVG illustration
-            "paths", "viewBox",
-            // Glow orb
-            "blur", "pulse",
-            // Progress ring
-            "trackColor", "thickness",
-          ];
-          // Hex-only color fields. If the AI emits "transparent", "none",
-          // "black", "rgb(…)", or any non-hex value, drop the field entirely
-          // — they're all optional, the renderer falls back to brand colors.
-          const hexFields = new Set([
-            "color", "fill", "stroke", "accent", "bg", "fg", "bar", "line", "trackColor",
-          ]);
-          // Strict-range numeric fields. Each is { min, max, default? }.
-          // `default` is used when the AI emits something completely
-          // unparseable (NaN, string, etc.) — otherwise we clamp to min/max.
-          const numericRanges = {
-            weight: { min: 100, max: 900, step: 100 },     // font weight
-            size: { min: 0.005, max: 1 },                  // font size frac
-            strokeWidth: { min: 0, max: 100 },
-            radius: { min: 0, max: 500 },
-            axisMax: { min: 1, max: 10000 },
-            animationDuration: { min: 0.05, max: 60 },
-          };
-          for (const key of passthrough) {
-            const v = el?.[key];
-            if (v === undefined || v === null) continue;
-            if (hexFields.has(key)) {
-              // Only accept #rgb / #rrggbb / #rrggbbaa.
-              if (typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v.trim())) {
-                base[key] = v.trim();
-              }
-              // Otherwise: drop. Field is optional everywhere.
-            } else if (key in numericRanges) {
-              const n = Number(v);
-              const { min, max, step } = numericRanges[key];
-              if (Number.isFinite(n)) {
-                let clamped = Math.max(min, Math.min(max, n));
-                if (step) clamped = Math.round(clamped / step) * step;
-                base[key] = clamped;
-              }
-              // Unparseable → omit, Zod's optional() takes over.
-            } else {
-              base[key] = v;
-            }
-          }
-          // Sensible per-type defaults so Zod doesn't reject minimal elements.
-          if (base.type === "bar-chart") {
-            if (!Array.isArray(base.rows) || !base.rows.length) {
-              base.rows = [{ label: "Item", value: 50 }];
-            }
-          }
-          if (base.type === "shape" && !base.shape) base.shape = "rect";
-          if (base.type === "icon" && !base.name) base.name = "Sparkles";
-          if (base.type === "line-chart") {
-            if (!Array.isArray(base.points) || base.points.length < 2) {
-              base.points = [
-                { label: "Q1", value: 20 },
-                { label: "Q2", value: 35 },
-                { label: "Q3", value: 60 },
-                { label: "Q4", value: 92 },
-              ];
-            }
-            if (typeof base.finalValue !== "number") {
-              base.finalValue = base.points[base.points.length - 1].value;
-            }
-          }
-          if (base.type === "stat") {
-            if (typeof base.value !== "number") base.value = 0;
-          }
-          // Clamp so the element box doesn't extend past the right/bottom
-          // edge of the canvas — the AI sometimes picks x=0.9 + w=0.4 which
-          // pushes 30% of the element off-screen.
-          if (base.x + base.w > 1) base.w = Math.max(minDim, 1 - base.x);
-          if (base.y + base.h > 1) base.h = Math.max(minDim, 1 - base.y);
-          return base;
-        });
-      }
+      // Element handling fully removed — AI no longer generates icons,
+      // shapes, charts, or per-element animations. The scene theme owns the
+      // visuals. If the user manually adds elements via the editor those
+      // still render, but the AI pipeline never produces any.
+      delete scene.elements;
 
       return scene;
     });
