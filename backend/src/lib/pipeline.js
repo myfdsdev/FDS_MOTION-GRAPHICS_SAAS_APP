@@ -192,7 +192,8 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
     properties: {
       script: {
         type: "string",
-        description: "Four to six short video script lines separated by newlines.",
+        description: "Full narration script for the voiceover. One continuous paragraph (or short newline-separated lines, one per scene). At ~150 words/minute it must take the full video duration to read aloud — this is what gets sent to TTS.",
+        minLength: 30,
       },
       plan: {
         type: "object",
@@ -215,8 +216,6 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
             items: {
               type: "object",
               additionalProperties: false,
-              // elements removed — AI only writes copy + picks theme/animation
-              // /transition. The scene theme owns all the visuals.
               required: [
                 "scene",
                 "duration",
@@ -235,6 +234,52 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
                 sceneTheme: { type: "string", enum: SCENE_THEMES },
                 animation: { type: "string", enum: animations },
                 transition: { type: "string", enum: transitions },
+                // Optional foreground components. Each entry picks ONE
+                // component by name from the registry; props is free-form so
+                // each component's own defaults handle missing fields.
+                elements: {
+                  type: "array",
+                  maxItems: 6,
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["component", "x", "y", "w", "h"],
+                    properties: {
+                      component: {
+                        type: "string",
+                        enum: [
+                          // text
+                          "TextReveal", "WordReveal", "TypewriterText", "GradientText", "CounterText",
+                          // ui
+                          "MouseCursor", "ButtonClick", "TypingInput", "BrowserWindow", "PhoneMockup",
+                          // product
+                          "FeatureCard", "PricingCard", "TestimonialCard", "StatsCounter", "LogoWall",
+                          // motion
+                          "GradientBlob", "LightSweep", "ParticleField", "GlowRing", "ConfettiBurst",
+                          // media
+                          "ImageScene", "ZoomPanImage", "LogoIntro",
+                          // travel
+                          "MapRoute", "LocationPin", "BoardingPass",
+                          // ecommerce
+                          "ProductCard", "PriceTag", "ReviewStars",
+                          // social
+                          "InstagramPostMockup", "LikeCounter", "CommentBubble",
+                          // tech
+                          "ChatBubble", "AIThinkingDots", "VoiceWaveform", "CodeBlockReveal",
+                          // transitions (use as overlays)
+                          "FadeTransition", "SlideTransition", "WipeTransition", "GlitchTransition",
+                        ],
+                      },
+                      x: { type: "number", minimum: 0, maximum: 1 },
+                      y: { type: "number", minimum: 0, maximum: 1 },
+                      w: { type: "number", minimum: 0.04, maximum: 1 },
+                      h: { type: "number", minimum: 0.04, maximum: 1 },
+                      // Props is intentionally untyped — each component reads
+                      // its own field set via withDefaults().
+                      props: { type: "object", additionalProperties: true },
+                    },
+                  },
+                },
               },
             },
           },
@@ -273,7 +318,35 @@ function createGeminiResponseSchema(lottieAssetIds) {
                 sceneTheme: { type: "STRING", enum: SCENE_THEMES },
                 animation: { type: "STRING", enum: animations },
                 transition: { type: "STRING", enum: transitions },
-                // elements field removed — themes own the visuals now.
+                elements: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      component: {
+                        type: "STRING",
+                        enum: [
+                          "TextReveal", "WordReveal", "TypewriterText", "GradientText", "CounterText",
+                          "MouseCursor", "ButtonClick", "TypingInput", "BrowserWindow", "PhoneMockup",
+                          "FeatureCard", "PricingCard", "TestimonialCard", "StatsCounter", "LogoWall",
+                          "GradientBlob", "LightSweep", "ParticleField", "GlowRing", "ConfettiBurst",
+                          "ImageScene", "ZoomPanImage", "LogoIntro",
+                          "MapRoute", "LocationPin", "BoardingPass",
+                          "ProductCard", "PriceTag", "ReviewStars",
+                          "InstagramPostMockup", "LikeCounter", "CommentBubble",
+                          "ChatBubble", "AIThinkingDots", "VoiceWaveform", "CodeBlockReveal",
+                          "FadeTransition", "SlideTransition", "WipeTransition", "GlitchTransition",
+                        ],
+                      },
+                      x: { type: "NUMBER" },
+                      y: { type: "NUMBER" },
+                      w: { type: "NUMBER" },
+                      h: { type: "NUMBER" },
+                      props: { type: "OBJECT" },
+                    },
+                    required: ["component", "x", "y", "w", "h"],
+                  },
+                },
               },
               required: [
                 "scene",
@@ -356,20 +429,92 @@ export async function generationConfigError(userId) {
 }
 
 function systemPrompt(durationSec, lottieAssetPrompt) {
+  // Narration is voiced at ~150 words/minute = 2.5 words/sec, so a
+  // duration-matched script needs roughly this many words total.
+  const targetWords = Math.round(durationSec * 2.5);
+  const minWords = Math.round(durationSec * 2.2);
+  const maxWords = Math.round(durationSec * 2.8);
+
   const lines = [
-    "You are a motion-graphics director.",
+    "You are a motion-graphics director and explainer-video copywriter.",
     "Return only valid JSON that matches the requested schema.",
     `Create a ${durationSec}-second video plan from the user's prompt.`,
-    "Use 3 to 5 scenes. Each scene text must be short and suitable for on-screen typography.",
-    `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
+    "Use 3 to 5 scenes.",
+
+    // ---- NARRATION (this fixes the silent / mismatched-length voiceover) ----
+    "NARRATION — this is critical. The top-level `script` field is what gets read aloud as the voiceover.",
+    `  · The combined script must take ${durationSec} seconds at 150 words/minute. Target ${targetWords} words. Acceptable range ${minWords}-${maxWords}.`,
+    "  · Write it as a single human-sounding voiceover that flows scene to scene — not a list of taglines, not a JSON-y outline.",
+    "  · Address the viewer as 'you'. Use contractions. Open with a hook (problem, question, or specific moment), explain the value, end with a clear next step.",
+    "  · Mirror each scene's narration into that scene's `text` field too (the per-scene chunk), so the renderer can sync subtitles if needed.",
+
+    // ---- ON-SCREEN TEXT ----
+    "Put each scene's short on-screen title in `headline` (≤ 7 words, ≤ 60 chars) and a short subtitle in `subtext` (≤ 12 words).",
+    "Headlines and subtext are different from narration — they're the TYPOGRAPHY shown on screen, while narration is the SPOKEN script.",
+
+    // ---- THEME & MOTION ----
     `Available scene themes (animated backgrounds): ${SCENE_THEMES.join(", ")}.`,
-    `Available animations: ${animations.join(", ")}.`,
-    `Available transitions: ${transitions.join(", ")}.`,
-    "For every scene, choose one sceneTheme, one animation, and one transition from the allowed lists.",
-    "Put the scene's title in `headline`, the subtitle in `subtext`, and the narration in `text`.",
+    `Available scene-entrance animations: ${animations.join(", ")}.`,
+    `Available scene-to-scene transitions: ${transitions.join(", ")}.`,
+    `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
+    "For every scene, choose ONE sceneTheme, ONE animation, ONE transition. Mix themes across scenes — no two adjacent scenes should share the same theme.",
+
+    // ---- COMPONENTS (animated foreground pieces) ----
+    "Each scene MAY include an `elements[]` array of 0-4 animated components placed on top of the theme. Pick the right one for the scene's job. Empty `elements` is FINE — the theme alone is rich.",
+    "Each element is { component, x, y, w, h, props } where x/y/w/h are fractions of the frame (0..1, w/h ≥ 0.04), and `props` is an object of values specific to that component (all props are optional; sensible defaults are used).",
+    "AVOID the centered headline zone (y 0.30-0.55, x 0.15-0.85) and DON'T overlap elements.",
+    "Available components, grouped by category:",
+    "  text — animated typography:",
+    "    · TextReveal { text, fontSize, fontWeight, color, align, delay, duration }  — whole-string fade-up",
+    "    · WordReveal { text, fontSize, color, align, staggerMs }  — words stagger in one by one",
+    "    · TypewriterText { text, fontSize, color, charsPerSec, cursor }  — types out letter by letter",
+    "    · GradientText { text, fontSize, fromColor, toColor, angle }  — text with a gradient fill",
+    "    · CounterText { from, to, durationFrames, prefix, suffix, fontSize, color }  — number counts up",
+    "  ui — interface mockups:",
+    "    · MouseCursor { from:{x,y}, to:{x,y}, durationFrames }  — cursor moves between points",
+    "    · ButtonClick { label, color, bgColor, clickAtFrame }  — button with a click press animation",
+    "    · TypingInput { placeholder, text, charsPerSec, focusColor }  — input field with typing",
+    "    · BrowserWindow { url, title }  — Mac-style browser chrome",
+    "    · PhoneMockup { color, screen }  — phone outline with optional inner screen content",
+    "  product — marketing tiles:",
+    "    · FeatureCard { title, body, icon, color }  — title + description card",
+    "    · PricingCard { tier, price, period, perks:[strings], highlight }",
+    "    · TestimonialCard { quote, author, role, avatar }",
+    "    · StatsCounter { value, label, prefix, suffix }  — big animated number with label",
+    "    · LogoWall { logos:[urls] }  — grid of logos",
+    "  motion — ambient atmosphere:",
+    "    · GradientBlob { color, blur, drift }  — slow-drifting soft blob",
+    "    · LightSweep { color, durationFrames }  — diagonal light sweep",
+    "    · ParticleField { count, color, speed }  — drifting particles",
+    "    · GlowRing { color, radius, pulse }  — pulsing ring",
+    "    · ConfettiBurst { count, colors, durationFrames }  — celebration burst",
+    "  media:",
+    "    · ImageScene { src, fit }  — full image with subtle motion",
+    "    · ZoomPanImage { src, from:{x,y,scale}, to:{x,y,scale}, durationFrames }",
+    "    · LogoIntro { src, durationFrames }  — logo reveal",
+    "  travel:",
+    "    · MapRoute { from, to, color }  — line drawing across a map background",
+    "    · LocationPin { label }  — animated pin drop",
+    "    · BoardingPass { from, to, flight, date }",
+    "  ecommerce:",
+    "    · ProductCard { title, image, price, rating }",
+    "    · PriceTag { price, currency, struckPrice }",
+    "    · ReviewStars { rating, count }",
+    "  social:",
+    "    · InstagramPostMockup { username, avatar, image, caption, likes }",
+    "    · LikeCounter { from, to, durationFrames }  — animated like counter",
+    "    · CommentBubble { author, text }",
+    "  tech:",
+    "    · ChatBubble { role:'user'|'bot', text, avatar }",
+    "    · AIThinkingDots { color }  — three pulsing dots",
+    "    · VoiceWaveform { color, intensity }",
+    "    · CodeBlockReveal { code, language, theme }  — code reveals line by line",
+    "  transitions (use as fullscreen overlays):",
+    "    · FadeTransition, SlideTransition, WipeTransition, GlitchTransition  { color, durationFrames, direction? }",
+    "Hex colors only (#RRGGBB). Pick 0-4 components per scene. Choose the component that MATCHES the scene's job — e.g. a pricing scene → PricingCard, a code-demo scene → BrowserWindow + CodeBlockReveal, a stats scene → StatsCounter.",
+
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
-    "No labels inside the script. No markdown.",
-    "Color fields (brandColors) MUST be #RRGGBB hex strings only.",
+    "No markdown.",
   ];
   return lines.join(" ");
 }
@@ -959,11 +1104,33 @@ function sanitizePlan(plan) {
         sceneTheme: s?.sceneTheme || s?.sceneTemplate || "gradient-flow",
       };
 
-      // Element handling fully removed — AI no longer generates icons,
-      // shapes, charts, or per-element animations. The scene theme owns the
-      // visuals. If the user manually adds elements via the editor those
-      // still render, but the AI pipeline never produces any.
-      delete scene.elements;
+      // Slim element sanitizer — clamps coordinates, ensures minimum size,
+      // keeps the bounding box on-frame. `props` is opaque: each component
+      // owns its own defaults via withDefaults(), so we pass it through.
+      if (Array.isArray(s?.elements) && s.elements.length) {
+        const minDim = 0.04;
+        scene.elements = s.elements.slice(0, 6).map((el, j) => {
+          const x = clampFrac(el?.x, 0.1);
+          const y = clampFrac(el?.y, 0.5);
+          let w = Math.max(minDim, clampFrac(el?.w, 0.4));
+          let h = Math.max(minDim, clampFrac(el?.h, 0.3));
+          if (x + w > 1) w = Math.max(minDim, 1 - x);
+          if (y + h > 1) h = Math.max(minDim, 1 - y);
+          return {
+            id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
+            z: j,
+            // Preserve "component" (the new name) AND "type" as an alias so
+            // any older renderer code paths reading el.type still resolve.
+            component: el?.component || el?.type || "TextReveal",
+            type: el?.component || el?.type || "TextReveal",
+            x, y, w, h,
+            rotation: Number(el?.rotation) || 0,
+            props: el?.props && typeof el.props === "object" ? el.props : {},
+          };
+        });
+      } else {
+        delete scene.elements;
+      }
 
       return scene;
     });

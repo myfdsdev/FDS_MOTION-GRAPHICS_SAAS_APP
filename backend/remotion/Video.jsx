@@ -24,6 +24,9 @@ import {
 } from "remotion";
 import { getSceneStyle } from "./animations.js";
 import { getElementMotion } from "./elementMotion.js";
+// Registry of 40 animated components the AI can pick from. Each one is a
+// self-contained React component that reads its own props via withDefaults.
+import { REGISTRY } from "./generated/lib/components/registry.js";
 
 const DEFAULT_COLORS = ["#0f172a", "#8b5cf6", "#38bdf8", "#34d399"];
 const FONT = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
@@ -308,21 +311,16 @@ function ElementsLayer({ elements, width, height, sceneTime, sceneDuration }) {
 // ── Element Body Renderers ───────────────────────────────────────────────
 
 function ElBody({ el, height }) {
-  switch (el.type) {
-    case "text": return <TextEl el={el} height={height} />;
-    case "icon": return <IconEl el={el} />;
-    case "image": return <ImageEl el={el} />;
-    case "shape": return <ShapeEl el={el} />;
-    case "svg": return <SvgEl el={el} />;
-    case "glow": return <GlowEl el={el} />;
-    case "progress-ring": return <ProgressRingEl el={el} />;
-    case "bar-chart": return <BarChartEl el={el} height={height} />;
-    case "line-chart": return <LineChartEl el={el} height={height} />;
-    case "stat": return <StatEl el={el} height={height} />;
-    case "subtitle": return <SubtitleEl el={el} height={height} />;
-    case "lottie": return el.animationData ? <Lottie animationData={el.animationData} loop={el.loop !== false} playbackRate={el.speed || 1} style={{ width: "100%", height: "100%" }} /> : null;
-    default: return null;
+  // AI now picks from the 40-component REGISTRY. `el.component` is the
+  // canonical name; we still accept `el.type` as an alias so any older
+  // saved plans keep rendering.
+  const name = el.component || el.type;
+  const Component = name ? REGISTRY[name] : null;
+  if (Component) {
+    return <Component {...(el.props || {})} />;
   }
+  // Silent fallback so missing/unknown components never break the render.
+  return null;
 }
 
 function TextEl({ el, height }) {
