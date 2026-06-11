@@ -1105,9 +1105,8 @@ function sanitizePlan(plan) {
         sceneTheme: s?.sceneTheme || s?.sceneTemplate || "gradient-flow",
       };
 
-      // Slim element sanitizer — clamps coordinates, ensures minimum size,
-      // keeps the bounding box on-frame. `props` is opaque: each component
-      // owns its own defaults via withDefaults(), so we pass it through.
+      // Slim element sanitizer: clamps coordinates, keeps the bounding box
+      // on-frame, and enriches weak component props with scene-specific copy.
       if (Array.isArray(s?.elements) && s.elements.length) {
         const minDim = 0.04;
         scene.elements = s.elements.slice(0, 6).map((el, j) => {
@@ -1146,9 +1145,11 @@ function clampFrac(n, fallback) {
 }
 
 function defaultComponentProps(component, scene, sceneIndex, elementIndex, rawProps) {
-  const props = rawProps && typeof rawProps === "object" && !Array.isArray(rawProps) ? rawProps : {};
-  const headline = sceneText(scene?.headline, scene?.text, "Launch faster");
-  const subtext = sceneText(scene?.subtext, scene?.visual, scene?.text, "Make every scene feel designed");
+  const props = cleanComponentProps(rawProps);
+  const headlineRaw = sceneText(scene?.headline, scene?.text, "Launch faster");
+  const subtextRaw = sceneText(scene?.subtext, scene?.visual, scene?.text, "Make every scene feel designed");
+  const headline = firstWords(headlineRaw, 8) || "Launch faster";
+  const subtext = firstWords(subtextRaw, 14) || "Make every scene feel designed";
   const visual = sceneText(scene?.visual, scene?.subtext, scene?.text, headline);
   const accent = pickAccent(sceneIndex);
   const shortHeadline = firstWords(headline, 5);
@@ -1414,6 +1415,17 @@ function defaultComponentProps(component, scene, sceneIndex, elementIndex, rawPr
 
 function sceneText(...values) {
   return values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
+}
+
+function cleanComponentProps(rawProps) {
+  if (!rawProps || typeof rawProps !== "object" || Array.isArray(rawProps)) return {};
+  return Object.fromEntries(
+    Object.entries(rawProps).filter(([, value]) => {
+      if (value == null) return false;
+      if (typeof value === "string" && !value.trim()) return false;
+      return true;
+    }),
+  );
 }
 
 function firstWords(value, count) {
