@@ -1117,14 +1117,15 @@ function sanitizePlan(plan) {
           let h = Math.max(minDim, clampFrac(el?.h, 0.3));
           if (x + w > 1) w = Math.max(minDim, 1 - x);
           if (y + h > 1) h = Math.max(minDim, 1 - y);
+          const component = el?.component || el?.type || "TextReveal";
           return {
             id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
             z: j,
-            component: el?.component || el?.type || "TextReveal",
+            component,
             type: "component",
             x, y, w, h,
             rotation: Number(el?.rotation) || 0,
-            props: el?.props && typeof el.props === "object" ? el.props : {},
+            props: defaultComponentProps(component, scene, i, j, el?.props),
           };
         });
       } else {
@@ -1142,6 +1143,300 @@ function clampFrac(n, fallback) {
   const v = Number(n);
   if (!Number.isFinite(v)) return fallback;
   return Math.max(0, Math.min(1, v));
+}
+
+function defaultComponentProps(component, scene, sceneIndex, elementIndex, rawProps) {
+  const props = rawProps && typeof rawProps === "object" && !Array.isArray(rawProps) ? rawProps : {};
+  const headline = sceneText(scene?.headline, scene?.text, "Launch faster");
+  const subtext = sceneText(scene?.subtext, scene?.visual, scene?.text, "Make every scene feel designed");
+  const visual = sceneText(scene?.visual, scene?.subtext, scene?.text, headline);
+  const accent = pickAccent(sceneIndex);
+  const shortHeadline = firstWords(headline, 5);
+  const shortSubtext = firstWords(subtext, 11);
+  const metric = 1200 + sceneIndex * 650;
+  const delay = Math.max(0, elementIndex * 6);
+
+  const defaults = {
+    TextReveal: {
+      text: elementIndex === 0 ? headline : subtext,
+      fontSize: elementIndex === 0 ? 74 : 34,
+      fontWeight: elementIndex === 0 ? 900 : 650,
+      color: "#ffffff",
+      align: "center",
+      delay,
+      duration: 24,
+    },
+    WordReveal: {
+      text: headline,
+      fontSize: 70,
+      fontWeight: 850,
+      color: "#ffffff",
+      align: "center",
+      delay,
+      framesPerWord: 4,
+    },
+    TypewriterText: {
+      text: shortSubtext,
+      fontSize: 34,
+      color: "#ffffff",
+      charsPerSec: 18,
+      cursor: true,
+      delay,
+    },
+    GradientText: {
+      text: headline,
+      fontSize: 74,
+      fromColor: "#ffffff",
+      toColor: accent,
+      angle: 25,
+    },
+    CounterText: {
+      from: 0,
+      to: metric,
+      suffix: "+",
+      fontSize: 76,
+      color: "#ffffff",
+      durationFrames: 42,
+    },
+    MouseCursor: {
+      from: { x: 24, y: 24 },
+      to: { x: 78, y: 62 },
+      durationFrames: 38,
+    },
+    ButtonClick: {
+      label: ctaText(sceneIndex),
+      color: "#ffffff",
+      background: accent,
+      bgColor: accent,
+      clickAtFrame: 28,
+      radius: 999,
+    },
+    TypingInput: {
+      placeholder: "Describe your video...",
+      text: shortHeadline,
+      charsPerSec: 16,
+      focusColor: accent,
+    },
+    BrowserWindow: {
+      url: "app.local/create",
+      title: shortHeadline,
+      background: "#ffffff",
+      chromeBackground: "#eef2ff",
+    },
+    PhoneMockup: {
+      frameColor: "#0f172a",
+      screenBackground: `linear-gradient(160deg, ${accent} 0%, #111827 100%)`,
+    },
+    FeatureCard: {
+      icon: "*",
+      title: shortHeadline,
+      description: shortSubtext,
+      accent,
+      background: "rgba(255,255,255,0.08)",
+      color: "#f8fafc",
+    },
+    PricingCard: {
+      plan: "Launch",
+      price: priceForScene(sceneIndex),
+      period: "/mo",
+      features: [firstWords(headline, 3), firstWords(subtext, 4), "HD export", "Fast delivery"],
+      cta: ctaText(sceneIndex),
+      highlighted: true,
+      accent,
+    },
+    TestimonialCard: {
+      quote: shortSubtext,
+      author: "Happy customer",
+      role: "Early user",
+      accent,
+    },
+    StatsCounter: {
+      value: metric,
+      label: firstWords(visual, 4) || "results",
+      prefix: "",
+      suffix: "+",
+      duration: 48,
+      delay,
+      color: "#ffffff",
+      accent,
+      align: "center",
+    },
+    LogoWall: {
+      logos: [],
+      title: "Trusted by creators",
+      accent,
+    },
+    GradientBlob: {
+      color: accent,
+      blur: 70,
+      drift: true,
+      opacity: 0.55,
+    },
+    LightSweep: {
+      color: accent,
+      durationFrames: 54,
+    },
+    ParticleField: {
+      count: 64,
+      seed: 17 + sceneIndex,
+      color: accent,
+      size: 3,
+      speed: 0.65,
+      opacity: 0.55,
+    },
+    GlowRing: {
+      color: accent,
+      radius: 120,
+      pulse: true,
+      rings: 3,
+    },
+    ConfettiBurst: {
+      count: 70,
+      colors: ["#ffffff", accent, "#38bdf8", "#34d399"],
+      durationFrames: 52,
+    },
+    ImageScene: {
+      fit: "cover",
+    },
+    ZoomPanImage: {
+      from: { x: 50, y: 50, scale: 1 },
+      to: { x: 52, y: 48, scale: 1.08 },
+      durationFrames: 90,
+    },
+    LogoIntro: {
+      text: firstWords(headline, 2) || "Brand",
+      color: "#ffffff",
+      fontSize: 82,
+      durationFrames: 50,
+    },
+    MapRoute: {
+      from: "Idea",
+      to: "Launch",
+      color: accent,
+    },
+    LocationPin: {
+      label: firstWords(headline, 3),
+    },
+    BoardingPass: {
+      from: "IDEA",
+      to: "MP4",
+      flight: "AI-01",
+      date: "Today",
+      accent,
+    },
+    ProductCard: {
+      title: shortHeadline,
+      subtitle: shortSubtext,
+      price: priceForScene(sceneIndex),
+      badge: "NEW",
+      badgeColor: accent,
+      background: "#ffffff",
+      color: "#0f172a",
+    },
+    PriceTag: {
+      price: priceForScene(sceneIndex),
+      strikethrough: "$49",
+      struckPrice: "$49",
+      label: "Launch offer",
+      background: accent,
+      color: "#ffffff",
+    },
+    ReviewStars: {
+      rating: 4.8,
+      label: "Loved by early users",
+      color: "#fbbf24",
+      labelColor: "#ffffff",
+    },
+    InstagramPostMockup: {
+      username: "creator.app",
+      caption: shortSubtext,
+      likes: 12400 + sceneIndex * 900,
+    },
+    LikeCounter: {
+      from: 0,
+      to: 12000 + sceneIndex * 1800,
+      durationFrames: 45,
+      color: accent,
+      textColor: "#ffffff",
+    },
+    CommentBubble: {
+      username: "early.user",
+      author: "early.user",
+      text: shortSubtext,
+      background: "rgba(255,255,255,0.92)",
+      color: "#111827",
+    },
+    ChatBubble: {
+      role: elementIndex % 2 ? "bot" : "user",
+      text: shortSubtext,
+      avatar: "",
+    },
+    AIThinkingDots: {
+      color: accent,
+    },
+    VoiceWaveform: {
+      bars: 34,
+      color: accent,
+      intensity: 0.8,
+      seed: 10 + sceneIndex,
+    },
+    CodeBlockReveal: {
+      lines: [
+        `// ${firstWords(headline, 5)}`,
+        "const plan = await ai.generate(prompt);",
+        "await renderVideo(plan);",
+      ],
+      language: "js",
+      accent,
+    },
+    FadeTransition: {
+      color: "#0f172a",
+      durationFrames: 24,
+    },
+    SlideTransition: {
+      color: accent,
+      durationFrames: 24,
+      direction: "left",
+    },
+    WipeTransition: {
+      color: accent,
+      durationFrames: 24,
+      direction: "right",
+    },
+    GlitchTransition: {
+      color: accent,
+      durationFrames: 24,
+    },
+  };
+
+  return { ...(defaults[component] || {}), ...props };
+}
+
+function sceneText(...values) {
+  return values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
+}
+
+function firstWords(value, count) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, count)
+    .join(" ");
+}
+
+function pickAccent(index) {
+  const accents = ["#8b5cf6", "#38bdf8", "#34d399", "#f97316", "#f43f5e"];
+  return accents[Math.abs(index) % accents.length];
+}
+
+function priceForScene(index) {
+  return ["$9", "$19", "$29", "$49"][Math.abs(index) % 4];
+}
+
+function ctaText(index) {
+  return ["Start now", "Try free", "Create video", "Launch it"][Math.abs(index) % 4];
 }
 
 function assertNoPlaceholders(plan) {
