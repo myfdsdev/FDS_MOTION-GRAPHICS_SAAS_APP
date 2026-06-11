@@ -235,15 +235,16 @@ function createGeneratedPayloadSchema(lottieAssetIds) {
                 animation: { type: "string", enum: animations },
                 transition: { type: "string", enum: transitions },
                 // Optional foreground components. Each entry picks ONE
-                // component by name from the registry; props is free-form so
-                // each component's own defaults handle missing fields.
+                // component by name from the registry. Props must include
+                // useful scene-specific values; sanitizePlan also enriches
+                // weak/empty props before rendering.
                 elements: {
                   type: "array",
                   maxItems: 6,
                   items: {
                     type: "object",
                     additionalProperties: false,
-                    required: ["component", "x", "y", "w", "h"],
+                    required: ["component", "x", "y", "w", "h", "props"],
                     properties: {
                       component: {
                         type: "string",
@@ -344,7 +345,7 @@ function createGeminiResponseSchema(lottieAssetIds) {
                       h: { type: "NUMBER" },
                       props: { type: "OBJECT" },
                     },
-                    required: ["component", "x", "y", "w", "h"],
+                    required: ["component", "x", "y", "w", "h", "props"],
                   },
                 },
               },
@@ -461,7 +462,7 @@ function systemPrompt(durationSec, lottieAssetPrompt) {
 
     // ---- COMPONENTS (animated foreground pieces) ----
     "Each scene MUST include an `elements[]` array of 2-4 animated components placed on top of the theme. Pick the right one for the scene's job. Empty `elements` is NOT acceptable unless the scene is a pure transition.",
-    "Each element is { component, x, y, w, h, props } where x/y/w/h are fractions of the frame (0..1, w/h ≥ 0.04), and `props` is an object of values specific to that component (all props are optional; sensible defaults are used).",
+    "Each element is { component, x, y, w, h, props } where x/y/w/h are fractions of the frame (0..1, w/h >= 0.04). `props` is REQUIRED and must not be empty; include scene-specific text, labels, colors, numbers, prices, captions, or UI copy for that component.",
     "AVOID the centered headline zone (y 0.30-0.55, x 0.15-0.85) and DON'T overlap elements.",
     "Available components, grouped by category:",
     "  text — animated typography:",
