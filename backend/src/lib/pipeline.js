@@ -580,12 +580,13 @@ const CODEGEN_SYSTEM_PROMPT = `You are an elite motion-graphics engineer. You wr
 
 OUTPUT RULES (non-negotiable):
 1. Import animation primitives ONLY from "remotion": AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Series.
-2. Import visual building blocks from the library (these already exist — DO NOT redefine them):
+2. Import visual building blocks from the library (these already exist — DO NOT redefine them). Use the core blocks plus the Motion component pack:
    import { RetroGrid, FloatingConfetti, GlowOrb, GlitchTitle, KineticHeadline, NeonButton, EngageRow, StatCounter, DeviceMockup, FeatureCard, CornerBrackets, LightSweep } from "./lib";
+   import { TextReveal, WordReveal, TypewriterText, GradientText, CounterText, MouseCursor, ButtonClick, TypingInput, BrowserWindow, PhoneMockup, ProductFeatureCard, PricingCard, TestimonialCard, StatsCounter, LogoWall, GradientBlob, MotionLightSweep, ParticleField, GlowRing, ConfettiBurst, ImageScene, ZoomPanImage, LogoIntro, MapRoute, LocationPin, BoardingPass, ProductCard, PriceTag, ReviewStars, InstagramPostMockup, LikeCounter, CommentBubble, ChatBubble, AIThinkingDots, VoiceWaveform, CodeBlockReveal, FadeTransition, SlideTransition, WipeTransition, GlitchTransition } from "./lib";
    import { getTheme } from "./lib/themes";
    import { ease, mulberry32 } from "./lib/helpers";
 3. Export ONE default component. Read duration from useVideoConfig(). NO props.
-4. ALL styles inline. No CSS files, Tailwind, or extra imports beyond the two above.
+4. ALL styles inline. No CSS files, Tailwind, or extra imports beyond the library imports listed above.
 5. You MAY define small scene-wrapper components in-file, but compose visuals from the library — do NOT re-implement grids, confetti, glitch text, buttons, charts, etc.
 6. Output ONLY raw JSX. No markdown fences, no prose, no comments outside code.
 7. Series.Sequence durations MUST sum to EXACTLY durationInFrames from useVideoConfig().
@@ -621,6 +622,44 @@ DeviceMockup: <DeviceMockup type="phone" delay={15} x="50%" y="55%" scale={0.9}>
 FeatureCard: <FeatureCard iconPath={svgPath} title="Fast" description="Lightning speed" color={T.accent} bg={T.surface} delay={10} x="50%" y="50%" width={320} />
 CornerBrackets: <CornerBrackets color={T.accent} delay={5} />
 LightSweep: <LightSweep speed={1} opacity={0.06} />
+
+MOTION COMPONENT PACK:
+TextReveal: <TextReveal text="Big reveal" fontSize={84} color={T.text} />
+WordReveal: <WordReveal text="Launch faster today" fontSize={78} color={T.text} stagger={4} />
+TypewriterText: <TypewriterText text="Generating campaign..." fontSize={40} color={T.text} speed={2} />
+GradientText: <GradientText text="Premium motion" fontSize={82} from={T.accent} to={T.secondary} />
+CounterText: <CounterText from={0} to={1200} suffix="+" fontSize={86} color={T.text} />
+BrowserWindow: <BrowserWindow title="app.example" width={680} height={420} />
+PhoneMockup: <PhoneMockup width={300} height={560} />
+TypingInput: <TypingInput text="Make an ad video..." width={560} />
+MouseCursor: <MouseCursor fromX={200} fromY={680} toX={780} toY={520} />
+ButtonClick: <ButtonClick label="Generate" x={760} y={670} />
+ProductFeatureCard: <ProductFeatureCard title="Fast exports" description="Render-ready video scenes" />
+PricingCard: <PricingCard plan="Pro" price="$19" features={["AI scripts", "Voiceover", "HD video"]} />
+TestimonialCard: <TestimonialCard quote="This saved hours." name="Founder" />
+StatsCounter: <StatsCounter from={0} to={98} suffix="%" label="Faster workflow" />
+LogoWall: <LogoWall logos={["A", "B", "C", "D"]} />
+GradientBlob: <GradientBlob color={T.accent} x="15%" y="20%" />
+ParticleField: <ParticleField count={45} color={T.secondary} />
+GlowRing: <GlowRing color={T.accent} />
+ConfettiBurst: <ConfettiBurst colors={T.confettiColors} />
+ImageScene: <ImageScene src="https://..." />
+ZoomPanImage: <ZoomPanImage src="https://..." />
+LogoIntro: <LogoIntro logoUrl="https://..." brand="Brand" />
+MapRoute: <MapRoute points={[{x:120,y:500},{x:720,y:260}]} />
+LocationPin: <LocationPin label="Delhi" x={620} y={340} />
+BoardingPass: <BoardingPass from="DEL" to="NYC" />
+ProductCard: <ProductCard title="Product" price="$29" imageUrl="https://..." />
+PriceTag: <PriceTag price="$29" label="Launch offer" />
+ReviewStars: <ReviewStars rating={4.9} label="Loved by customers" />
+InstagramPostMockup: <InstagramPostMockup imageUrl="https://..." caption="New launch" />
+LikeCounter: <LikeCounter from={0} to={12000} />
+CommentBubble: <CommentBubble text="I need this!" />
+ChatBubble: <ChatBubble text="Your AI video is ready." />
+AIThinkingDots: <AIThinkingDots />
+VoiceWaveform: <VoiceWaveform color={T.accent} />
+CodeBlockReveal: <CodeBlockReveal lines={["const video = await generate();", "exportMp4(video);"]} />
+Transitions: <FadeTransition />, <SlideTransition direction="left" />, <WipeTransition />, <GlitchTransition />
 
 THEME USAGE:
 const T = getTheme("theme-name");
