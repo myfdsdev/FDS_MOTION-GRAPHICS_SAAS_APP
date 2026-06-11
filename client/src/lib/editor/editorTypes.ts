@@ -36,6 +36,7 @@ export type TrackKind = "scene" | "overlay" | "audio";
 // ---------------------------------------------------------------------------
 
 export type ElementType =
+  | "component"
   | "text"
   | "icon"
   | "image"
@@ -91,6 +92,12 @@ export interface ElementBase {
   animation?: ElementAnimation;
   /** Element-level opacity 0..1 (stacks with animation opacity). */
   opacity?: number;
+}
+
+export interface ComponentElement extends ElementBase {
+  type: "component";
+  component: string;
+  props?: Record<string, unknown>;
 }
 
 export interface TextElement extends ElementBase {
@@ -254,6 +261,7 @@ export interface StatElement extends ElementBase {
 }
 
 export type SceneElement =
+  | ComponentElement
   | TextElement
   | IconElement
   | ImageElement

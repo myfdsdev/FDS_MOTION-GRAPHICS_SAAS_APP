@@ -1,7 +1,7 @@
 import React from 'react';
 import { Img } from 'remotion';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults, asArray } from '../../helpers';
+import { withDefaults, asArray } from '../../helpers.js';
 
 /** Staggered grid of logo URLs (or text fallbacks). */
 export const LogoWall = (props) => {

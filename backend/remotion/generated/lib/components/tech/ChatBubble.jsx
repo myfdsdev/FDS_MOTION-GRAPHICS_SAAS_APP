@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Chat bubble with optional character-by-character reveal. */
 export const ChatBubble = (props) => {

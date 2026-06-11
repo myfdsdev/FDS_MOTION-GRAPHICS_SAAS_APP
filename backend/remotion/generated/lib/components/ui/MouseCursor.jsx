@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults, easings } from '../../helpers';
+import { withDefaults, easings } from '../../helpers.js';
 
 /**
  * Animated SVG cursor. Optionally moves from `fromX/fromY` to `toX/toY`

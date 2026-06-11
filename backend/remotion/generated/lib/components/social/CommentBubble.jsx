@@ -1,5 +1,5 @@
 import React from 'react';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 export const CommentBubble = (props) => {
   const p = withDefaults(props, {

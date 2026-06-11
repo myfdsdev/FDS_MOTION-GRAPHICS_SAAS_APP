@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate, spring, useVideoConfig } from 'remotion';
-import { withDefaults, easings } from '../../helpers';
+import { withDefaults, easings } from '../../helpers.js';
 
 /** A heart icon + animated like count. */
 export const LikeCounter = (props) => {

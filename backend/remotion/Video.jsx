@@ -9,6 +9,7 @@
  * is used instead — this composition serves editor preview and fallback.
  */
 
+import React from "react";
 import { Lottie } from "@remotion/lottie";
 import * as LucideIcons from "lucide-react";
 import {
@@ -34,7 +35,7 @@ const FONT = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helv
 // ═══════════════════════════════════════════════════════════════════════════
 // ENTRY POINT
 // ═══════════════════════════════════════════════════════════════════════════
-export const Video = ({ brandColors, scenes, timeline, structureSeed = 0 }) => {
+export const Video = ({ brandColors, scenes, timeline, structureSeed = 0, category = "business" }) => {
   const { fps } = useVideoConfig();
   const colors = Array.isArray(brandColors) && brandColors.length ? brandColors : DEFAULT_COLORS;
 
@@ -48,7 +49,7 @@ export const Video = ({ brandColors, scenes, timeline, structureSeed = 0 }) => {
       <Series>
         {list.map((scene, i) => (
           <Series.Sequence key={i} durationInFrames={Math.max(1, Math.round((Number(scene.duration) || 4) * fps))}>
-            <SceneRenderer scene={scene} colors={colors} index={i} structureSeed={structureSeed} />
+            <SceneRenderer scene={scene} colors={colors} index={i} structureSeed={structureSeed} category={category} />
           </Series.Sequence>
         ))}
       </Series>
@@ -60,7 +61,7 @@ export const Video = ({ brandColors, scenes, timeline, structureSeed = 0 }) => {
 // SCENE RENDERER — elements-first motion graphics
 // ═══════════════════════════════════════════════════════════════════════════
 
-function SceneRenderer({ scene, colors, index, clipDurationInFrames, structureSeed = 0 }) {
+function SceneRenderer({ scene, colors, index, clipDurationInFrames, structureSeed = 0, category = "business" }) {
   const frame = useCurrentFrame();
   const cfg = useVideoConfig();
   const { fps, width, height } = cfg;
@@ -311,16 +312,58 @@ function ElementsLayer({ elements, width, height, sceneTime, sceneDuration }) {
 // ── Element Body Renderers ───────────────────────────────────────────────
 
 function ElBody({ el, height }) {
+  if (el.type !== "component") {
+    switch (el.type) {
+      case "text": return <TextEl el={el} height={height} />;
+      case "icon": return <IconEl el={el} />;
+      case "image": return <ImageEl el={el} />;
+      case "shape": return <ShapeEl el={el} />;
+      case "svg": return <SvgEl el={el} />;
+      case "glow": return <GlowEl el={el} />;
+      case "progress-ring": return <ProgressRingEl el={el} />;
+      case "bar-chart": return <BarChartEl el={el} height={height} />;
+      case "line-chart": return <LineChartEl el={el} height={height} />;
+      case "stat": return <StatEl el={el} height={height} />;
+      case "subtitle": return <SubtitleEl el={el} height={height} />;
+      case "lottie": return el.animationData ? <Lottie animationData={el.animationData} loop={el.loop !== false} playbackRate={el.speed || 1} style={{ width: "100%", height: "100%" }} /> : null;
+      default: return null;
+    }
+  }
+
   // AI now picks from the 40-component REGISTRY. `el.component` is the
   // canonical name; we still accept `el.type` as an alias so any older
   // saved plans keep rendering.
   const name = el.component || el.type;
   const Component = name ? REGISTRY[name] : null;
-  if (Component) {
-    return <Component {...(el.props || {})} />;
+  if (!Component) return null; // unknown / missing → render nothing
+  // Wrap in an error boundary so one throwing component can never fail the
+  // whole MP4 render — it just renders nothing and logs which one broke.
+  return (
+    <ElementErrorBoundary name={name}>
+      <Component {...(el.props || {})} />
+    </ElementErrorBoundary>
+  );
+}
+
+// Class error boundary — the only way to catch a child component's render
+// error in React. Without this, a single bad component throws and the entire
+// renderMedia() call fails.
+class ElementErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
   }
-  // Silent fallback so missing/unknown components never break the render.
-  return null;
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error) {
+    // eslint-disable-next-line no-console
+    console.warn(`[render] component "${this.props.name}" failed:`, error?.message || error);
+  }
+  render() {
+    if (this.state.failed) return null;
+    return this.props.children;
+  }
 }
 
 function TextEl({ el, height }) {

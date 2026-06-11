@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** 5-star rating that fills star-by-star with a stagger. */
 export const ReviewStars = (props) => {

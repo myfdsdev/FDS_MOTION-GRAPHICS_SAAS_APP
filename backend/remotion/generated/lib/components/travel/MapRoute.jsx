@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults, asArray } from '../../helpers';
+import { withDefaults, asArray } from '../../helpers.js';
 
 /**
  * SVG route between waypoints. Each point is {x, y} in 0..100 % space.

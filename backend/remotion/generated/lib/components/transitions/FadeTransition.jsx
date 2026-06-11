@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate, useVideoConfig } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /**
  * Full-bleed fade-from-color. Use as an overlay element to "wash" a scene

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults, easings } from '../../helpers';
+import { withDefaults, easings } from '../../helpers.js';
 
 /** Animates a number from `from` to `to`. */
 export const CounterText = (props) => {

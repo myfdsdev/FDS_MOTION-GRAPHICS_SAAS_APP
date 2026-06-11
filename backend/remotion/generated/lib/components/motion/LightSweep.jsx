@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** A diagonal light sweep that crosses the box every `cycle` frames. */
 export const LightSweep = (props) => {

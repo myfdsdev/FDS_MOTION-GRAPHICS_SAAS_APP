@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Reveals what's behind by wiping in a direction. */
 export const WipeTransition = (props) => {

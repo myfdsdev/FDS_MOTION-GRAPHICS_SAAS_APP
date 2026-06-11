@@ -17,12 +17,14 @@ import {
   BarChart3,
   TrendingUp,
   Hash,
+  Box,
 } from "lucide-react";
 import type { SceneElement } from "@/types";
 import type { EditorAction } from "@/lib/editor/editorStore";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 const TYPE_ICON: Record<SceneElement["type"], typeof TypeIcon> = {
+  component: Box,
   text: TypeIcon,
   subtitle: Captions,
   "bar-chart": BarChart3,
@@ -37,6 +39,7 @@ const TYPE_ICON: Record<SceneElement["type"], typeof TypeIcon> = {
 function elementLabel(el: SceneElement, index: number): string {
   if (el.name && el.name.trim()) return el.name;
   if (el.type === "text") return el.text?.slice(0, 36) || "Text";
+  if (el.type === "component") return el.component || "Component";
   if (el.type === "subtitle") return el.text?.slice(0, 36) || "Subtitle";
   if (el.type === "bar-chart") return el.title || "Bar chart";
   if (el.type === "icon") return el.name && el.name.trim() ? el.name : "Icon";

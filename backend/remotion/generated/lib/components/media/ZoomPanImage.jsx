@@ -1,7 +1,7 @@
 import React from 'react';
 import { Img } from 'remotion';
 import { useCurrentFrame, interpolate, useVideoConfig } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Ken-Burns style zoom-and-pan over an image. */
 export const ZoomPanImage = (props) => {

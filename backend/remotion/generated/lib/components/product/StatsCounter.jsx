@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults, easings } from '../../helpers';
+import { withDefaults, easings } from '../../helpers.js';
 
 /** Big number + label, animated up from 0. */
 export const StatsCounter = (props) => {

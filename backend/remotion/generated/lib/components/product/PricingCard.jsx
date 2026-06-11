@@ -1,5 +1,5 @@
 import React from 'react';
-import { withDefaults, asArray } from '../../helpers';
+import { withDefaults, asArray } from '../../helpers.js';
 
 export const PricingCard = (props) => {
   const p = withDefaults(props, {

@@ -460,7 +460,7 @@ function systemPrompt(durationSec, lottieAssetPrompt) {
     "For every scene, choose ONE sceneTheme, ONE animation, ONE transition. Mix themes across scenes — no two adjacent scenes should share the same theme.",
 
     // ---- COMPONENTS (animated foreground pieces) ----
-    "Each scene MAY include an `elements[]` array of 0-4 animated components placed on top of the theme. Pick the right one for the scene's job. Empty `elements` is FINE — the theme alone is rich.",
+    "Each scene MUST include an `elements[]` array of 2-4 animated components placed on top of the theme. Pick the right one for the scene's job. Empty `elements` is NOT acceptable unless the scene is a pure transition.",
     "Each element is { component, x, y, w, h, props } where x/y/w/h are fractions of the frame (0..1, w/h ≥ 0.04), and `props` is an object of values specific to that component (all props are optional; sensible defaults are used).",
     "AVOID the centered headline zone (y 0.30-0.55, x 0.15-0.85) and DON'T overlap elements.",
     "Available components, grouped by category:",
@@ -511,7 +511,7 @@ function systemPrompt(durationSec, lottieAssetPrompt) {
     "    · CodeBlockReveal { code, language, theme }  — code reveals line by line",
     "  transitions (use as fullscreen overlays):",
     "    · FadeTransition, SlideTransition, WipeTransition, GlitchTransition  { color, durationFrames, direction? }",
-    "Hex colors only (#RRGGBB). Pick 0-4 components per scene. Choose the component that MATCHES the scene's job — e.g. a pricing scene → PricingCard, a code-demo scene → BrowserWindow + CodeBlockReveal, a stats scene → StatsCounter.",
+    "Hex colors only (#RRGGBB). Pick 2-4 components per scene. Choose the component that MATCHES the scene's job — e.g. a pricing scene → PricingCard + PriceTag, a code-demo scene → BrowserWindow + CodeBlockReveal, a stats scene → StatsCounter + GlowRing, a food/app scene → PhoneMockup + ProductCard + ReviewStars.",
 
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
     "No markdown.",
@@ -1119,10 +1119,8 @@ function sanitizePlan(plan) {
           return {
             id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
             z: j,
-            // Preserve "component" (the new name) AND "type" as an alias so
-            // any older renderer code paths reading el.type still resolve.
             component: el?.component || el?.type || "TextReveal",
-            type: el?.component || el?.type || "TextReveal",
+            type: "component",
             x, y, w, h,
             rotation: Number(el?.rotation) || 0,
             props: el?.props && typeof el.props === "object" ? el.props : {},
@@ -1251,12 +1249,11 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
 
     const { script, plan } = await generateVideoPlan(prompt, durationSec, userId, referenceImage);
 
-    // ---- CODE-GEN: Generate Remotion JSX code for this video ----
-    // The AI writes a complete React component that IS the video. This runs
-    // after the JSON plan so we have a fallback, and the script is already
-    // written for narration.
+    // ---- Optional code-gen path ------------------------------------------------
+    // Disabled by default while the JSON component system is the main editable
+    // renderer. Set ENABLE_VIDEO_CODEGEN=true to let AI JSX override the JSON.
     let generatedCode = null;
-    try {
+    if (process.env.ENABLE_VIDEO_CODEGEN === "true") try {
       const codeConfigs = await resolveAllAiConfigs(userId);
       if (codeConfigs.length) {
         await Project.updateOne({ _id: projectId }, { progress: 20 });

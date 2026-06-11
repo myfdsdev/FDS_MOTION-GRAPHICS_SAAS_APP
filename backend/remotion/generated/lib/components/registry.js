@@ -7,64 +7,64 @@
  */
 
 // --- text
-import { TextReveal }      from './text/TextReveal';
-import { WordReveal }      from './text/WordReveal';
-import { TypewriterText }  from './text/TypewriterText';
-import { GradientText }    from './text/GradientText';
-import { CounterText }     from './text/CounterText';
+import { TextReveal }      from './text/TextReveal.jsx';
+import { WordReveal }      from './text/WordReveal.jsx';
+import { TypewriterText }  from './text/TypewriterText.jsx';
+import { GradientText }    from './text/GradientText.jsx';
+import { CounterText }     from './text/CounterText.jsx';
 
 // --- ui
-import { MouseCursor }     from './ui/MouseCursor';
-import { ButtonClick }     from './ui/ButtonClick';
-import { TypingInput }     from './ui/TypingInput';
-import { BrowserWindow }   from './ui/BrowserWindow';
-import { PhoneMockup }     from './ui/PhoneMockup';
+import { MouseCursor }     from './ui/MouseCursor.jsx';
+import { ButtonClick }     from './ui/ButtonClick.jsx';
+import { TypingInput }     from './ui/TypingInput.jsx';
+import { BrowserWindow }   from './ui/BrowserWindow.jsx';
+import { PhoneMockup }     from './ui/PhoneMockup.jsx';
 
 // --- product
-import { FeatureCard }     from './product/FeatureCard';
-import { PricingCard }     from './product/PricingCard';
-import { TestimonialCard } from './product/TestimonialCard';
-import { StatsCounter }    from './product/StatsCounter';
-import { LogoWall }        from './product/LogoWall';
+import { FeatureCard }     from './product/FeatureCard.jsx';
+import { PricingCard }     from './product/PricingCard.jsx';
+import { TestimonialCard } from './product/TestimonialCard.jsx';
+import { StatsCounter }    from './product/StatsCounter.jsx';
+import { LogoWall }        from './product/LogoWall.jsx';
 
 // --- motion
-import { GradientBlob }    from './motion/GradientBlob';
-import { LightSweep }      from './motion/LightSweep';
-import { ParticleField }   from './motion/ParticleField';
-import { GlowRing }        from './motion/GlowRing';
-import { ConfettiBurst }   from './motion/ConfettiBurst';
+import { GradientBlob }    from './motion/GradientBlob.jsx';
+import { LightSweep }      from './motion/LightSweep.jsx';
+import { ParticleField }   from './motion/ParticleField.jsx';
+import { GlowRing }        from './motion/GlowRing.jsx';
+import { ConfettiBurst }   from './motion/ConfettiBurst.jsx';
 
 // --- media
-import { ImageScene }      from './media/ImageScene';
-import { ZoomPanImage }    from './media/ZoomPanImage';
-import { LogoIntro }       from './media/LogoIntro';
+import { ImageScene }      from './media/ImageScene.jsx';
+import { ZoomPanImage }    from './media/ZoomPanImage.jsx';
+import { LogoIntro }       from './media/LogoIntro.jsx';
 
 // --- travel
-import { MapRoute }        from './travel/MapRoute';
-import { LocationPin }     from './travel/LocationPin';
-import { BoardingPass }    from './travel/BoardingPass';
+import { MapRoute }        from './travel/MapRoute.jsx';
+import { LocationPin }     from './travel/LocationPin.jsx';
+import { BoardingPass }    from './travel/BoardingPass.jsx';
 
 // --- ecommerce
-import { ProductCard }     from './ecommerce/ProductCard';
-import { PriceTag }        from './ecommerce/PriceTag';
-import { ReviewStars }     from './ecommerce/ReviewStars';
+import { ProductCard }     from './ecommerce/ProductCard.jsx';
+import { PriceTag }        from './ecommerce/PriceTag.jsx';
+import { ReviewStars }     from './ecommerce/ReviewStars.jsx';
 
 // --- social
-import { InstagramPostMockup } from './social/InstagramPostMockup';
-import { LikeCounter }         from './social/LikeCounter';
-import { CommentBubble }       from './social/CommentBubble';
+import { InstagramPostMockup } from './social/InstagramPostMockup.jsx';
+import { LikeCounter }         from './social/LikeCounter.jsx';
+import { CommentBubble }       from './social/CommentBubble.jsx';
 
 // --- tech
-import { ChatBubble }       from './tech/ChatBubble';
-import { AIThinkingDots }   from './tech/AIThinkingDots';
-import { VoiceWaveform }    from './tech/VoiceWaveform';
-import { CodeBlockReveal }  from './tech/CodeBlockReveal';
+import { ChatBubble }       from './tech/ChatBubble.jsx';
+import { AIThinkingDots }   from './tech/AIThinkingDots.jsx';
+import { VoiceWaveform }    from './tech/VoiceWaveform.jsx';
+import { CodeBlockReveal }  from './tech/CodeBlockReveal.jsx';
 
 // --- transitions
-import { FadeTransition }   from './transitions/FadeTransition';
-import { SlideTransition }  from './transitions/SlideTransition';
-import { WipeTransition }   from './transitions/WipeTransition';
-import { GlitchTransition } from './transitions/GlitchTransition';
+import { FadeTransition }   from './transitions/FadeTransition.jsx';
+import { SlideTransition }  from './transitions/SlideTransition.jsx';
+import { WipeTransition }   from './transitions/WipeTransition.jsx';
+import { GlitchTransition } from './transitions/GlitchTransition.jsx';
 
 export const REGISTRY = {
   // text

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Slow-drifting radial gradient blob, useful as a hero glow. */
 export const GradientBlob = (props) => {

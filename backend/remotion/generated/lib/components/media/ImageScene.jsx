@@ -1,6 +1,6 @@
 import React from 'react';
 import { Img } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Full-bleed image with optional rounded corners. */
 export const ImageScene = (props) => {

@@ -7,6 +7,7 @@ export type {
   TimelineClip,
   ZoomRegion,
   SceneElement,
+  ComponentElement,
   TextElement,
   IconElement,
   ImageElement,

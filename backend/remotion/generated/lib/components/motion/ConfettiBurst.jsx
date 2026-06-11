@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useCurrentFrame } from 'remotion';
-import { withDefaults, mulberry32, asArray } from '../../helpers';
+import { withDefaults, mulberry32, asArray } from '../../helpers.js';
 
 /** A confetti burst that erupts from `originY` (% from top) at frame 0. */
 export const ConfettiBurst = (props) => {

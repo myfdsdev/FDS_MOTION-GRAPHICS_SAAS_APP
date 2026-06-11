@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate, spring, useVideoConfig } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** A button that pulses + scales when clicked at `clickFrame`. */
 export const ButtonClick = (props) => {

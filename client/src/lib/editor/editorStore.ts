@@ -105,6 +105,16 @@ const NEW_ELEMENT_DEFAULTS = (type: SceneElement["type"]): SceneElement => {
     animation,
   };
   switch (type) {
+    case "component":
+      return {
+        ...base,
+        type: "component",
+        component: "FeatureCard",
+        props: {
+          title: "Feature",
+          description: "Describe the visual idea",
+        },
+      };
     case "text":
       return { ...base, type: "text", text: "New text", size: DEFAULT_TEXT_SIZE, weight: 700, color: DEFAULT_ELEMENT_COLOR, align: "center" };
     case "icon":

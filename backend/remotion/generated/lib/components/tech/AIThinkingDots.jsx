@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Three bouncing dots — classic "AI is thinking" indicator. */
 export const AIThinkingDots = (props) => {

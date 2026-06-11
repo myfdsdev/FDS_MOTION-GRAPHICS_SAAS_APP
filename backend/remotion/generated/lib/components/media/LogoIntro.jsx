@@ -1,7 +1,7 @@
 import React from 'react';
 import { Img } from 'remotion';
 import { useCurrentFrame, spring, useVideoConfig } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Spring-in logo with optional brand text below. */
 export const LogoIntro = (props) => {

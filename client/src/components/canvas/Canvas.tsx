@@ -519,6 +519,28 @@ function ElementBody({
     return <LottieView el={el} />;
   }
 
+  if (el.type === "component") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: "rgba(139, 92, 246, 0.16)",
+          borderRadius: 14,
+          border: "1px dashed rgba(255,255,255,0.28)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(255,255,255,0.78)",
+          fontSize: 11,
+          fontWeight: 700,
+        }}
+      >
+        {el.component}
+      </div>
+    );
+  }
+
   // For new chart types (line-chart, stat) the editor doesn't yet have a
   // live preview component — they render in the MP4 only. Show a tagged
   // placeholder on the canvas so the user knows something IS there.

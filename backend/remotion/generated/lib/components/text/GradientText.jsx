@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Static-text-with-animated-gradient. Animates the gradient angle by default. */
 export const GradientText = (props) => {

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useCurrentFrame } from 'remotion';
-import { withDefaults, mulberry32 } from '../../helpers';
+import { withDefaults, mulberry32 } from '../../helpers.js';
 
 /** Static-seeded particle field that drifts upward. Deterministic via `seed`. */
 export const ParticleField = (props) => {

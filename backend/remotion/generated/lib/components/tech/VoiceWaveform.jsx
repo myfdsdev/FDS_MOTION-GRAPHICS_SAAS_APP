@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useCurrentFrame } from 'remotion';
-import { withDefaults, mulberry32 } from '../../helpers';
+import { withDefaults, mulberry32 } from '../../helpers.js';
 
 /** Pseudo voice waveform bars. Deterministic via `seed`. */
 export const VoiceWaveform = (props) => {

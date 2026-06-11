@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame } from 'remotion';
-import { withDefaults, asArray } from '../../helpers';
+import { withDefaults, asArray } from '../../helpers.js';
 
 /** Stagger-reveals each line of a code block. */
 export const CodeBlockReveal = (props) => {

@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { ensureBrowser, renderMedia, selectComposition } from "@remotion/renderer";
+import { webpackOverride } from "./remotion/webpackOverride.js";
 import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";

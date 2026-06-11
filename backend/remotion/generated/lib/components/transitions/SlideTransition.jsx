@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, interpolate, useVideoConfig } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** Solid panel sliding across — useful between scenes. */
 export const SlideTransition = (props) => {

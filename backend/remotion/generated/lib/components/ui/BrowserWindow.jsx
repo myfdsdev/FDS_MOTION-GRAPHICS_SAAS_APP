@@ -1,6 +1,6 @@
 import React from 'react';
 import { Img } from 'remotion';
-import { withDefaults } from '../../helpers';
+import { withDefaults } from '../../helpers.js';
 
 /** macOS-style browser chrome with optional content area (image or children). */
 export const BrowserWindow = (props) => {
