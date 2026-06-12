@@ -454,65 +454,14 @@ function systemPrompt(durationSec, lottieAssetPrompt) {
     "Headlines and subtext are different from narration — they're the TYPOGRAPHY shown on screen, while narration is the SPOKEN script.",
 
     // ---- THEME & MOTION ----
-    `Available scene themes (animated backgrounds): ${SCENE_THEMES.join(", ")}.`,
+    // ---- MINIMAL VISUALS ----
+    `Available scene themes: ${SCENE_THEMES.join(", ")}.`,
     `Available scene-entrance animations: ${animations.join(", ")}.`,
     `Available scene-to-scene transitions: ${transitions.join(", ")}.`,
     `Available video categories: ${VIDEO_CATEGORIES.join(", ")}.`,
-    "For every scene, choose ONE sceneTheme, ONE animation, ONE transition. Mix themes across scenes — no two adjacent scenes should share the same theme.",
-
-    // ---- COMPONENTS (animated foreground pieces) ----
-    "Each scene MUST include an `elements[]` array of 2-4 animated components placed on top of the theme. Pick the right one for the scene's job. Empty `elements` is NOT acceptable unless the scene is a pure transition.",
-    "Each element is { component, x, y, w, h, props } where x/y/w/h are fractions of the frame (0..1, w/h >= 0.04). `props` is REQUIRED and must not be empty; include scene-specific text, labels, colors, numbers, prices, captions, or UI copy for that component.",
-    "AVOID the centered headline zone (y 0.30-0.55, x 0.15-0.85) and DON'T overlap elements.",
-    "Available components, grouped by category:",
-    "  text — animated typography:",
-    "    · TextReveal { text, fontSize, fontWeight, color, align, delay, duration }  — whole-string fade-up",
-    "    · WordReveal { text, fontSize, color, align, staggerMs }  — words stagger in one by one",
-    "    · TypewriterText { text, fontSize, color, charsPerSec, cursor }  — types out letter by letter",
-    "    · GradientText { text, fontSize, fromColor, toColor, angle }  — text with a gradient fill",
-    "    · CounterText { from, to, durationFrames, prefix, suffix, fontSize, color }  — number counts up",
-    "  ui — interface mockups:",
-    "    · MouseCursor { from:{x,y}, to:{x,y}, durationFrames }  — cursor moves between points",
-    "    · ButtonClick { label, color, bgColor, clickAtFrame }  — button with a click press animation",
-    "    · TypingInput { placeholder, text, charsPerSec, focusColor }  — input field with typing",
-    "    · BrowserWindow { url, title }  — Mac-style browser chrome",
-    "    · PhoneMockup { color, screen }  — phone outline with optional inner screen content",
-    "  product — marketing tiles:",
-    "    · FeatureCard { title, body, icon, color }  — title + description card",
-    "    · PricingCard { tier, price, period, perks:[strings], highlight }",
-    "    · TestimonialCard { quote, author, role, avatar }",
-    "    · StatsCounter { value, label, prefix, suffix }  — big animated number with label",
-    "    · LogoWall { logos:[urls] }  — grid of logos",
-    "  motion — ambient atmosphere:",
-    "    · GradientBlob { color, blur, drift }  — slow-drifting soft blob",
-    "    · LightSweep { color, durationFrames }  — diagonal light sweep",
-    "    · ParticleField { count, color, speed }  — drifting particles",
-    "    · GlowRing { color, radius, pulse }  — pulsing ring",
-    "    · ConfettiBurst { count, colors, durationFrames }  — celebration burst",
-    "  media:",
-    "    · ImageScene { src, fit }  — full image with subtle motion",
-    "    · ZoomPanImage { src, from:{x,y,scale}, to:{x,y,scale}, durationFrames }",
-    "    · LogoIntro { src, durationFrames }  — logo reveal",
-    "  travel:",
-    "    · MapRoute { from, to, color }  — line drawing across a map background",
-    "    · LocationPin { label }  — animated pin drop",
-    "    · BoardingPass { from, to, flight, date }",
-    "  ecommerce:",
-    "    · ProductCard { title, image, price, rating }",
-    "    · PriceTag { price, currency, struckPrice }",
-    "    · ReviewStars { rating, count }",
-    "  social:",
-    "    · InstagramPostMockup { username, avatar, image, caption, likes }",
-    "    · LikeCounter { from, to, durationFrames }  — animated like counter",
-    "    · CommentBubble { author, text }",
-    "  tech:",
-    "    · ChatBubble { role:'user'|'bot', text, avatar }",
-    "    · AIThinkingDots { color }  — three pulsing dots",
-    "    · VoiceWaveform { color, intensity }",
-    "    · CodeBlockReveal { code, language, theme }  — code reveals line by line",
-    "  transitions (use as fullscreen overlays):",
-    "    · FadeTransition, SlideTransition, WipeTransition, GlitchTransition  { color, durationFrames, direction? }",
-    "Hex colors only (#RRGGBB). Pick 2-4 components per scene. Choose the component that MATCHES the scene's job — e.g. a pricing scene → PricingCard + PriceTag, a code-demo scene → BrowserWindow + CodeBlockReveal, a stats scene → StatsCounter + GlowRing, a food/app scene → PhoneMockup + ProductCard + ReviewStars.",
+    "The renderer is intentionally minimal now: solid background, headline, subtext, and narration only.",
+    "Do NOT include `elements`. Do NOT use cards, mockups, particles, charts, icons, lottie, images, component names, graphical overlays, or animated scene backgrounds.",
+    "For every scene, still choose ONE sceneTheme, ONE animation, and ONE transition because the data schema requires them, but they are not used for graphical backgrounds.",
 
     "No placeholder copy like [Brand Name], Company Name, your brand, or example.com.",
     "No markdown.",
@@ -1105,31 +1054,9 @@ function sanitizePlan(plan) {
         sceneTheme: s?.sceneTheme || s?.sceneTemplate || "gradient-flow",
       };
 
-      // Slim element sanitizer: clamps coordinates, keeps the bounding box
-      // on-frame, and enriches weak component props with scene-specific copy.
-      if (Array.isArray(s?.elements) && s.elements.length) {
-        const minDim = 0.04;
-        scene.elements = s.elements.slice(0, 6).map((el, j) => {
-          const x = clampFrac(el?.x, 0.1);
-          const y = clampFrac(el?.y, 0.5);
-          let w = Math.max(minDim, clampFrac(el?.w, 0.4));
-          let h = Math.max(minDim, clampFrac(el?.h, 0.3));
-          if (x + w > 1) w = Math.max(minDim, 1 - x);
-          if (y + h > 1) h = Math.max(minDim, 1 - y);
-          const component = el?.component || el?.type || "TextReveal";
-          return {
-            id: `el_${i}_${j}_${Math.random().toString(36).slice(2, 8)}`,
-            z: j,
-            component,
-            type: "component",
-            x, y, w, h,
-            rotation: Number(el?.rotation) || 0,
-            props: defaultComponentProps(component, scene, i, j, el?.props),
-          };
-        });
-      } else {
-        delete scene.elements;
-      }
+      // Minimal mode: no graphical components. Drop any elements the model
+      // sends so the renderer stays text-only.
+      delete scene.elements;
 
       return scene;
     });

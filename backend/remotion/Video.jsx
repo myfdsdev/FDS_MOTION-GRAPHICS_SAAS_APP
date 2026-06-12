@@ -64,28 +64,94 @@ export const Video = ({ brandColors, scenes, timeline, structureSeed = 0, catego
 function SceneRenderer({ scene, colors, index, clipDurationInFrames, structureSeed = 0, category = "business" }) {
   const frame = useCurrentFrame();
   const cfg = useVideoConfig();
-  const { fps, width, height } = cfg;
+  const { fps } = cfg;
   const dur = clipDurationInFrames ?? cfg.durationInFrames;
   const style = getSceneStyle(scene.animation, frame, fps, dur);
 
-  const base = colors[0] ?? DEFAULT_COLORS[0];
+  const base = solidColor(colors[0] ?? DEFAULT_COLORS[0], "#050509");
   const accent = colors[(index % Math.max(1, colors.length - 1)) + 1] ?? colors[1] ?? DEFAULT_COLORS[1];
-  const secondary = colors[(index + 2) % colors.length] ?? DEFAULT_COLORS[2];
-  const variant = pickVariant(scene, index, structureSeed);
-  const theme = scene.sceneTheme || scene.sceneTemplate || "gradient-flow";
-  const hasElements = Array.isArray(scene.elements) && scene.elements.length > 0;
+  void structureSeed;
+  void category;
 
   return (
-    <AbsoluteFill style={{ ...style, overflow: "hidden" }}>
-      <ThemeBackground theme={theme} base={base} accent={accent} secondary={secondary} frame={frame} dur={dur} />
-      <ChromeOverlay accent={accent} index={index} variant={variant} frame={frame} dur={dur} />
-      <FloatingShapes accent={accent} secondary={secondary} frame={frame} dur={dur} />
+    <AbsoluteFill style={{ ...style, backgroundColor: base, overflow: "hidden" }}>
+      <PlainTextScene headline={scene.headline} subtext={scene.subtext} accent={accent} frame={frame} />
+    </AbsoluteFill>
+  );
+}
 
-      {hasElements ? (
-        <ElementsLayer elements={scene.elements} width={width} height={height} sceneTime={frame / fps} sceneDuration={dur / fps} />
-      ) : (
-        <FallbackText headline={scene.headline} subtext={scene.subtext} accent={accent} frame={frame} theme={theme} />
-      )}
+function solidColor(value, fallback) {
+  return /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? value : fallback;
+}
+
+function PlainTextScene({ headline, subtext, accent, frame }) {
+  const title = String(headline || "").trim();
+  const body = String(subtext || "").trim();
+  if (!title && !body) return null;
+
+  const titleIn = interpolate(frame, [0, 18], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const bodyIn = interpolate(frame, [12, 30], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const titleY = interpolate(frame, [0, 18], [26, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const bodyY = interpolate(frame, [12, 30], [18, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "9%", fontFamily: FONT }}>
+      <div style={{ width: "100%", maxWidth: 1080, textAlign: "center" }}>
+        {title ? (
+          <div
+            style={{
+              color: "#ffffff",
+              fontSize: 78,
+              fontWeight: 850,
+              lineHeight: 0.98,
+              opacity: titleIn,
+              transform: `translateY(${titleY}px)`,
+              textWrap: "balance",
+            }}
+          >
+            {title}
+          </div>
+        ) : null}
+        {body ? (
+          <div
+            style={{
+              marginTop: title ? 28 : 0,
+              color: "rgba(255,255,255,0.72)",
+              fontSize: 28,
+              fontWeight: 520,
+              lineHeight: 1.35,
+              opacity: bodyIn,
+              transform: `translateY(${bodyY}px)`,
+              textWrap: "balance",
+            }}
+          >
+            {body}
+          </div>
+        ) : null}
+        <div
+          style={{
+            width: 72,
+            height: 2,
+            margin: "34px auto 0",
+            backgroundColor: accent,
+            opacity: Math.min(titleIn, 0.85),
+            transform: `scaleX(${titleIn})`,
+            transformOrigin: "center",
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 }
