@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { ensureBrowser, renderMedia, selectComposition } from "@remotion/renderer";
 import { webpackOverride } from "./remotion/webpackOverride.js";
-import { generateComponent } from "./src/lib/codegen.js";
+import { generateComponent, fixComponent } from "./src/lib/codegen.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENTRY = path.join(__dirname, "remotion", "index.jsx");
@@ -56,38 +56,51 @@ async function main() {
   });
   console.log(`[gen] brief: ${brief.slice(0, 120)}${brief.length > 120 ? "…" : ""}`);
 
-  // 2. Write the component into the Remotion scene slot
-  fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
-  fs.writeFileSync(SCENE_PATH, source, "utf8");
-  console.log(`[gen] wrote component → ${path.relative(__dirname, SCENE_PATH)} (${source.length} chars)`);
-
-  // 3. Bundle + render
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   console.log("[gen] ensuring Remotion browser…");
   await ensureBrowser();
 
-  console.log("[gen] bundling…");
-  const serveUrl = await bundle({ entryPoint: ENTRY, webpackOverride });
-
   const inputProps = { aspectRatio: args.aspect, durationInFrames };
-  const composition = await selectComposition({ serveUrl, id: "video", inputProps });
 
-  console.log(`[gen] rendering → ${outputPath}`);
-  await renderMedia({
-    composition,
-    serveUrl,
-    codec: "h264",
-    outputLocation: outputPath,
-    inputProps,
-    onProgress: ({ progress }) => {
-      const pct = Math.round(progress * 100);
-      process.stdout.write(`\r[gen] render ${String(pct).padStart(3, " ")}%`);
-    },
-  });
+  // 2-3. Write → bundle → render, with up to 2 self-repair attempts if the
+  // component crashes at bundle/render time (hallucinated API, runtime error).
+  let current = source;
+  const MAX_RENDER_ATTEMPTS = 3;
+  for (let attempt = 1; attempt <= MAX_RENDER_ATTEMPTS; attempt++) {
+    fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
+    fs.writeFileSync(SCENE_PATH, current, "utf8");
+    console.log(`[gen] wrote component → ${path.relative(__dirname, SCENE_PATH)} (${current.length} chars)`);
 
-  process.stdout.write("\n");
-  console.log(`[gen] done: ${outputPath}`);
-  console.log(`[gen] (dimensions ${width}x${height})`);
+    try {
+      console.log(`[gen] bundling… (attempt ${attempt}/${MAX_RENDER_ATTEMPTS})`);
+      const serveUrl = await bundle({ entryPoint: ENTRY, webpackOverride });
+      const composition = await selectComposition({ serveUrl, id: "video", inputProps });
+
+      console.log(`[gen] rendering → ${outputPath}`);
+      await renderMedia({
+        composition,
+        serveUrl,
+        codec: "h264",
+        outputLocation: outputPath,
+        inputProps,
+        onProgress: ({ progress }) => {
+          const pct = Math.round(progress * 100);
+          process.stdout.write(`\r[gen] render ${String(pct).padStart(3, " ")}%`);
+        },
+      });
+      process.stdout.write("\n");
+      console.log(`[gen] done: ${outputPath}`);
+      console.log(`[gen] (dimensions ${width}x${height})`);
+      return;
+    } catch (renderErr) {
+      const msg = renderErr instanceof Error ? renderErr.message : String(renderErr);
+      process.stdout.write("\n");
+      console.warn(`[gen] render failed: ${msg.slice(0, 200)}`);
+      if (attempt === MAX_RENDER_ATTEMPTS) throw renderErr;
+      console.log("[gen] asking the model to repair the component…");
+      current = await fixComponent({ brokenSource: current, error: msg });
+    }
+  }
 }
 
 main().catch((err) => {

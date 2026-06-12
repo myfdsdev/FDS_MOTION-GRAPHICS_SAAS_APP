@@ -8,6 +8,7 @@ import { webpackOverride } from "./remotion/webpackOverride.js";
 import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";
+import { fixComponent } from "./src/lib/codegen.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -251,54 +252,56 @@ async function renderProject(project) {
 
   let lastPhase = "load-plan";
   try {
-    // 1. Load the AI-generated component and write it into the scene slot.
-    await runPhase("load-plan", async () => {
-      lastPhase = "load-plan";
-      if (!project.componentSource || !project.componentSource.trim()) {
-        throw new Error("Project has no generated component to render");
-      }
-      fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
-      fs.writeFileSync(SCENE_PATH, project.componentSource, "utf8");
-    });
+    if (!project.componentSource || !project.componentSource.trim()) {
+      throw new Error("Project has no generated component to render");
+    }
 
     const aspect = project.aspectRatio || "16:9";
     const durationInFrames = Math.max(1, Math.round((Number(project.durationSec) || 20) * FPS));
     const inputProps = { aspectRatio: aspect, durationInFrames };
-
-    // 2. Bundle the composition WITH the freshly-written component.
-    const serveUrl = await runPhase("bundle", async () => {
-      lastPhase = "bundle";
-      return await bundle({ entryPoint: ENTRY, webpackOverride });
-    });
-
-    const composition = await runPhase("select-composition", async () => {
-      lastPhase = "select-composition";
-      return await selectComposition({
-        serveUrl,
-        id: "video",
-        inputProps,
-      });
-    });
-
     const outPath = path.join(VIDEOS_DIR, `${id}.mp4`);
 
-    await runPhase("render", async () => {
-      lastPhase = "render";
-      await renderMedia({
-        composition,
-        serveUrl,
-        codec: "h264",
-        outputLocation: outPath,
-        inputProps,
-        onProgress: ({ progress }) => {
-          const pct = Math.min(99, Math.round(5 + progress * 90));
-          Project.updateOne(
-            { _id: id },
-            { progress: pct, renderHeartbeatAt: new Date() }
-          ).catch(() => {});
-        },
-      });
-    });
+    // Write → bundle → render, with up to 2 self-repair attempts if the
+    // component crashes at bundle/render time. The repaired source is saved
+    // back to the project so future re-renders use the working version.
+    let current = project.componentSource;
+    const MAX_RENDER_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_RENDER_ATTEMPTS; attempt++) {
+      fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
+      fs.writeFileSync(SCENE_PATH, current, "utf8");
+
+      try {
+        lastPhase = "bundle";
+        const serveUrl = await bundle({ entryPoint: ENTRY, webpackOverride });
+        lastPhase = "select-composition";
+        const composition = await selectComposition({ serveUrl, id: "video", inputProps });
+        lastPhase = "render";
+        await renderMedia({
+          composition,
+          serveUrl,
+          codec: "h264",
+          outputLocation: outPath,
+          inputProps,
+          onProgress: ({ progress }) => {
+            const pct = Math.min(99, Math.round(5 + progress * 90));
+            Project.updateOne(
+              { _id: id },
+              { progress: pct, renderHeartbeatAt: new Date() }
+            ).catch(() => {});
+          },
+        });
+        if (current !== project.componentSource) {
+          await Project.updateOne({ _id: id }, { componentSource: current }).catch(() => {});
+        }
+        break; // render succeeded
+      } catch (renderErr) {
+        const msg = renderErr instanceof Error ? renderErr.message : String(renderErr);
+        console.warn(`[worker] ${id} render attempt ${attempt} failed: ${msg.slice(0, 160)}`);
+        if (attempt === MAX_RENDER_ATTEMPTS) throw renderErr;
+        console.log(`[worker] ${id} repairing component…`);
+        current = await fixComponent({ brokenSource: current, error: msg });
+      }
+    }
 
     let outputUrl = `${PUBLIC_BASE}/videos/${id}.mp4`;
     if (isStorageConfigured()) {

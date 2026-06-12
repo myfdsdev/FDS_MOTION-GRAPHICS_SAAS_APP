@@ -124,3 +124,20 @@ export async function generateComponent({
 function stripSafe(raw) {
   return typeof raw === "string" ? raw : "";
 }
+
+/**
+ * Repair a component that FAILED at bundle/render time (not validation). The
+ * error often surfaces a hallucinated API (e.g. `spring().to()`); we feed the
+ * exact error + broken source back to the model and re-validate the fix.
+ *
+ * @returns {Promise<string>} a validated, fixed component source
+ */
+export async function fixComponent({ brokenSource, error }) {
+  const retrySystem = fillTemplate(RETRY_SYSTEM_PROMPT, { ERROR: error });
+  const raw = await callLLM({ system: retrySystem, user: brokenSource, maxTokens: 8000 });
+  const result = validateComponent(raw);
+  if (!result.ok) {
+    throw new Error(`Repaired component still failed validation:\n${result.error}`);
+  }
+  return result.code;
+}

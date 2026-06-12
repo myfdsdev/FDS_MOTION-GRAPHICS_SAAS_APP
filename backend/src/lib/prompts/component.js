@@ -39,6 +39,22 @@ default React component named UserComposition.
 - Use the seeded random() from remotion (never Math.random) so renders are
   deterministic.
 
+# Remotion API rules (getting these wrong crashes the render)
+- spring() returns a NUMBER, not an object. There is NO .to(), NO .start().
+  Correct: const s = spring({ frame, fps, config: { damping: 12 } });
+  Then use s directly, e.g. transform: \`scale(\${s})\`.
+- interpolate(frame, [0, 30], [0, 1], { extrapolateLeft: "clamp",
+  extrapolateRight: "clamp" }) — input/output ranges must be equal length and
+  the input range must be monotonically increasing.
+- useCurrentFrame() and useVideoConfig() are hooks — call them at the top of
+  the component, never inside loops/callbacks.
+- random("seed") returns a deterministic number in [0,1). Never use Math.random.
+- Easing functions: Easing.bezier(...), Easing.out(Easing.ease), etc. Pass them
+  via interpolate's { easing } option. Do not invent easing names.
+- For staggered sequences use <Sequence from={frames} durationInFrames={n}> or
+  compute per-element delays with interpolate — both are fine.
+- Everything is plain inline styles / SVG. No styled-components, no CSS imports.
+
 # Output shape (exactly this structure)
 import React from "react";
 import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
