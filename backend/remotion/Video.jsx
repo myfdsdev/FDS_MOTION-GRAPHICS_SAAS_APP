@@ -69,13 +69,13 @@ function SceneRenderer({ scene, colors, index, clipDurationInFrames, structureSe
   const style = getSceneStyle(scene.animation, frame, fps, dur);
 
   const base = solidColor(colors[0] ?? DEFAULT_COLORS[0], "#050509");
-  const accent = colors[(index % Math.max(1, colors.length - 1)) + 1] ?? colors[1] ?? DEFAULT_COLORS[1];
   void structureSeed;
   void category;
+  void index;
 
   return (
     <AbsoluteFill style={{ ...style, backgroundColor: base, overflow: "hidden" }}>
-      <PlainTextScene headline={scene.headline} subtext={scene.subtext} accent={accent} frame={frame} />
+      <PlainTextScene headline={scene.headline} subtext={scene.subtext} frame={frame} />
     </AbsoluteFill>
   );
 }
@@ -84,7 +84,7 @@ function solidColor(value, fallback) {
   return /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? value : fallback;
 }
 
-function PlainTextScene({ headline, subtext, accent, frame }) {
+function PlainTextScene({ headline, subtext, frame }) {
   const title = String(headline || "").trim();
   const body = String(subtext || "").trim();
   if (!title && !body) return null;
@@ -140,17 +140,6 @@ function PlainTextScene({ headline, subtext, accent, frame }) {
             {body}
           </div>
         ) : null}
-        <div
-          style={{
-            width: 72,
-            height: 2,
-            margin: "34px auto 0",
-            backgroundColor: accent,
-            opacity: Math.min(titleIn, 0.85),
-            transform: `scaleX(${titleIn})`,
-            transformOrigin: "center",
-          }}
-        />
       </div>
     </AbsoluteFill>
   );

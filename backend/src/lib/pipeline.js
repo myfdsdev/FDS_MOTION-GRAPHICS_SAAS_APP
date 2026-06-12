@@ -15,11 +15,6 @@ import {
   usageFromOpenAI,
 } from "./apiUsage.js";
 import { costForDuration, refundCredits } from "./credits.js";
-import {
-  assertKnownLottieAssets,
-  listLottieAssetSummaries,
-  lottieAssetPromptListFromSummaries,
-} from "./lottieLibrary.js";
 import { decryptSecret } from "./secrets.js";
 import { getAppSettings } from "./settings.js";
 import { SCENE_THEMES, VIDEO_CATEGORIES } from "./videoAssets.js";
@@ -641,6 +636,127 @@ async function generateWithGemini(
     usage: usageFromGemini(data.usageMetadata),
   });
   return parseModelJson(data.candidates?.[0]?.content?.parts?.[0]?.text);
+}
+
+function plainNarrationSystemPrompt(durationSec) {
+  const targetWords = Math.round(durationSec * 2.5);
+  const minWords = Math.round(durationSec * 2.2);
+  const maxWords = Math.round(durationSec * 2.8);
+  return [
+    "You write narration for a minimal text-only video.",
+    "Return plain text only.",
+    "Do not return JSON.",
+    "Do not return markdown.",
+    "Do not return bullet points, scene labels, headings, code, or quoted strings.",
+    `Write one natural voiceover for a ${durationSec}-second video.`,
+    `Target ${targetWords} words. Acceptable range ${minWords}-${maxWords} words.`,
+    "Use short clear sentences. Address the viewer as you. End with a simple next step.",
+  ].join(" ");
+}
+
+async function generatePlainScriptWithOpenAI(prompt, durationSec, config, userId, purpose, referenceImage) {
+  const userContent = referenceImage
+    ? [
+        {
+          type: "text",
+          text: `${prompt}\n\nReference image is attached. Use it only to understand tone and topic. Return narration text only.`,
+        },
+        {
+          type: "image_url",
+          image_url: { url: referenceImage, detail: "high" },
+        },
+      ]
+    : prompt;
+
+  const isOpenRouter = config.provider === "openrouter";
+  const headers = {
+    Authorization: `Bearer ${config.apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (isOpenRouter) {
+    headers["HTTP-Referer"] = process.env.WEB_ORIGIN || "http://localhost:5173";
+    headers["X-Title"] = "AI Video Generator";
+  }
+
+  const res = await fetch(isOpenRouter ? OPENROUTER_CHAT_URL : OPENAI_CHAT_COMPLETIONS_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        { role: "system", content: plainNarrationSystemPrompt(durationSec) },
+        { role: "user", content: userContent },
+      ],
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`${isOpenRouter ? "OpenRouter" : "OpenAI"} generation failed (${res.status}): ${await readErrorBody(res)}`);
+  }
+
+  const data = await res.json();
+  await recordApiUsage({
+    userId,
+    config,
+    purpose,
+    usage: usageFromOpenAI(data.usage),
+  });
+  return cleanPlainScript(data.choices?.[0]?.message?.content);
+}
+
+async function generatePlainScriptWithGemini(prompt, durationSec, config, userId, purpose, referenceImage) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
+  const parts = [];
+  let textPrompt = `${plainNarrationSystemPrompt(durationSec)}\n\nUser prompt: ${prompt}`;
+  if (referenceImage) {
+    textPrompt += "\n\nReference image is attached. Use it only to understand tone and topic. Return narration text only.";
+    const match = referenceImage.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (match) {
+      parts.push({ inline_data: { mime_type: match[1], data: match[2] } });
+    }
+  }
+  parts.unshift({ text: textPrompt });
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts }],
+      generationConfig: { temperature: 0.7 },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Gemini generation failed (${res.status}): ${await readErrorBody(res)}`);
+  }
+
+  const data = await res.json();
+  await recordApiUsage({
+    userId,
+    config,
+    purpose,
+    usage: usageFromGemini(data.usageMetadata),
+  });
+  return cleanPlainScript(data.candidates?.[0]?.content?.parts?.[0]?.text);
+}
+
+function cleanPlainScript(raw) {
+  if (!raw || typeof raw !== "string") throw new Error("AI returned an empty script");
+  let text = raw.trim();
+  const fenceMatch = text.match(/^```(?:text|txt|md)?\s*([\s\S]*?)```$/i);
+  if (fenceMatch) text = fenceMatch[1].trim();
+  if (text.startsWith("{") && text.endsWith("}")) {
+    const parsed = JSON.parse(text);
+    text = String(parsed.script || parsed.narration || parsed.voiceover || "").trim();
+  }
+  text = text
+    .replace(/^narration\s*:\s*/i, "")
+    .replace(/^voiceover\s*:\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) throw new Error("AI returned an empty script");
+  return text;
 }
 
 const ENHANCE_SYSTEM_PROMPT = `You are a senior motion graphics creative director. Transform the user's rough idea into a detailed, production-ready motion graphics video brief. Return plain text only, under 180 words.
@@ -1397,22 +1513,109 @@ function gradePlanQuality(plan, script, durationSec) {
   return [];
 }
 
+function createPlainTextPlan(prompt, script, durationSec) {
+  const totalDuration = Math.max(1, Number(durationSec) || 12);
+  const sceneCount = pickPlainSceneCount(totalDuration);
+  const chunks = chunkScript(script, sceneCount);
+  const durations = splitDuration(totalDuration, chunks.length);
+  const promptHeadline = firstWords(prompt, 6) || "Your video";
+
+  return {
+    duration: totalDuration,
+    aspectRatio: "16:9",
+    category: inferCategory(prompt),
+    brandColors: ["#050509", "#ffffff"],
+    scenes: chunks.map((text, i) => {
+      const cleanText = text || script;
+      return {
+        scene: i + 1,
+        duration: durations[i] || Math.max(1, durationSec / chunks.length),
+        text: cleanText,
+        headline: makeHeadline(cleanText, i, promptHeadline),
+        subtext: makeSubtext(cleanText),
+        visual: "Plain text on a solid background",
+        sceneTheme: "minimal-dark",
+        animation: i === 0 ? "fade-in" : "slide-up",
+        transition: i === chunks.length - 1 ? "fade" : "cut",
+      };
+    }),
+  };
+}
+
+function pickPlainSceneCount(durationSec) {
+  if (durationSec <= 8) return 2;
+  if (durationSec <= 16) return 3;
+  if (durationSec <= 28) return 4;
+  return 5;
+}
+
+function chunkScript(script, sceneCount) {
+  const sentences = splitSentences(script);
+  if (!sentences.length) return [firstWords(script, 28) || "Your video is ready."];
+  const count = Math.max(1, Math.min(sceneCount, sentences.length));
+  const chunks = Array.from({ length: count }, () => []);
+  sentences.forEach((sentence, index) => {
+    const bucket = Math.min(count - 1, Math.floor((index / sentences.length) * count));
+    chunks[bucket].push(sentence);
+  });
+  return chunks.map((items) => items.join(" ").trim()).filter(Boolean);
+}
+
+function splitSentences(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function splitDuration(total, count) {
+  const safeCount = Math.max(1, count);
+  const base = Math.max(1, Number(total) || safeCount) / safeCount;
+  return Array.from({ length: safeCount }, (_, i) => {
+    if (i === safeCount - 1) {
+      return Math.max(1, Number((total - base * (safeCount - 1)).toFixed(2)));
+    }
+    return Number(base.toFixed(2));
+  });
+}
+
+function makeHeadline(text, index, fallback) {
+  if (index === 0 && fallback) return trimText(fallback, 60);
+  return trimText(firstWords(text, 6), 60) || fallback || "Next step";
+}
+
+function makeSubtext(text) {
+  const words = String(text || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  return trimText(words.slice(6, 18).join(" ") || words.slice(0, 12).join(" "), 120);
+}
+
+function trimText(value, max) {
+  const text = String(value || "").trim();
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1).trimEnd() + "...";
+}
+
+function inferCategory(prompt) {
+  const text = String(prompt || "").toLowerCase();
+  if (/\b(saas|software|app|platform|ai|startup)\b/.test(text)) return "saas";
+  if (/\b(ad|ads|marketing|campaign|launch|brand)\b/.test(text)) return "marketing";
+  if (/\b(shop|store|restaurant|local|salon|gym|food)\b/.test(text)) return "local-business";
+  if (/\b(me|my|portfolio|personal)\b/.test(text)) return "personal";
+  return "business";
+}
+
 async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
   const configs = await resolveAllAiConfigs(userId);
   if (!configs.length) throw new Error(await generationConfigError(userId));
 
-  const lottieAssets = await listLottieAssetSummaries();
-  const lottieAssetIds = lottieAssets.map((asset) => asset.id);
-  const lottieAssetPrompt = lottieAssetPromptListFromSummaries(lottieAssets);
-
-  let payload, lastErr;
+  let script, lastErr;
   for (const config of configs) {
     try {
       const genFn = config.provider === "openai" || config.provider === "openrouter"
-        ? generateWithOpenAI : generateWithGemini;
-      payload = await withRetry(() =>
-        genFn(prompt, durationSec, config, userId, "video_generation",
-          lottieAssetIds, lottieAssetPrompt, referenceImage)
+        ? generatePlainScriptWithOpenAI : generatePlainScriptWithGemini;
+      script = await withRetry(() =>
+        genFn(prompt, durationSec, config, userId, "video_generation", referenceImage)
       );
       break; // success
     } catch (err) {
@@ -1425,23 +1628,17 @@ async function generateVideoPlan(prompt, durationSec, userId, referenceImage) {
       throw err;
     }
   }
-  if (!payload) throw lastErr;
+  if (!script) throw lastErr;
 
-  if (!payload || typeof payload.script !== "string") {
-    throw new Error("AI response did not include a script");
-  }
-
-  const plan = sanitizePlan(payload.plan);
+  const plan = sanitizePlan(createPlainTextPlan(prompt, script, durationSec));
   assertNoPlaceholders(plan);
-  // Lottie assets are no longer assigned by the AI — admins upload Lotties for
-  // optional manual placement on the canvas, but generation produces none.
   const parsed = VideoPlanSchema.safeParse(plan);
   if (!parsed.success) {
-    throw new Error(`AI response did not match the video schema: ${parsed.error.message}`);
+    throw new Error(`Generated plain video plan did not match the video schema: ${parsed.error.message}`);
   }
 
   return {
-    script: payload.script.trim(),
+    script: script.trim(),
     plan: parsed.data,
   };
 }
@@ -1484,11 +1681,11 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
 
     const { script, plan } = await generateVideoPlan(prompt, durationSec, userId, referenceImage);
 
-    // ---- Optional code-gen path ------------------------------------------------
-    // Disabled by default while the JSON component system is the main editable
-    // renderer. Set ENABLE_VIDEO_CODEGEN=true to let AI JSX override the JSON.
+    // ---- Optional graphical code-gen path --------------------------------------
+    // Plain text mode is the default. Graphical JSX generation requires both
+    // flags so it cannot accidentally override the minimal renderer.
     let generatedCode = null;
-    if (process.env.ENABLE_VIDEO_CODEGEN === "true") try {
+    if (process.env.ENABLE_VIDEO_CODEGEN === "true" && process.env.ALLOW_GRAPHICAL_CODEGEN === "true") try {
       const codeConfigs = await resolveAllAiConfigs(userId);
       if (codeConfigs.length) {
         await Project.updateOne({ _id: projectId }, { progress: 20 });
@@ -1514,8 +1711,8 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
         console.log(`[pipeline] code-gen succeeded for ${projectId} (${generatedCode.length} chars)`);
       }
     } catch (codeErr) {
-      // Non-fatal: we still have the JSON plan as fallback.
-      console.warn(`[pipeline] code-gen failed for ${projectId}, falling back to JSON plan:`, codeErr.message);
+      // Non-fatal: we still have the plain text plan as fallback.
+      console.warn(`[pipeline] code-gen failed for ${projectId}, falling back to plain text plan:`, codeErr.message);
       await Project.updateOne(
         { _id: projectId },
         {
