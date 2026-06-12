@@ -72,17 +72,43 @@ export async function callLLM({ system, user, premium = false, maxTokens = 8000 
   }
   let lastErr;
   for (const p of providers) {
+    const model = premium ? p.premiumModel : p.model;
+    const attempt = () => {
+      if (p.provider === "anthropic") return callAnthropic(p.key, model, system, user, maxTokens);
+      if (p.provider === "gemini") return callGemini(p.key, model, system, user, maxTokens);
+      return callOpenAICompatible(p, model, system, user, maxTokens);
+    };
     try {
-      const model = premium ? p.premiumModel : p.model;
-      if (p.provider === "anthropic") return await callAnthropic(p.key, model, system, user, maxTokens);
-      if (p.provider === "gemini") return await callGemini(p.key, model, system, user, maxTokens);
-      return await callOpenAICompatible(p, model, system, user, maxTokens);
+      return await withRetry(attempt, p.provider);
     } catch (err) {
       lastErr = err;
-      console.warn(`[providers] ${p.provider} failed: ${err?.message || err}. Trying next…`);
+      console.warn(`[providers] ${p.provider} exhausted: ${err?.message || err}. Trying next provider…`);
     }
   }
   throw lastErr || new Error("All LLM providers failed");
+}
+
+// Retry a single provider on transient errors (429 rate-limit, 5xx overload).
+// Permanent errors (401/403/400) fail fast so we fall through to the next
+// provider immediately.
+async function withRetry(fn, label, tries = 3, baseDelay = 2000) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = String(err?.message || err);
+      const m = msg.match(/\((\d{3})\)/);
+      const code = m ? Number(m[1]) : null;
+      const transient = code === 429 || code === 408 || (code !== null && code >= 500) || code === null;
+      if (!transient || i === tries - 1) break;
+      const delay = Math.round(baseDelay * Math.pow(2, i) * (0.7 + Math.random() * 0.6));
+      console.warn(`[providers] ${label} ${code ?? "?"} — retry ${i + 1}/${tries - 1} in ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
 }
 
 async function callAnthropic(key, model, system, user, maxTokens) {
