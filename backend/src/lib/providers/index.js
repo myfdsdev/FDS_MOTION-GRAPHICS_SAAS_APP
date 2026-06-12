@@ -91,7 +91,7 @@ export async function callLLM({ system, user, premium = false, maxTokens = 8000 
 // Retry a single provider on transient errors (429 rate-limit, 5xx overload).
 // Permanent errors (401/403/400) fail fast so we fall through to the next
 // provider immediately.
-async function withRetry(fn, label, tries = 3, baseDelay = 2000) {
+async function withRetry(fn, label, tries = 4, baseDelay = 2500) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
