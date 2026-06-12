@@ -52,9 +52,19 @@ export function stripFences(raw) {
 }
 
 export function validateComponent(rawSource) {
-  const code = stripFences(rawSource);
-  if (!code || !code.includes("export default")) {
-    return { ok: false, error: "Source has no `export default` component." };
+  let code = stripFences(rawSource);
+  if (!code) {
+    return { ok: false, error: "Empty source." };
+  }
+  // LLMs frequently omit the trailing `export default UserComposition;` even
+  // though they define `export const UserComposition`. Auto-append it instead
+  // of failing — Root.jsx imports the default.
+  if (!code.includes("export default")) {
+    if (/export\s+(const|function)\s+UserComposition\b/.test(code)) {
+      code = `${code.trimEnd()}\n\nexport default UserComposition;\n`;
+    } else {
+      return { ok: false, error: "Source has no `export default` and no exported `UserComposition` component." };
+    }
   }
 
   let ast;
