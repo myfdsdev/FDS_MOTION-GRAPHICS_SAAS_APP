@@ -38,7 +38,7 @@ import {
 import { toast } from "sonner";
 import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender, useDeleteProject } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
-import { Canvas } from "@/components/canvas/Canvas";
+import { RenderedPreview } from "@/components/canvas/RenderedPreview";
 import { LayersPanel } from "@/components/canvas/LayersPanel";
 import { ElementsPanel, PropertiesPanel } from "@/components/canvas/panels";
 import { RenderErrorDetails } from "@/components/project/RenderErrorDetails";
@@ -560,35 +560,16 @@ export default function EditorPage() {
             )}
             style={{ backgroundColor: brand[0] ?? "#0a0a0f" }}
           >
-            {sceneClip ? (
-              /* Live editable canvas — shows the scene via Remotion
-                 <Player> and renders draggable element overlays on top. */
-              <Canvas
-                elements={elements}
-                selectedIds={state.selectedElementIds}
-                aspectRatio={project.aspectRatio}
-                brandColors={brand}
-                clipId={sceneClipId}
-                snapping={state.snapping}
-                dispatch={dispatch}
-                sceneNumber={sceneNumber}
-                sceneTime={currentTime - (sceneClip?.start ?? 0)}
-                sceneDuration={sceneClip?.duration ?? 0}
-                scene={sceneClip?.scene ?? null}
-                playing={playing}
-                overlay
-              />
-            ) : (
-              /* Placeholder — no scenes yet. */
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-muted">
-                <Film size={28} className="text-accent" />
-                <div className="text-sm">No scenes yet</div>
-                <div className="max-w-xs text-xs text-faint">
-                  Describe a video in the chat panel to generate scenes, then
-                  edit them right here on the canvas.
-                </div>
-              </div>
-            )}
+            {/* Code-gen model: the project IS a rendered MP4. We play the
+                rendered video (or show generate/render status) — no live
+                element editing. */}
+            <RenderedPreview
+              project={project}
+              currentTime={currentTime}
+              playing={playing}
+              onTimeUpdate={setCurrentTime}
+              onRetry={handleRender}
+            />
 
             {/* Rendering / generating overlays */}
             {(project.status === "RENDERING" || project.status === "QUEUED") && (
