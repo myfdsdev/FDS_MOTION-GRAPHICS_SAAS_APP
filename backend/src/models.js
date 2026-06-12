@@ -65,6 +65,14 @@ const projectSchema = new Schema(
     status: { type: String, enum: PROJECT_STATUSES, default: "PLANNING" },
     script: { type: String, default: null },
     sceneJson: { type: Schema.Types.Mixed, default: null },
+    // ---- Code-gen architecture ----
+    // The AI-generated Remotion component source (.tsx) for this project.
+    // The worker writes this into remotion/scenes/UserComposition.tsx before
+    // bundling. Replaces the old JSON `sceneJson` plan as the source of truth.
+    componentSource: { type: String, default: null },
+    // The enhanced creative brief the component was generated from (for
+    // debugging / re-generation context).
+    brief: { type: String, default: null },
     aspectRatio: { type: String, default: "16:9" },
     durationSec: { type: Number, default: 20 },
     outputUrl: { type: String, default: null },

@@ -17,6 +17,7 @@ import {
 import { costForDuration, refundCredits } from "./credits.js";
 import { decryptSecret } from "./secrets.js";
 import { getAppSettings } from "./settings.js";
+import { generateComponent } from "./codegen.js";
 // variety.js retained on disk for future use but no longer imported.
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
@@ -589,117 +590,53 @@ async function persistVoiceover(projectId, audio, script) {
 
 // Fire-and-forget pipeline. It never creates placeholder videos. If AI or the
 // real renderer is unavailable, the project fails and credits are refunded.
-export async function runPipeline(projectId, userId, prompt, durationSec, referenceImage) {
+// Code-gen pipeline. The AI writes a complete Remotion component (.tsx); we
+// validate it and save it on the project, then queue it for the render worker.
+// No JSON plan, no preset vocabulary — the component IS the video.
+export async function runPipeline(projectId, userId, prompt, durationSec) {
   const cost = costForDuration(durationSec);
 
   try {
+    const project = await Project.findById(projectId).select("aspectRatio");
+    const aspect = project?.aspectRatio || "16:9";
+
     await Project.updateOne(
       { _id: projectId },
-      { status: "GENERATING_ASSETS", progress: 10, errorMessage: null }
+      { status: "GENERATING_ASSETS", progress: 10, errorMessage: null, errorPhase: null }
     );
 
-    const { script, plan } = await generateVideoPlan(prompt, durationSec, userId, referenceImage);
+    const { source, brief } = await generateComponent({
+      prompt,
+      durationSec,
+      aspect,
+      premium: false,
+      onProgress: (stage) => {
+        const pct = stage === "enhancing" ? 12
+          : stage === "generating" ? 20
+          : stage.startsWith("retry") ? 22
+          : stage === "reviewing" ? 26
+          : 28;
+        Project.updateOne({ _id: projectId }, { progress: pct }).catch(() => {});
+      },
+    });
 
-
-    // Quality grading — surface warnings about narration length, missing
-    // graphics, headline length, and cliché phrases so the user sees the
-    // root cause when a video feels off. Never fails the project.
-    try {
-      const qualityWarnings = gradePlanQuality(plan, script, durationSec);
-      if (qualityWarnings.length) {
-        await Project.updateOne(
-          { _id: projectId },
-          {
-            $push: {
-              warnings: {
-                $each: qualityWarnings.map((message) => ({
-                  phase: "ai",
-                  message,
-                  at: new Date(),
-                })),
-                $slice: -10,
-              },
-            },
-          }
-        );
-      }
-    } catch (gradeErr) {
-      console.warn(`[pipeline] quality grading failed for ${projectId}:`, gradeErr);
-    }
-
-    // Voiceover is additive — TTS failure (or missing key) must NEVER fail the
-    // project. We try, swallow errors, and continue to READY_TO_EDIT. A short
-    // reason is captured on the project so the editor can surface "Narration
-    // unavailable" instead of silently producing a silent video.
-    let voiceoverUrl = null;
-    let voiceoverDuration = null;
-    let voiceoverError = null;
-    if (!script || !script.trim()) {
-      voiceoverError = "empty_script";
-    } else if (!isTtsConfigured()) {
-      voiceoverError = "missing_piper_script";
-    } else {
-      try {
-        const audio = await synthesizeVoiceover(script);
-        const audioSize = Buffer.isBuffer(audio) ? audio.length : audio?.buffer?.length;
-        if (!audioSize || audioSize < 44) {
-          voiceoverError = "empty_response";
-        } else {
-          const { url, duration } = await persistVoiceover(projectId, audio, script);
-          voiceoverUrl = url;
-          voiceoverDuration = duration;
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        // Keep the reason short and safe — no API key or full request body.
-        const m = msg.match(/\((\d{3})\)/);
-        voiceoverError = m ? `http_${m[1]}` : msg.slice(0, 80);
-        console.warn(`[pipeline] voiceover failed for ${projectId}: ${voiceoverError}`);
-      }
-    }
-    // Surface non-fatal voiceover failures into the structured warnings list
-    // so the UI can show the root cause alongside "Narration unavailable".
-    if (voiceoverError) {
-      await Project.updateOne(
-        { _id: projectId },
-        {
-          $push: {
-            warnings: {
-              $each: [
-                {
-                  phase: "tts",
-                  message: `Voiceover skipped: ${voiceoverError}`,
-                  at: new Date(),
-                },
-              ],
-              $slice: -10,
-            },
-          },
-        }
-      ).catch(() => {});
-    }
-
+    // Save the component and queue it. The worker claims QUEUED projects,
+    // writes the component into the Remotion scene slot, bundles, and renders.
     await Project.updateOne(
       { _id: projectId },
       {
-        // Stop here so the user can edit on the canvas. The render worker only
-        // claims "QUEUED" — rendering happens when the user clicks Render
-        // (POST /:id/rerender), which transitions READY_TO_EDIT → QUEUED.
-        status: "READY_TO_EDIT",
+        status: "QUEUED",
         progress: 30,
-        script,
-        sceneJson: plan,
-        aspectRatio: plan.aspectRatio,
-        voiceoverUrl,
-        voiceoverDuration,
-        voiceoverError,
+        componentSource: source,
+        brief,
+        sceneJson: null,
       }
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Pipeline error";
+    const message = err instanceof Error ? err.message : "Code-gen error";
     const code = err instanceof Error ? err.code || err.name || null : null;
     const stack = err instanceof Error ? err.stack || null : null;
-    console.error(`[pipeline] project ${projectId} failed:`, err);
+    console.error(`[pipeline] project ${projectId} code-gen failed:`, err);
     await Project.updateOne(
       { _id: projectId },
       {
@@ -711,7 +648,6 @@ export async function runPipeline(projectId, userId, prompt, durationSec, refere
         errorStack: stack,
         errorAt: new Date(),
         outputUrl: null,
-        thumbnailUrl: null,
       }
     );
     await refundCredits(userId, cost, projectId).catch((refundErr) => {
