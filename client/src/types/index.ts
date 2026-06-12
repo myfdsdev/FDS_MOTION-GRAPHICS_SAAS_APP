@@ -7,7 +7,6 @@ export type {
   TimelineClip,
   ZoomRegion,
   SceneElement,
-  ComponentElement,
   TextElement,
   IconElement,
   ImageElement,
@@ -93,8 +92,6 @@ export interface Project {
   status: ProjectStatus;
   script?: string;
   sceneJson?: VideoPlan;
-  /** True when the AI generated custom Remotion JSX code for this project. */
-  hasGeneratedCode?: boolean;
   aspectRatio: AspectRatio;
   durationSec: number;
   outputUrl?: string;
@@ -113,9 +110,7 @@ export interface Project {
     | "upload"
     | "finalize"
     | "tts"
-    | "ai"
-    | "bundle-codegen"
-    | "codegen";
+    | "ai";
   errorCode?: string;
   errorStack?: string;
   errorAt?: string;

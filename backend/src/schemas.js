@@ -90,26 +90,7 @@ const ElementBase = {
   animation: ElementAnimationSchema.optional(),
 };
 
-const MotionComponentName = z.enum([
-  "TextReveal", "WordReveal", "TypewriterText", "GradientText", "CounterText",
-  "MouseCursor", "ButtonClick", "TypingInput", "BrowserWindow", "PhoneMockup",
-  "FeatureCard", "PricingCard", "TestimonialCard", "StatsCounter", "LogoWall",
-  "GradientBlob", "LightSweep", "ParticleField", "GlowRing", "ConfettiBurst",
-  "ImageScene", "ZoomPanImage", "LogoIntro",
-  "MapRoute", "LocationPin", "BoardingPass",
-  "ProductCard", "PriceTag", "ReviewStars",
-  "InstagramPostMockup", "LikeCounter", "CommentBubble",
-  "ChatBubble", "AIThinkingDots", "VoiceWaveform", "CodeBlockReveal",
-  "FadeTransition", "SlideTransition", "WipeTransition", "GlitchTransition",
-]);
-
 export const SceneElementSchema = z.discriminatedUnion("type", [
-  z.object({
-    ...ElementBase,
-    type: z.literal("component"),
-    component: MotionComponentName,
-    props: z.record(z.unknown()).optional(),
-  }),
   z.object({
     ...ElementBase,
     type: z.literal("text"),

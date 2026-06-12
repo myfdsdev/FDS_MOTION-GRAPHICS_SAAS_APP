@@ -69,8 +69,6 @@ const projectSchema = new Schema(
     durationSec: { type: Number, default: 20 },
     outputUrl: { type: String, default: null },
     thumbnailUrl: { type: String, default: null },
-    /** AI-generated Remotion JSX code for code-gen render mode. */
-    generatedCode: { type: String, default: null },
     /** Narration MP3 produced by ElevenLabs TTS from `script`. Optional. */
     voiceoverUrl: { type: String, default: null },
     voiceoverDuration: { type: Number, default: null },
@@ -99,9 +97,6 @@ const projectSchema = new Schema(
         "finalize",
         "tts",
         "ai",
-        "write-codegen",
-        "bundle-codegen",
-        "codegen",
       ],
       default: null,
     },
@@ -163,7 +158,7 @@ const apiUsageSchema = new Schema(
     keySource: { type: String, enum: ["user", "environment"], required: true },
     purpose: {
       type: String,
-      enum: ["video_generation", "prompt_enhancement", "video_codegen"],
+      enum: ["video_generation", "prompt_enhancement"],
       required: true,
     },
     model: { type: String, default: null },

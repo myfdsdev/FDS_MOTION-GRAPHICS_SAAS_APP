@@ -8,8 +8,6 @@ import { webpackOverride } from "./remotion/webpackOverride.js";
 import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";
-import { attachLottieAssetsToPlan } from "./src/lib/lottieLibrary.js";
-import { writeGeneratedCode } from "./src/lib/pipeline.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -243,65 +241,26 @@ export async function startWorker() {
 
 async function renderProject(serveUrl, project) {
   const id = String(project._id);
-  const hasGeneratedCode = !!project.generatedCode;
   console.log(
-    `[worker] rendering ${id} (${project.aspectRatio}, ${project.durationSec}s, attempt ${project.renderAttempts}, codegen=${hasGeneratedCode})…`
+    `[worker] rendering ${id} (${project.aspectRatio}, ${project.durationSec}s, attempt ${project.renderAttempts})…`
   );
 
   let lastPhase = "load-plan";
   try {
     await runPhase("load-plan", async () => {
       lastPhase = "load-plan";
-      if (!project.sceneJson && !project.generatedCode) {
-        throw new Error("Project has no scene plan or generated code to render");
+      if (!project.sceneJson) {
+        throw new Error("Project has no scene plan to render");
       }
     });
 
-    // Decide render path: code-gen (AI wrote JSX) or JSON-driven (legacy).
-    let activeServeUrl = serveUrl;
-    let compositionId = "video";
-    let inputProps = null;
-
-    if (hasGeneratedCode) {
-      // CODE-GEN PATH: write the AI code to disk and re-bundle so Remotion
-      // picks up the new Current.jsx. This adds ~15-20s but produces
-      // custom animations that no pre-built template can match.
-      await runPhase("write-codegen", async () => {
-        lastPhase = "write-codegen";
-        const code = project.generatedCode;
-        if (!code || code.length < 100) throw new Error("Generated code too short");
-        if (!code.includes("export default")) throw new Error("Generated code missing default export");
-        const opens = (code.match(/\{/g) || []).length;
-        const closes = (code.match(/\}/g) || []).length;
-        if (Math.abs(opens - closes) > 2) throw new Error(`Unbalanced braces: ${opens} open vs ${closes} close — code likely truncated`);
-        writeGeneratedCode(code);
-        console.log(`[worker] wrote generated code for ${id} (${code.length} chars)`);
-      });
-
-      await runPhase("bundle-codegen", async () => {
-        lastPhase = "bundle-codegen";
-        activeServeUrl = await bundle({ entryPoint: ENTRY });
-        console.log(`[worker] re-bundled for code-gen ${id}`);
-      });
-
-      compositionId = "generated";
-      inputProps = {
-        duration: project.durationSec || 20,
-        aspectRatio: project.aspectRatio || "16:9",
-      };
-    } else {
-      // JSON PATH: use the pre-bundled serve URL.
-      inputProps = await runPhase("attach-lottie", async () => {
-        lastPhase = "attach-lottie";
-        return await attachLottieAssetsToPlan(project.sceneJson);
-      });
-    }
+    const inputProps = project.sceneJson;
 
     const composition = await runPhase("select-composition", async () => {
       lastPhase = "select-composition";
       return await selectComposition({
-        serveUrl: activeServeUrl,
-        id: compositionId,
+        serveUrl,
+        id: "video",
         inputProps,
       });
     });
@@ -312,7 +271,7 @@ async function renderProject(serveUrl, project) {
       lastPhase = "render";
       await renderMedia({
         composition,
-        serveUrl: activeServeUrl,
+        serveUrl,
         codec: "h264",
         outputLocation: outPath,
         inputProps,

@@ -494,12 +494,7 @@ export default function EditorPage() {
               </Tooltip>
             </>
           )}
-          {project.hasGeneratedCode && (
-            <span className="hidden sm:inline rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-purple-400">
-              AI Code
-            </span>
-          )}
-          <Tooltip content={project.hasGeneratedCode ? "Render with AI-generated code" : "Render the final MP4"} side="bottom">
+          <Tooltip content="Render the final MP4" side="bottom">
             <button
               onClick={handleRender}
               disabled={!editable || rerender.isPending}

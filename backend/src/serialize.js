@@ -19,8 +19,6 @@ export function toProjectDTO(p) {
     status: p.status,
     script: p.script ?? undefined,
     sceneJson: p.sceneJson ?? undefined,
-    // Only send a boolean flag, not the full code (can be huge).
-    hasGeneratedCode: !!p.generatedCode,
     aspectRatio: p.aspectRatio,
     durationSec: p.durationSec,
     outputUrl: p.outputUrl ?? undefined,
