@@ -1,15 +1,10 @@
 import { Router } from "express";
 import { ApiUsage, CreditTx, Project, User } from "../models.js";
 import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
-import {
-  createLottieAsset,
-  getLottieAnimationData,
-  listLottieAssetSummaries,
-} from "../lib/lottieLibrary.js";
 import { getAppSettings, updateAppSettings } from "../lib/settings.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { CreateLottieAssetInput, UpdateAdminSettingsInput } from "../schemas.js";
+import { UpdateAdminSettingsInput } from "../schemas.js";
 import { toProjectDTO, toUserDTO } from "../serialize.js";
 
 export const adminRouter = Router();
@@ -132,30 +127,5 @@ adminRouter.patch("/settings", validate(UpdateAdminSettingsInput), async (req, r
   }
 });
 
-adminRouter.get("/lottie-assets", async (_req, res, next) => {
-  try {
-    res.json(await listLottieAssetSummaries());
-  } catch (err) {
-    next(err);
-  }
-});
-
-adminRouter.post("/lottie-assets", validate(CreateLottieAssetInput), async (req, res, next) => {
-  try {
-    const asset = await createLottieAsset(req.body);
-    res.status(201).json(asset);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Raw animation JSON for one asset — used to play previews in the library UI.
-adminRouter.get("/lottie-assets/:id/animation", async (req, res, next) => {
-  try {
-    const animationData = await getLottieAnimationData(req.params.id);
-    if (!animationData) return res.status(404).json({ error: "Lottie asset not found" });
-    res.json({ animationData });
-  } catch (err) {
-    next(err);
-  }
-});
+// Lottie admin endpoints removed — the Lottie subsystem was part of the old
+// JSON-template architecture and is gone under code-gen.

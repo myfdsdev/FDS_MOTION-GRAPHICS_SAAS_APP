@@ -8,7 +8,6 @@ import morgan from "morgan";
 import { loadUser } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/error.js";
 import { adminRouter } from "./routes/admin.js";
-import { lottieAssetsRouter } from "./routes/lottieAssets.js";
 import { assetsRouter } from "./routes/assets.js";
 import { authRouter } from "./routes/auth.js";
 import { billingRouter } from "./routes/billing.js";
@@ -76,7 +75,6 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/profile", profileRouter);
   app.use("/api/admin", adminRouter);
-  app.use("/api/lottie-assets", lottieAssetsRouter);
   app.use("/api/projects", projectsRouter);
   app.use("/api/enhance-prompt", enhanceRouter);
   app.use("/api/local-tts", localTtsRouter);

@@ -13,6 +13,8 @@ import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIDEOS_DIR = path.join(__dirname, "public", "videos");
 const ENTRY = path.join(__dirname, "remotion", "index.jsx");
+const SCENE_PATH = path.join(__dirname, "remotion", "scenes", "UserComposition.tsx");
+const FPS = 30;
 const PUBLIC_BASE = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 const POLL_MS = 2000;
 
@@ -192,9 +194,9 @@ export async function startWorker() {
   console.log("[worker] ensuring headless browser (first run downloads Chrome)…");
   await ensureBrowser();
 
-  console.log("[worker] bundling Remotion compositions…");
-  const serveUrl = await bundle({ entryPoint: ENTRY });
-  console.log("[worker] bundle ready.");
+  // NOTE: with the code-gen architecture each project has a DIFFERENT
+  // component, so we bundle per-render (after writing the component) rather
+  // than once at startup.
 
   await reclaimOrphans();
 
@@ -235,11 +237,13 @@ export async function startWorker() {
       continue;
     }
 
-    await renderProject(serveUrl, job);
+    await renderProject(job);
   }
 }
 
-async function renderProject(serveUrl, project) {
+const DIMENSIONS = { "16:9": [1920, 1080], "9:16": [1080, 1920], "1:1": [1080, 1080] };
+
+async function renderProject(project) {
   const id = String(project._id);
   console.log(
     `[worker] rendering ${id} (${project.aspectRatio}, ${project.durationSec}s, attempt ${project.renderAttempts})…`
@@ -247,14 +251,25 @@ async function renderProject(serveUrl, project) {
 
   let lastPhase = "load-plan";
   try {
+    // 1. Load the AI-generated component and write it into the scene slot.
     await runPhase("load-plan", async () => {
       lastPhase = "load-plan";
-      if (!project.sceneJson) {
-        throw new Error("Project has no scene plan to render");
+      if (!project.componentSource || !project.componentSource.trim()) {
+        throw new Error("Project has no generated component to render");
       }
+      fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
+      fs.writeFileSync(SCENE_PATH, project.componentSource, "utf8");
     });
 
-    const inputProps = project.sceneJson;
+    const aspect = project.aspectRatio || "16:9";
+    const durationInFrames = Math.max(1, Math.round((Number(project.durationSec) || 20) * FPS));
+    const inputProps = { aspectRatio: aspect, durationInFrames };
+
+    // 2. Bundle the composition WITH the freshly-written component.
+    const serveUrl = await runPhase("bundle", async () => {
+      lastPhase = "bundle";
+      return await bundle({ entryPoint: ENTRY, webpackOverride });
+    });
 
     const composition = await runPhase("select-composition", async () => {
       lastPhase = "select-composition";
