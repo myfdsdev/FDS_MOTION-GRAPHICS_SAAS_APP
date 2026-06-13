@@ -38,10 +38,28 @@ set pieces, and animation language, then output ONE complete, self-contained
   product-style compositions, and scene-specific set pieces.
 - Do not make a static text video. Every scene must have layered motion and a
   clear design idea.
+- Prefer bold motion-template design over generic gradients. The reference
+  language is flat, typographic, graphic, and punchy: giant cropped words,
+  arrows, stripes, hard cuts/soft wipes, masked reveals, stretched letters,
+  clean title cards, and stacked color bands.
+- Choose one strong visual system per video, or intentionally combine two:
+  1. Oversized list wall: black background, huge bold white words cropped off
+     canvas, yellow arrows between words, rows moving like a conveyor.
+  2. Lowercase promo: simple 4:3 promo typography, oversized lowercase sans,
+     black/white base, one accent color, snap transitions.
+  3. Minimal cascading title: pastel/mint/off-white field, small centered serif
+     uppercase copy, letters/lines cascade in with precise timing.
+  4. Stretched kinetic word: black background, one enormous white word cropped
+     by the frame, letters squeeze/stretch/morph vertically or horizontally.
+  5. Color-band list: full-width horizontal bands in bold flat colors with huge
+     black/white labels, bands slide/snap/reorder across the frame.
+- Avoid looking like a stock AI slideshow. Do not rely on generic floating
+  particles/blobs unless they support the typography system.
 - Multi-scene narrative arc using <Series> or staggered <Sequence>s:
   hook → 2-3 middle beats → outro. Each beat is visually distinct.
-- A continuous animated background layer (drifting gradient blobs, moving grid,
-  floating particles) so nothing is ever static.
+- A continuous animated graphic system (moving type rows, sliding bands,
+  mask wipes, shape grids, arrows, lines, or subtle background motion) so
+  nothing is ever static.
 - ONE custom "set-piece" moment that specifically matches the user's prompt —
   the wow beat (a cursor click, a counter ticking up, confetti, a chart drawing
   itself, a phone mockup, a map route, whatever fits). Not a generic fade.
