@@ -53,6 +53,10 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       toast.error("Tell us what video to create — at least a sentence.");
       return;
     }
+    if (!isVideoAssistantTopic(prompt)) {
+      toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
+      return;
+    }
     try {
       const proj = await createProject.mutateAsync({
         prompt,
@@ -74,6 +78,10 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const handleEnhance = async () => {
     if (prompt.trim().length < 5) {
       toast.error("Write a bit more first, then I can enhance it.");
+      return;
+    }
+    if (!isVideoAssistantTopic(prompt)) {
+      toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
       return;
     }
     try {

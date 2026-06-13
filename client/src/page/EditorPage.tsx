@@ -46,6 +46,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEditorShortcuts } from "@/lib/editor/useEditorShortcuts";
+import { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } from "@/lib/domainGuard";
 import {
   canRedo,
   canUndo,
@@ -778,6 +779,7 @@ function ChatPanel({
   const [duration, setDuration] = useState(defaultDuration || 15);
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState<string>("");
+  const [assistantReply, setAssistantReply] = useState(VIDEO_ASSISTANT_SCOPE_MESSAGE);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -799,13 +801,18 @@ function ChatPanel({
   };
 
   const submit = () => {
+    if (!isVideoAssistantTopic(prompt)) {
+      setAssistantReply(VIDEO_ASSISTANT_SCOPE_MESSAGE);
+      return;
+    }
+    setAssistantReply("Good. I can use that for a video generation request.");
     onGenerate(prompt, duration, refImage ?? undefined);
   };
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
-        <span className="text-sm font-semibold">New chat</span>
+        <span className="text-sm font-semibold">Video chat</span>
         <button className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg">
           <Plus size={15} />
         </button>
@@ -815,8 +822,11 @@ function ChatPanel({
         <div className="mb-4 h-16 w-16 rounded-full bg-gradient-to-br from-accent/50 to-accent/5 shadow-[0_0_40px] shadow-accent/30" />
         <h3 className="font-semibold">Let's create some animations</h3>
         <p className="mt-1 text-xs text-muted">
-          Tell me the video you want. I'll generate every scene, narration, and animation for you.
+          I only answer about video making, Remotion/software setup, rendering, audio, and generator guidance.
         </p>
+        <div className="mt-4 rounded-xl border border-border bg-surface-2/70 px-3 py-2 text-left text-xs leading-relaxed text-muted">
+          {assistantReply}
+        </div>
         <div className="mt-5 w-full space-y-2">
           {SUGGESTIONS.map((s) => (
             <button

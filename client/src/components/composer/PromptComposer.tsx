@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
+import { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } from "@/lib/domainGuard";
 import { toast } from "sonner";
 
 const DURATIONS = [
@@ -78,6 +79,10 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
       toast.error("Write a bit more first, then I can enhance it.");
       return;
     }
+    if (!isVideoAssistantTopic(prompt)) {
+      toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
+      return;
+    }
     try {
       const better = await enhance.mutateAsync(prompt);
       setPrompt(better);
@@ -90,6 +95,10 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
   const handleCreate = async () => {
     if (prompt.trim().length < 10) {
       toast.error("Tell us what video to create — at least a sentence.");
+      return;
+    }
+    if (!isVideoAssistantTopic(prompt)) {
+      toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
       return;
     }
     try {
