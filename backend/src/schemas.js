@@ -23,7 +23,7 @@ export const AnimationType = z.enum([
 
 export const TransitionType = z.enum(["cut", "quick-slide", "zoom-cut", "fade", "blur"]);
 
-export const AspectRatio = z.enum(["16:9", "9:16", "1:1"]);
+export const AspectRatio = z.enum(["16:9", "9:16", "1:1", "4:3"]);
 
 export const VideoCategory = z.enum(VIDEO_CATEGORIES);
 
@@ -385,6 +385,7 @@ export const LoginInput = z.object({
 export const CreateProjectInput = z.object({
   prompt: z.string().min(10).max(5000),
   durationSec: z.number().int().min(5).max(60).optional().default(20),
+  aspectRatio: AspectRatio.optional().default("16:9"),
   referenceImage: z.string().max(6_000_000).optional(),
 });
 

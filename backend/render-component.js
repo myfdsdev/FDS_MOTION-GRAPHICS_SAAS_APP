@@ -49,7 +49,7 @@ async function renderPreviewFrames({ composition, serveUrl, inputProps, outputPa
 }
 
 function usage() {
-  console.log('Usage: npm run gen -- "your video prompt" [--dur 20] [--aspect 16:9] [--premium] [-o out.mp4]');
+  console.log('Usage: npm run gen -- "your video prompt" [--dur 20] [--aspect 16:9|9:16|1:1|4:3] [--premium] [-o out.mp4]');
 }
 
 function parseArgs(argv) {

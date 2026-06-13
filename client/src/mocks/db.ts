@@ -262,7 +262,7 @@ export const mockApi = {
     return { ...proj };
   },
 
-  async createProject(prompt: string, durationSec = 20): Promise<Project> {
+  async createProject(prompt: string, durationSec = 20, aspectRatio: Project["aspectRatio"] = "16:9"): Promise<Project> {
     await delay(600);
     if (!db.user) throw new Error("Not authenticated");
     const cost = durationSec >= 30 ? 20 : 10;
@@ -274,7 +274,7 @@ export const mockApi = {
       userId: db.user.id,
       prompt,
       status: "PLANNING",
-          aspectRatio: "16:9",
+      aspectRatio,
       durationSec,
       sceneJson: seedPlan,
       progress: 0,

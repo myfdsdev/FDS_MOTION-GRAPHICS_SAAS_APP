@@ -7,6 +7,7 @@ import {
 import * as api from "@/lib/api";
 import type {
   AdminSettings,
+  AspectRatio,
   Project,
   UploadLottieAssetInput,
   User,
@@ -114,8 +115,8 @@ export function useProject(id: string | undefined) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prompt, durationSec, referenceImage }: { prompt: string; durationSec?: number; referenceImage?: string }) =>
-      api.createProject(prompt, durationSec, referenceImage),
+    mutationFn: ({ prompt, durationSec, referenceImage, aspectRatio }: { prompt: string; durationSec?: number; referenceImage?: string; aspectRatio?: AspectRatio }) =>
+      api.createProject(prompt, durationSec, referenceImage, aspectRatio),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["me"] });

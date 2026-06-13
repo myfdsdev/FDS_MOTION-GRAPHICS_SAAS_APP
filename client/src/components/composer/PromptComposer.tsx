@@ -31,6 +31,7 @@ const RATIOS = [
   { label: "16:9", value: "16:9" as const, desc: "Landscape" },
   { label: "9:16", value: "9:16" as const, desc: "Portrait" },
   { label: "1:1", value: "1:1" as const, desc: "Square" },
+  { label: "4:3", value: "4:3" as const, desc: "Classic" },
 ];
 
 const STYLES = [
@@ -60,7 +61,7 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
 
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState(15);
-  const [ratio, setRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
+  const [ratio, setRatio] = useState<"16:9" | "9:16" | "1:1" | "4:3">("16:9");
   const [style, setStyle] = useState<string | null>(null);
   const [model, setModel] = useState(MODELS[0]);
   const [activeFeatures, setActiveFeatures] = useState<Set<string>>(new Set());
@@ -92,7 +93,7 @@ export function PromptComposer({ requireAuth = false }: { requireAuth?: boolean 
       return;
     }
     try {
-      const proj = await createProject.mutateAsync({ prompt, durationSec: duration });
+      const proj = await createProject.mutateAsync({ prompt, durationSec: duration, aspectRatio: ratio });
       navigate(`/projects/${proj.id}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create";

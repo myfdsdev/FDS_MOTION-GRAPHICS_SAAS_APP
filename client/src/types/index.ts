@@ -24,7 +24,7 @@ export type ProjectStatus =
   | "DONE"
   | "FAILED";
 
-export type AspectRatio = "16:9" | "9:16" | "1:1";
+export type AspectRatio = "16:9" | "9:16" | "1:1" | "4:3";
 
 export type AnimationType =
   | "fade-in"

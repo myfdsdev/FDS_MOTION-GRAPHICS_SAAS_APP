@@ -278,7 +278,12 @@ export async function startWorker() {
   }
 }
 
-const DIMENSIONS = { "16:9": [1920, 1080], "9:16": [1080, 1920], "1:1": [1080, 1080] };
+const DIMENSIONS = {
+  "16:9": [1920, 1080],
+  "9:16": [1080, 1920],
+  "1:1": [1080, 1080],
+  "4:3": [1440, 1080],
+};
 
 async function renderProject(project) {
   const id = String(project._id);

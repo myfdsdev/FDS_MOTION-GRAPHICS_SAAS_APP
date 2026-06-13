@@ -556,7 +556,8 @@ export default function EditorPage() {
               "relative overflow-hidden rounded-xl shadow-2xl",
               project.aspectRatio === "16:9" && "aspect-video w-full max-w-full",
               project.aspectRatio === "9:16" && "mx-auto aspect-[9/16] h-full max-h-full",
-              project.aspectRatio === "1:1" && "mx-auto aspect-square h-full max-h-full"
+              project.aspectRatio === "1:1" && "mx-auto aspect-square h-full max-h-full",
+              project.aspectRatio === "4:3" && "aspect-[4/3] w-full max-w-full"
             )}
             style={{ backgroundColor: brand[0] ?? "#0a0a0f" }}
           >

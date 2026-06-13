@@ -7,6 +7,7 @@ import type {
   LocalTtsResult,
   ProfileSettings,
   Project,
+  AspectRatio,
   UploadLottieAssetInput,
   User,
   VideoPlan,
@@ -142,14 +143,16 @@ export async function getProject(id: string): Promise<Project> {
 export async function createProject(
   prompt: string,
   durationSec = 20,
-  referenceImage?: string
+  referenceImage?: string,
+  aspectRatio?: AspectRatio
 ): Promise<Project> {
-  if (USE_MOCKS) return mockApi.createProject(prompt, durationSec);
+  if (USE_MOCKS) return mockApi.createProject(prompt, durationSec, aspectRatio);
   return realFetch<Project>("/api/projects", {
     method: "POST",
     body: JSON.stringify({
       prompt,
       durationSec,
+      ...(aspectRatio ? { aspectRatio } : {}),
       ...(referenceImage ? { referenceImage } : {}),
     }),
   });

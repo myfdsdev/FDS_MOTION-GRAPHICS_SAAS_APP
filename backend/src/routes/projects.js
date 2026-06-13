@@ -32,7 +32,7 @@ projectsRouter.post(
   validate(CreateProjectInput),
   async (req, res, next) => {
     try {
-      const { prompt, durationSec, referenceImage } = req.body;
+      const { prompt, durationSec, aspectRatio, referenceImage } = req.body;
       const userId = req.user.id;
       const configError = await generationConfigError(userId);
       if (configError) return res.status(500).json({ error: configError });
@@ -40,6 +40,7 @@ projectsRouter.post(
       const project = await Project.create({
         userId,
         prompt,
+        aspectRatio,
         durationSec,
         status: "PLANNING",
         progress: 0,

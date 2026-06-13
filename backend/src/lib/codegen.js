@@ -16,6 +16,7 @@ const DIMENSIONS = {
   "16:9": [1920, 1080],
   "9:16": [1080, 1920],
   "1:1": [1080, 1080],
+  "4:3": [1440, 1080],
 };
 
 function fillTemplate(tpl, vars) {
@@ -46,7 +47,7 @@ export async function enhanceBrief(userPrompt) {
  * @param {object} o
  * @param {string} o.prompt           user's idea
  * @param {number} [o.durationSec]    default 20
- * @param {"16:9"|"9:16"|"1:1"} [o.aspect]
+ * @param {"16:9"|"9:16"|"1:1"|"4:3"} [o.aspect]
  * @param {boolean} [o.premium]       use premium model + review pass
  * @param {(stage:string)=>void} [o.onProgress]
  * @returns {Promise<{ source:string, brief:string, width:number, height:number, durationInFrames:number, fps:number }>}
