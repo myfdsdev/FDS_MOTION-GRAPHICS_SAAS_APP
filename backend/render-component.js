@@ -11,6 +11,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENTRY = path.join(__dirname, "remotion", "index.jsx");
 const SCENE_PATH = path.join(__dirname, "remotion", "scenes", "UserComposition.tsx");
 
+function restoreSceneSlot(previousSource) {
+  try {
+    fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
+    if (previousSource == null) {
+      fs.rmSync(SCENE_PATH, { force: true });
+    } else {
+      fs.writeFileSync(SCENE_PATH, previousSource, "utf8");
+    }
+    console.log("[gen] restored previous Remotion scene after failed render");
+  } catch (restoreErr) {
+    console.error("[gen] failed to restore previous Remotion scene:", restoreErr);
+  }
+}
+
 function usage() {
   console.log('Usage: npm run gen -- "your video prompt" [--dur 20] [--aspect 16:9] [--premium] [-o out.mp4]');
 }
@@ -65,10 +79,15 @@ async function main() {
   // 2-3. Write → bundle → render, with up to 2 self-repair attempts if the
   // component crashes at bundle/render time (hallucinated API, runtime error).
   let current = source;
+  const previousSceneSource = fs.existsSync(SCENE_PATH)
+    ? fs.readFileSync(SCENE_PATH, "utf8")
+    : null;
+  let sceneSlotTouched = false;
   const MAX_RENDER_ATTEMPTS = 3;
   for (let attempt = 1; attempt <= MAX_RENDER_ATTEMPTS; attempt++) {
     fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
     fs.writeFileSync(SCENE_PATH, current, "utf8");
+    sceneSlotTouched = true;
     console.log(`[gen] wrote component → ${path.relative(__dirname, SCENE_PATH)} (${current.length} chars)`);
 
     try {
@@ -96,7 +115,10 @@ async function main() {
       const msg = renderErr instanceof Error ? renderErr.message : String(renderErr);
       process.stdout.write("\n");
       console.warn(`[gen] render failed: ${msg.slice(0, 200)}`);
-      if (attempt === MAX_RENDER_ATTEMPTS) throw renderErr;
+      if (attempt === MAX_RENDER_ATTEMPTS) {
+        if (sceneSlotTouched) restoreSceneSlot(previousSceneSource);
+        throw renderErr;
+      }
       console.log("[gen] asking the model to repair the component…");
       current = await fixComponent({ brokenSource: current, error: msg });
     }

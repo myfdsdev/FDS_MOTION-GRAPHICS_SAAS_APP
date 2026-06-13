@@ -20,6 +20,36 @@ import _traverse from "@babel/traverse";
 const traverse = _traverse.default || _traverse;
 
 const ALLOWED_IMPORTS = new Set(["react", "remotion"]);
+const ALLOWED_REMOTION_IMPORTS = new Set([
+  "AbsoluteFill",
+  "AnimatedImage",
+  "Audio",
+  "Freeze",
+  "Html5Audio",
+  "Html5Video",
+  "Img",
+  "Loop",
+  "OffthreadVideo",
+  "Sequence",
+  "Series",
+  "Solid",
+  "Video",
+  "cancelRender",
+  "continueRender",
+  "delayRender",
+  "getInputProps",
+  "useCurrentFrame",
+  "useCurrentScale",
+  "useDelayRender",
+  "useVideoConfig",
+  "interpolate",
+  "interpolateColors",
+  "measureSpring",
+  "spring",
+  "Easing",
+  "random",
+  "staticFile",
+]);
 
 const BANNED_IDENTIFIERS = new Set([
   "eval", "Function",
@@ -80,6 +110,11 @@ export function validateComponent(rawSource) {
   const violations = [];
 
   traverse(ast, {
+    StringLiteral(p) {
+      if (/^https?:\/\//i.test(p.node.value)) {
+        violations.push("External URLs are not allowed. Use inline graphics or staticFile() assets.");
+      }
+    },
     ImportDeclaration(p) {
       const src = p.node.source.value;
       if (!ALLOWED_IMPORTS.has(src)) {
@@ -87,6 +122,21 @@ export function validateComponent(rawSource) {
       }
       if (BANNED_NODE_MODULES.has(src)) {
         violations.push(`Banned node module import: "${src}".`);
+      }
+      if (src === "react") {
+        for (const specifier of p.node.specifiers) {
+          if (specifier.type !== "ImportDefaultSpecifier") {
+            violations.push("React imports must use only the default import.");
+          }
+        }
+      }
+      if (src === "remotion") {
+        for (const specifier of p.node.specifiers) {
+          const imported = specifier.imported?.name;
+          if (!imported || !ALLOWED_REMOTION_IMPORTS.has(imported)) {
+            violations.push(`Unsupported Remotion import: ${imported || specifier.type}.`);
+          }
+        }
       }
     },
     Import(p) {
@@ -122,6 +172,9 @@ export function validateComponent(rawSource) {
       const obj = p.node.object;
       if (obj.type === "Identifier" && BANNED_GLOBALS_AS_OBJECT.has(obj.name)) {
         violations.push(`Access to banned global: ${obj.name}.${p.node.property.name ?? "*"}.`);
+      }
+      if (obj.type === "Identifier" && obj.name === "Math" && p.node.property?.name === "random") {
+        violations.push("Math.random() is not allowed. Use remotion random(\"seed\") instead.");
       }
     },
   });

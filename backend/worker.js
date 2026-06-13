@@ -31,6 +31,20 @@ const WATCHDOG_INTERVAL_MS = 30 * 1000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+function restoreSceneSlot(previousSource) {
+  try {
+    fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
+    if (previousSource == null) {
+      fs.rmSync(SCENE_PATH, { force: true });
+    } else {
+      fs.writeFileSync(SCENE_PATH, previousSource, "utf8");
+    }
+    console.log("[worker] restored previous Remotion scene after failed render");
+  } catch (restoreErr) {
+    console.error("[worker] failed to restore previous Remotion scene:", restoreErr);
+  }
+}
+
 /**
  * Capture as much detail as possible from any thrown value so the API + UI
  * can show the *root cause* instead of "Render failed". Falls back gracefully
@@ -251,6 +265,8 @@ async function renderProject(project) {
   );
 
   let lastPhase = "load-plan";
+  let previousSceneSource = null;
+  let sceneSlotTouched = false;
   try {
     if (!project.componentSource || !project.componentSource.trim()) {
       throw new Error("Project has no generated component to render");
@@ -260,6 +276,9 @@ async function renderProject(project) {
     const durationInFrames = Math.max(1, Math.round((Number(project.durationSec) || 20) * FPS));
     const inputProps = { aspectRatio: aspect, durationInFrames };
     const outPath = path.join(VIDEOS_DIR, `${id}.mp4`);
+    previousSceneSource = fs.existsSync(SCENE_PATH)
+      ? fs.readFileSync(SCENE_PATH, "utf8")
+      : null;
 
     // Write → bundle → render, with up to 2 self-repair attempts if the
     // component crashes at bundle/render time. The repaired source is saved
@@ -269,6 +288,7 @@ async function renderProject(project) {
     for (let attempt = 1; attempt <= MAX_RENDER_ATTEMPTS; attempt++) {
       fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
       fs.writeFileSync(SCENE_PATH, current, "utf8");
+      sceneSlotTouched = true;
 
       try {
         lastPhase = "bundle";
@@ -334,6 +354,8 @@ async function renderProject(project) {
 
     console.log(`[worker] ✓ done ${id}`);
   } catch (err) {
+    if (sceneSlotTouched) restoreSceneSlot(previousSceneSource);
+
     const desc = describeError(err);
     const phase = err?.phase || lastPhase || "render";
     console.error(`[worker] ✗ ${id} failed in phase=${phase} code=${desc.code} :`, desc.message);
