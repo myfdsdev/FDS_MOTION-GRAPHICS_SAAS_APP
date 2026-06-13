@@ -13,5 +13,12 @@ Same hard rules as before:
 - Only import from "react" and "remotion".
 - No require/import()/fetch/fs/process/window/document/eval.
 - Default export a component named UserComposition, taking no props.
+- Return exactly ONE file/module. Do not paste the old broken file below the
+  fixed file. Do not include explanations before or after the code.
+- Put all import statements at the very top. Never place import/export
+  statements inside a component, helper function, loop, condition, or JSX.
+- Do not use named exports for helpers. Helpers must be plain const/function
+  declarations. The only export at the end should be:
+  export default UserComposition;
 Keep everything that worked; change only what's needed to fix the error.
 `.trim();

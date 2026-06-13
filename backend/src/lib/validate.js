@@ -73,12 +73,126 @@ const BANNED_NODE_MODULES = new Set([
 export function stripFences(raw) {
   if (typeof raw !== "string") return "";
   let s = raw.trim();
-  // Strip a leading ```lang and trailing ``` if present.
-  s = s.replace(/^```[a-zA-Z]*\s*\n?/, "").replace(/\n?```\s*$/, "");
+  const fenced = [...s.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)]
+    .map((m) => m[1].trim())
+    .find((block) => /\b(import|export)\b/.test(block));
+  if (fenced) s = fenced;
+  else {
+    // Strip a leading ```lang and trailing ``` if present.
+    s = s.replace(/^```[a-zA-Z]*\s*\n?/, "").replace(/\n?```\s*$/, "");
+  }
   // If the model added prose before the code, cut to the first import/`export`.
   const firstImport = s.indexOf("import ");
-  if (firstImport > 0 && firstImport < 400) s = s.slice(firstImport);
-  return s.trim();
+  const firstExport = s.indexOf("export ");
+  const starts = [firstImport, firstExport].filter((i) => i >= 0);
+  if (starts.length) s = s.slice(Math.min(...starts));
+  return cleanSingleModule(s.trim());
+}
+
+function cleanSingleModule(source) {
+  let code = stripDuplicateImports(source);
+  code = removeNestedExports(code);
+  return trimAfterDefaultExport(code).trim();
+}
+
+function stripDuplicateImports(source) {
+  const lines = String(source || "").split(/\r?\n/);
+  let seenNonImport = false;
+  return lines
+    .filter((line) => {
+      const trimmed = line.trimStart();
+      if (/^import\s/.test(trimmed)) {
+        if (seenNonImport) return false;
+        return true;
+      }
+      if (trimmed && !trimmed.startsWith("//")) seenNonImport = true;
+      return true;
+    })
+    .join("\n");
+}
+
+function removeNestedExports(source) {
+  let out = "";
+  let depth = 0;
+  let i = 0;
+  let quote = null;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  while (i < source.length) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (inLineComment) {
+      out += ch;
+      if (ch === "\n") inLineComment = false;
+      i++;
+      continue;
+    }
+    if (inBlockComment) {
+      out += ch;
+      if (ch === "*" && next === "/") {
+        out += next;
+        i += 2;
+        inBlockComment = false;
+      } else i++;
+      continue;
+    }
+    if (quote) {
+      out += ch;
+      if (ch === "\\" && i + 1 < source.length) {
+        out += source[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i++;
+      continue;
+    }
+
+    if (ch === "/" && next === "/") {
+      out += ch + next;
+      i += 2;
+      inLineComment = true;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      out += ch + next;
+      i += 2;
+      inBlockComment = true;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      out += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === "{") depth++;
+    if (ch === "}") depth = Math.max(0, depth - 1);
+
+    if (depth > 0 && source.slice(i).match(/^export\s+default\s+/)) {
+      i += source.slice(i).match(/^export\s+default\s+/)[0].length;
+      continue;
+    }
+    if (depth > 0 && source.slice(i).match(/^export\s+/)) {
+      i += source.slice(i).match(/^export\s+/)[0].length;
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+
+  return out;
+}
+
+function trimAfterDefaultExport(source) {
+  const defaultExport = source.match(/\n\s*export\s+default\s+UserComposition\s*;?/);
+  if (defaultExport?.index == null) return source;
+  const end = defaultExport.index + defaultExport[0].length;
+  return source.slice(0, end);
 }
 
 export function validateComponent(rawSource) {

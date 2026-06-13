@@ -133,9 +133,21 @@ function stripSafe(raw) {
  * @returns {Promise<string>} a validated, fixed component source
  */
 export async function fixComponent({ brokenSource, error }) {
-  const retrySystem = fillTemplate(RETRY_SYSTEM_PROMPT, { ERROR: error });
-  const raw = await callLLM({ system: retrySystem, user: brokenSource, maxTokens: 8000 });
-  const result = validateComponent(raw);
+  let repairError = error;
+  let raw = brokenSource;
+  let result = { ok: false, error: String(error || "Render failed"), code: null };
+
+  for (let attempt = 0; attempt < 3 && !result.ok; attempt++) {
+    const retrySystem = fillTemplate(RETRY_SYSTEM_PROMPT, { ERROR: repairError });
+    raw = await callLLM({
+      system: retrySystem,
+      user: result.code || stripSafe(raw),
+      maxTokens: 8000,
+    });
+    result = validateComponent(raw);
+    repairError = result.ok ? null : result.error;
+  }
+
   if (!result.ok) {
     throw new Error(`Repaired component still failed validation:\n${result.error}`);
   }

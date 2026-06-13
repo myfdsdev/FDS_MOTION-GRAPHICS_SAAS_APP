@@ -3,232 +3,180 @@ import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig, interpolate, s
 
 export const UserComposition: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig(); // durationInFrames is 600 (20 seconds * 30 fps)
+  const { fps, width, height } = useVideoConfig();
 
   // --- Color Palette ---
-  const colorDarkBackground = "#0a0a0f";
-  const colorPrimaryLightBlue = "#00BCD4"; // Cyan
-  const colorSecondaryGreen = "#00E676"; // Light Green
-  const colorAccentTeal = "#64FFDA"; // Aqua
-  const colorAccentLightGreen = "#A7FFEB"; // Pale Aqua
-  const colorTextPrimary = "white";
+  const colors = {
+    background: "#0A0A1F", // Deep dark blue/purple
+    accentBlue: "#5C6BC0", // Calming blue
+    accentPurple: "#9575CD", // Soft purple
+    lightText: "#FFFFFF",
+    mediumText: "#E0E0E0",
+    successGreen: "#8BC34A",
+  };
 
-  // --- Background Animation ---
-  const bgTime = frame * 0.05; // Slower time for continuous background movement
-  const bgScaleFactor = 0.05; // How much the blobs scale
-  const bgRotationSpeed = 0.05; // How fast blobs rotate
+  // --- Global Background Animation (Drifting Blobs) ---
+  const blob1Offset = interpolate(frame, [0, 600], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const blob2Offset = interpolate(frame, [0, 600], [0, -80], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const blob3Offset = interpolate(frame, [0, 600], [0, 120], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const blob1X = interpolate(Math.sin(bgTime * 0.8), [-1, 1], [-200, 200]);
-  const blob1Y = interpolate(Math.cos(bgTime * 0.6), [-1, 1], [-200, 200]); // Fixed: Added closing bracket and output range
-  const blob1Scale = 1 + Math.sin(bgTime * 0.5) * bgScaleFactor;
-  const blob1Rotate = bgTime * bgRotationSpeed * 10;
+  const bgOpacity = interpolate(frame, [570, 600], [1, 0], { extrapolateRight: "clamp" }); // Fade out background at the very end
 
-  const blob2X = interpolate(Math.cos(bgTime * 0.7), [-1, 1], [-250, 250]);
-  const blob2Y = interpolate(Math.sin(bgTime * 0.9), [-1, 1], [-250, 250]);
-  const blob2Scale = 1 + Math.cos(bgTime * 0.4) * bgScaleFactor;
-  const blob2Rotate = -bgTime * bgRotationSpeed * 12;
+  // --- Scene 1: Overwhelm (0-4s / 0-120 frames) ---
+  const scene1Duration = 120; // 4 seconds
+  const overwhelmTextScale = spring({ frame: frame - 15, fps, config: { damping: 200, stiffness: 100 }, durationInFrames: 30 });
+  const overwhelmTextOpacity = interpolate(frame, [90, 110], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const blob3X = interpolate(Math.sin(bgTime * 0.9), [-1, 1], [-180, 180]);
-  const blob3Y = interpolate(Math.cos(bgTime * 0.5), [-1, 1], [-180, 180]);
-  const blob3Scale = 1 + Math.sin(bgTime * 0.6) * bgScaleFactor * 0.8;
-  const blob3Rotate = bgTime * bgRotationSpeed * 8;
+  const chaosWords = ["Distraction", "Tasks", "Emails", "Meetings", "Urgent", "Chaotic"];
+  const chaosWordAnimations = chaosWords.map((_, i) => {
+    const seed = `chaos-${i}`;
+    const startFrame = i * 5;
+    const endFrame = scene1Duration - 20;
 
-  // --- Text Animations ---
-  const fadeInDuration = fps * 1; // 1 second fade in
-  const stayDuration = fps * 3; // 3 seconds stay
-  const fadeOutDuration = fps * 1; // 1 second fade out
+    const opacity = interpolate(
+      frame,
+      [startFrame, startFrame + 15, endFrame - 15, endFrame],
+      [0, 1, 1, 0],
+      { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+    );
+    const scale = interpolate(
+      frame,
+      [startFrame, startFrame + 30],
+      [0.5, 1],
+      { easing: Easing.out(Easing.back(1.7)), extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+    );
+    const xOffset = interpolate(frame, [0, scene1Duration], [random(seed + "x") * 200 - 100, random(seed + "x2") * 200 - 100]);
+    const yOffset = interpolate(frame, [0, scene1Duration], [random(seed + "y") * 150 - 75, random(seed + "y2") * 150 - 75]);
+    const rotation = interpolate(frame, [0, scene1Duration], [random(seed + "rot") * 30 - 15, random(seed + "rot2") * 30 - 15]);
 
-  // Intro text "Welcome to the future"
-  const introTextStart = 0;
-  const introTextEnd = introTextStart + fadeInDuration + stayDuration + fadeOutDuration;
-  const introTextOpacity = interpolate(
-    frame,
-    [introTextStart, introTextStart + fadeInDuration, introTextStart + fadeInDuration + stayDuration, introTextEnd],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-  const introTextScale = spring({
-    frame: frame - introTextStart,
-    fps,
-    config: { damping: 200, stiffness: 200 },
-    from: 0.8,
-    to: 1,
+    return { opacity, scale, xOffset, yOffset, rotation };
   });
 
-  // Main text "AI-Powered Solutions"
-  const mainTextStart = fps * 4; // Starts after intro text fades out
-  const mainTextEnd = mainTextStart + fadeInDuration + stayDuration + fadeOutDuration;
-  const mainTextOpacity = interpolate(
-    frame,
-    [mainTextStart, mainTextStart + fadeInDuration, mainTextStart + fadeInDuration + stayDuration, mainTextEnd],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-  const mainTextScale = spring({
-    frame: frame - mainTextStart,
-    fps,
-    config: { damping: 200, stiffness: 200 },
-    from: 0.8,
-    to: 1,
-  });
 
-  // Sub-text "Innovation at your fingertips"
-  const subTextStart = fps * 8; // Starts after main text fades out
-  const subTextEnd = subTextStart + fadeInDuration + stayDuration + fadeOutDuration;
-  const subTextOpacity = interpolate(
-    frame,
-    [subTextStart, subTextStart + fadeInDuration, subTextStart + fadeInDuration + stayDuration, subTextEnd],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-  const subTextScale = spring({
-    frame: frame - subTextStart,
+  // --- Scene 2: Introducing FlowFocus (4-9s / 120-270 frames) ---
+  const scene2Start = 120;
+  const scene2Duration = 150; // 5 seconds
+  const flowFocusTextScale = spring({
+    frame: frame - scene2Start + 15,
     fps,
-    config: { damping: 200, stiffness: 200 },
-    from: 0.8,
-    to: 1,
+    config: { damping: 200, stiffness: 100 },
+    durationInFrames: 30
   });
-
-  // Call to action "Learn More"
-  const ctaStart = fps * 12; // Starts after sub-text fades out
-  const ctaEnd = ctaStart + fadeInDuration + stayDuration + fadeOutDuration;
-  const ctaOpacity = interpolate(
-    frame,
-    [ctaStart, ctaStart + fadeInDuration, ctaStart + fadeInDuration + stayDuration, ctaEnd],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-  const ctaScale = spring({
-    frame: frame - ctaStart,
-    fps,
-    config: { damping: 200, stiffness: 200 },
-    from: 0.8,
-    to: 1,
-  });
+  const flowFocusTextOpacity = interpolate(frame, [scene2Start + 120, scene2Start + 140], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colorDarkBackground, overflow: "hidden" }}>
-      {/* Background Blobs */}
+    <AbsoluteFill style={{ backgroundColor: colors.background, overflow: "hidden" }}>
+      {/* Global Background Blobs */}
       <div
         style={{
           position: "absolute",
           top: "50%",
           left: "50%",
-          width: 400,
-          height: 400,
+          width: 300,
+          height: 300,
           borderRadius: "50%",
-          backgroundColor: colorPrimaryLightBlue,
+          backgroundColor: colors.accentBlue,
+          opacity: bgOpacity * 0.3,
           filter: "blur(80px)",
-          opacity: 0.3,
-          transform: `translate(-50%, -50%) translate(${blob1X}px, ${blob1Y}px) scale(${blob1Scale}) rotate(${blob1Rotate}deg)`,
+          transform: `translate(-50%, -50%) translate(${blob1Offset}px, ${blob1Offset}px)`,
         }}
       />
       <div
         style={{
           position: "absolute",
-          top: "50%",
-          left: "50%",
-          width: 450,
-          height: 450,
+          top: "20%",
+          left: "70%",
+          width: 250,
+          height: 250,
           borderRadius: "50%",
-          backgroundColor: colorSecondaryGreen,
-          filter: "blur(80px)",
-          opacity: 0.3,
-          transform: `translate(-50%, -50%) translate(${blob2X}px, ${blob2Y}px) scale(${blob2Scale}) rotate(${blob2Rotate}deg)`,
+          backgroundColor: colors.accentPurple,
+          opacity: bgOpacity * 0.3,
+          filter: "blur(70px)",
+          transform: `translate(-50%, -50%) translate(${blob2Offset}px, ${blob2Offset}px)`,
         }}
       />
       <div
         style={{
           position: "absolute",
-          top: "50%",
-          left: "50%",
-          width: 380,
-          height: 380,
+          top: "80%",
+          left: "30%",
+          width: 350,
+          height: 350,
           borderRadius: "50%",
-          backgroundColor: colorAccentTeal,
-          filter: "blur(80px)",
-          opacity: 0.3,
-          transform: `translate(-50%, -50%) translate(${blob3X}px, ${blob3Y}px) scale(${blob3Scale}) rotate(${blob3Rotate}deg)`,
+          backgroundColor: colors.accentBlue,
+          opacity: bgOpacity * 0.2,
+          filter: "blur(90px)",
+          transform: `translate(-50%, -50%) translate(${blob3Offset}px, ${blob3Offset}px)`,
         }}
       />
 
-      {/* Main Content - Centered Text */}
-      <AbsoluteFill
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-          fontFamily: "Arial, sans-serif",
-          color: colorTextPrimary,
-          textAlign: "center",
-          padding: 20,
-        }}
-      >
-        <Sequence from={introTextStart} durationInFrames={introTextEnd - introTextStart}>
+      {/* Scene 1: Overwhelm */}
+      <Sequence from={0} durationInFrames={scene1Duration}>
+        <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
           <h1
             style={{
-              fontSize: "3.5em",
-              fontWeight: "bold",
-              marginBottom: "0.5em",
-              opacity: introTextOpacity,
-              transform: `scale(${introTextScale})`,
-              color: colorAccentLightGreen,
+              fontFamily: "sans-serif",
+              fontSize: 100,
+              color: colors.lightText,
+              transform: `scale(${overwhelmTextScale})`,
+              opacity: overwhelmTextOpacity,
+              marginBottom: 50,
             }}
           >
-            Welcome to the future
+            Overwhelmed?
           </h1>
-        </Sequence>
 
-        <Sequence from={mainTextStart} durationInFrames={mainTextEnd - mainTextStart}>
-          <h2
+          {chaosWords.map((word, i) => {
+            const anim = chaosWordAnimations[i];
+            return (
+              <div
+                key={word}
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: `translate(-50%, -50%) translate(${anim.xOffset}px, ${anim.yOffset}px) scale(${anim.scale}) rotate(${anim.rotation}deg)`,
+                  opacity: anim.opacity,
+                  color: colors.mediumText,
+                  fontSize: 40,
+                  fontFamily: "sans-serif",
+                  fontWeight: "bold",
+                }}
+              >
+                {word}
+              </div>
+            );
+          })}
+        </AbsoluteFill>
+      </Sequence>
+
+      {/* Scene 2: Introducing FlowFocus */}
+      <Sequence from={scene2Start} durationInFrames={scene2Duration}>
+        <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
+          <h1
             style={{
-              fontSize: "4.5em",
-              fontWeight: "bold",
-              marginBottom: "0.5em",
-              opacity: mainTextOpacity,
-              transform: `scale(${mainTextScale})`,
-              color: colorPrimaryLightBlue,
+              fontFamily: "sans-serif",
+              fontSize: 80,
+              color: colors.accentPurple,
+              transform: `scale(${flowFocusTextScale})`,
+              opacity: flowFocusTextOpacity,
             }}
           >
-            AI-Powered Solutions
-          </h2>
-        </Sequence>
-
-        <Sequence from={subTextStart} durationInFrames={subTextEnd - subTextStart}>
+            Introducing FlowFocus
+          </h1>
           <p
             style={{
-              fontSize: "2.5em",
-              marginBottom: "1em",
-              opacity: subTextOpacity,
-              transform: `scale(${subTextScale})`,
-              color: colorAccentTeal,
+              fontFamily: "sans-serif",
+              fontSize: 30,
+              color: colors.lightText,
+              opacity: flowFocusTextOpacity,
+              marginTop: 20,
             }}
           >
-            Innovation at your fingertips
+            Your path to clarity.
           </p>
-        </Sequence>
-
-        <Sequence from={ctaStart} durationInFrames={ctaEnd - ctaStart}>
-          <button
-            style={{
-              fontSize: "2em",
-              padding: "0.8em 1.5em",
-              borderRadius: "50px",
-              border: `2px solid ${colorSecondaryGreen}`,
-              backgroundColor: "transparent",
-              color: colorSecondaryGreen,
-              cursor: "pointer",
-              transition: "background-color 0.3s ease, color 0.3s ease",
-              opacity: ctaOpacity,
-              transform: `scale(${ctaScale})`,
-              fontWeight: "bold",
-            }}
-          >
-            Learn More
-          </button>
-        </Sequence>
-      </AbsoluteFill>
+        </AbsoluteFill>
+      </Sequence>
     </AbsoluteFill>
   );
 };

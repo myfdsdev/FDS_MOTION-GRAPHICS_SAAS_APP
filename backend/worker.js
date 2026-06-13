@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { bundle } from "@remotion/bundler";
-import { ensureBrowser, renderMedia, selectComposition } from "@remotion/renderer";
+import { ensureBrowser, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { webpackOverride } from "./remotion/webpackOverride.js";
 import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
@@ -30,6 +30,28 @@ const MAX_AUTO_RETRIES = 2;
 const WATCHDOG_INTERVAL_MS = 30 * 1000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function previewFramesFor(durationInFrames) {
+  const lastFrame = Math.max(0, durationInFrames - 1);
+  return [...new Set([0, Math.floor(lastFrame / 2), lastFrame])];
+}
+
+async function renderPreviewFrames({ composition, serveUrl, inputProps, outputPrefix, logPrefix }) {
+  const frames = previewFramesFor(composition.durationInFrames);
+  for (const frame of frames) {
+    const output = path.join(VIDEOS_DIR, `${outputPrefix}-preflight-${frame}.png`);
+    await renderStill({
+      composition,
+      serveUrl,
+      inputProps,
+      frame,
+      imageFormat: "png",
+      output,
+    });
+    await fs.promises.rm(output, { force: true }).catch(() => {});
+  }
+  console.log(`${logPrefix} preview frames OK (${frames.join(", ")})`);
+}
 
 function restoreSceneSlot(previousSource) {
   try {
