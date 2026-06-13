@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
-import { ensureBrowser, renderMedia, selectComposition } from "@remotion/renderer";
+import { ensureBrowser, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { webpackOverride } from "./remotion/webpackOverride.js";
 import { generateComponent, fixComponent } from "./src/lib/codegen.js";
 
@@ -23,6 +23,29 @@ function restoreSceneSlot(previousSource) {
   } catch (restoreErr) {
     console.error("[gen] failed to restore previous Remotion scene:", restoreErr);
   }
+}
+
+function previewFramesFor(durationInFrames) {
+  const lastFrame = Math.max(0, durationInFrames - 1);
+  return [...new Set([0, Math.floor(lastFrame / 2), lastFrame])];
+}
+
+async function renderPreviewFrames({ composition, serveUrl, inputProps, outputPath }) {
+  const frames = previewFramesFor(composition.durationInFrames);
+  for (const frame of frames) {
+    const parsed = path.parse(outputPath);
+    const output = path.join(parsed.dir, `${parsed.name}-preflight-${frame}.png`);
+    await renderStill({
+      composition,
+      serveUrl,
+      inputProps,
+      frame,
+      imageFormat: "png",
+      output,
+    });
+    await fs.promises.rm(output, { force: true }).catch(() => {});
+  }
+  console.log(`[gen] preview frames OK (${frames.join(", ")})`);
 }
 
 function usage() {
@@ -94,6 +117,8 @@ async function main() {
       console.log(`[gen] bundling… (attempt ${attempt}/${MAX_RENDER_ATTEMPTS})`);
       const serveUrl = await bundle({ entryPoint: ENTRY, webpackOverride });
       const composition = await selectComposition({ serveUrl, id: "video", inputProps });
+      console.log("[gen] preflight rendering preview frames...");
+      await renderPreviewFrames({ composition, serveUrl, inputProps, outputPath });
 
       console.log(`[gen] rendering → ${outputPath}`);
       await renderMedia({

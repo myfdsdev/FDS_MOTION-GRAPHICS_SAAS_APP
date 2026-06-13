@@ -106,6 +106,7 @@ export interface Project {
     | "attach-lottie"
     | "bundle"
     | "select-composition"
+    | "preflight"
     | "render"
     | "upload"
     | "finalize"

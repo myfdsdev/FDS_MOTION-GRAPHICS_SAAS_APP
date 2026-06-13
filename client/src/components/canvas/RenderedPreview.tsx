@@ -8,6 +8,7 @@ const PHASE_LABEL: Record<NonNullable<Project["errorPhase"]>, string> = {
   "attach-lottie": "Attaching Lottie assets",
   bundle: "Bundling the Remotion composition",
   "select-composition": "Selecting the composition",
+  preflight: "Testing preview frames",
   render: "Rendering frames",
   upload: "Uploading the MP4",
   finalize: "Finalizing the project",

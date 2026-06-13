@@ -317,6 +317,14 @@ async function renderProject(project) {
         const serveUrl = await bundle({ entryPoint: ENTRY, webpackOverride });
         lastPhase = "select-composition";
         const composition = await selectComposition({ serveUrl, id: "video", inputProps });
+        lastPhase = "preflight";
+        await renderPreviewFrames({
+          composition,
+          serveUrl,
+          inputProps,
+          outputPrefix: id,
+          logPrefix: `[worker] ${id}`,
+        });
         lastPhase = "render";
         await renderMedia({
           composition,

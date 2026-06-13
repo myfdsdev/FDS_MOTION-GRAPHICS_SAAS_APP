@@ -100,6 +100,7 @@ const projectSchema = new Schema(
         "attach-lottie",
         "bundle",
         "select-composition",
+        "preflight",
         "render",
         "upload",
         "finalize",
