@@ -161,6 +161,10 @@ export interface LocalTtsResult {
   size: number;
 }
 
+export interface AssistantChatResult {
+  reply: string;
+}
+
 export interface AdminSettings {
   allowUserApiKeys: boolean;
 }

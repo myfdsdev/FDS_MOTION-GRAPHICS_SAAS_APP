@@ -36,7 +36,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender, useDeleteProject } from "@/lib/queries";
+import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender, useDeleteProject, useAskAssistant } from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
 import { RenderedPreview } from "@/components/canvas/RenderedPreview";
 import { LayersPanel } from "@/components/canvas/LayersPanel";
@@ -780,6 +780,7 @@ function ChatPanel({
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState<string>("");
   const [assistantReply, setAssistantReply] = useState(VIDEO_ASSISTANT_SCOPE_MESSAGE);
+  const askAssistant = useAskAssistant();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -807,6 +808,23 @@ function ChatPanel({
     }
     setAssistantReply("Good. I can use that for a video generation request.");
     onGenerate(prompt, duration, refImage ?? undefined);
+  };
+
+  const ask = async () => {
+    if (prompt.trim().length < 2) {
+      setAssistantReply("Ask me about video making, Remotion/software setup, rendering, audio, or the generator workflow.");
+      return;
+    }
+    if (!isVideoAssistantTopic(prompt)) {
+      setAssistantReply(VIDEO_ASSISTANT_SCOPE_MESSAGE);
+      return;
+    }
+    try {
+      const result = await askAssistant.mutateAsync(prompt);
+      setAssistantReply(result.reply);
+    } catch (err) {
+      setAssistantReply(err instanceof Error ? err.message : "Assistant reply failed");
+    }
   };
 
   return (
@@ -896,18 +914,28 @@ function ChatPanel({
             <button onClick={() => fileRef.current?.click()} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-3 hover:text-fg" title="Attach reference image">
               <Plus size={14} />
             </button>
-            <button
-              onClick={submit}
-              disabled={generating || prompt.trim().length < 10}
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-              title="Generate"
-            >
-              {generating ? (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent-ink/40 border-t-accent-ink" />
-              ) : (
-                <ArrowUp size={14} />
-              )}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={ask}
+                disabled={askAssistant.isPending || prompt.trim().length < 2}
+                className="h-7 rounded-lg border border-border bg-surface-3 px-2.5 text-xs font-semibold text-fg hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Ask for video/software guidance"
+              >
+                {askAssistant.isPending ? "..." : "Ask"}
+              </button>
+              <button
+                onClick={submit}
+                disabled={generating || prompt.trim().length < 10}
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                title="Generate"
+              >
+                {generating ? (
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent-ink/40 border-t-accent-ink" />
+                ) : (
+                  <ArrowUp size={14} />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

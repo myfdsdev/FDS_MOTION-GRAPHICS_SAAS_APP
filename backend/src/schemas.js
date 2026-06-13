@@ -393,6 +393,10 @@ export const EnhancePromptInput = z.object({
   prompt: z.string().min(5).max(5000),
 });
 
+export const AssistantChatInput = z.object({
+  message: z.string().trim().min(2).max(2000),
+});
+
 export const GenerateProjectInput = z.object({
   prompt: z.string().min(10).max(5000),
   durationSec: z.number().int().min(5).max(60).optional(),

@@ -173,6 +173,12 @@ export function useEnhancePrompt() {
   });
 }
 
+export function useAskAssistant() {
+  return useMutation({
+    mutationFn: (message: string) => api.askAssistant(message),
+  });
+}
+
 // ---------- Billing ----------
 
 export function useTransactions() {

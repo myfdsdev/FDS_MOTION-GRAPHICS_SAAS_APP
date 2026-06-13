@@ -1,6 +1,7 @@
 import type {
   AdminOverview,
   AdminSettings,
+  AssistantChatResult,
   CreditPack,
   CreditTx,
   LottieAssetSummary,
@@ -203,6 +204,21 @@ export async function enhancePrompt(prompt: string): Promise<string> {
     body: JSON.stringify({ prompt }),
   });
   return res.prompt;
+}
+
+export async function askAssistant(message: string): Promise<AssistantChatResult> {
+  if (USE_MOCKS) {
+    const { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } = await import("@/lib/domainGuard");
+    return {
+      reply: isVideoAssistantTopic(message)
+        ? "I can help with that. For best results, describe the target format, audience, timing, visual style, narration, and the exact render problem or video goal."
+        : VIDEO_ASSISTANT_SCOPE_MESSAGE,
+    };
+  }
+  return realFetch<AssistantChatResult>("/api/assistant/chat", {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
 }
 
 // ---------- Local TTS ----------
