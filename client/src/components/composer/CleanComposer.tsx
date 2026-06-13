@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2, X, ImageIcon } from "lucide-react";
-import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
+import { useAskAssistant, useCreateProject, useEnhancePrompt } from "@/lib/queries";
 import { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } from "@/lib/domainGuard";
 import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
@@ -20,11 +20,13 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const navigate = useNavigate();
   const createProject = useCreateProject();
   const enhance = useEnhancePrompt();
+  const askAssistant = useAskAssistant();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [prompt, setPrompt] = useState("");
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState("");
+  const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
 
   const isSubmitting = createProject.isPending;
   const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
@@ -93,10 +95,51 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
     }
   };
 
+  const handleChatSubmit = async () => {
+    const message = prompt.trim();
+    if (message.length < 2) {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: "Ask me about video making, Remotion/software setup, rendering, audio, or the generator workflow.",
+        },
+      ]);
+      return;
+    }
+    setPrompt("");
+    setChatMessages((prev) => [...prev, { role: "user", text: message }]);
+
+    if (/^(hi|hello|hey|yo)\b/i.test(message)) {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: "Hi. I can help with video prompts, Remotion components, render problems, audio/TTS, templates, and software setup for this app.",
+        },
+      ]);
+      return;
+    }
+
+    if (!isVideoAssistantTopic(message)) {
+      setChatMessages((prev) => [...prev, { role: "assistant", text: VIDEO_ASSISTANT_SCOPE_MESSAGE }]);
+      return;
+    }
+    try {
+      const result = await askAssistant.mutateAsync(message);
+      setChatMessages((prev) => [...prev, { role: "assistant", text: result.reply }]);
+    } catch (e) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: e instanceof Error ? e.message : "Assistant reply failed" },
+      ]);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (canSubmit) handleCreate();
+      if (!askAssistant.isPending) handleChatSubmit();
     }
   };
 
@@ -238,8 +281,30 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
         </div>
       </div>
 
+      {chatMessages.length > 0 && (
+        <div className="mt-3 space-y-2 rounded-xl border border-border bg-surface/90 p-3 text-sm leading-relaxed shadow-card">
+          {chatMessages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={
+                message.role === "user"
+                  ? "ml-auto max-w-[85%] rounded-lg bg-accent px-3 py-2 text-accent-ink"
+                  : "mr-auto max-w-[90%] rounded-lg bg-surface-2 px-3 py-2 text-muted"
+              }
+            >
+              {message.text}
+            </div>
+          ))}
+          {askAssistant.isPending && (
+            <div className="mr-auto max-w-[90%] rounded-lg bg-surface-2 px-3 py-2 text-muted">
+              Thinking...
+            </div>
+          )}
+        </div>
+      )}
+
       <p className="text-center text-xs text-faint mt-3">
-        Press Enter to generate · Shift+Enter for a new line
+        Press Enter to chat. Click the arrow to generate video
       </p>
     </div>
   );
