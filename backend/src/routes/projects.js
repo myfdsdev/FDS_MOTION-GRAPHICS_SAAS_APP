@@ -7,6 +7,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { validate } from "../middleware/validate.js";
 import { costForDuration, deductCredits } from "../lib/credits.js";
+import { requireVideoAssistantTopic } from "../lib/domainGuard.js";
 import { generationConfigError, runPipeline } from "../lib/pipeline.js";
 
 export const projectsRouter = Router();
@@ -33,6 +34,7 @@ projectsRouter.post(
   async (req, res, next) => {
     try {
       const { prompt, durationSec, aspectRatio, referenceImage } = req.body;
+      requireVideoAssistantTopic(prompt);
       const userId = req.user.id;
       const configError = await generationConfigError(userId);
       if (configError) return res.status(500).json({ error: configError });
@@ -139,6 +141,7 @@ projectsRouter.post(
       if (configError) return res.status(500).json({ error: configError });
 
       const { prompt, durationSec, referenceImage } = req.body;
+      requireVideoAssistantTopic(prompt);
       const seconds = durationSec ?? project.durationSec ?? 20;
 
       const cost = costForDuration(seconds);

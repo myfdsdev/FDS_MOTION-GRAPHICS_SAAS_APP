@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2, X, ImageIcon } from "lucide-react";
 import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
+import { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } from "@/lib/domainGuard";
 import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
 
