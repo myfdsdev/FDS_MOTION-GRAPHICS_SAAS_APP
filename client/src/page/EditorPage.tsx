@@ -775,10 +775,10 @@ function ChatPanel({
   onGenerate: (prompt: string, durationSec: number, referenceImage?: string) => void;
 }) {
   const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState(defaultDuration || 15);
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const generationDuration = Math.max(1, defaultDuration || 15);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -799,7 +799,7 @@ function ChatPanel({
   };
 
   const submit = () => {
-    onGenerate(prompt, duration, refImage ?? undefined);
+    onGenerate(prompt, generationDuration, refImage ?? undefined);
   };
 
   return (
@@ -841,16 +841,7 @@ function ChatPanel({
         </div>
 
         <div className="rounded-xl border border-border bg-surface-2 p-2">
-          <div className="mb-2 flex items-center gap-1.5">
-            <select
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="rounded-md border border-border bg-surface-3 px-2 py-1 text-xs text-fg outline-none"
-            >
-              {[10, 15, 20, 30, 45, 60].map((d) => (
-                <option key={d} value={d}>{d}s</option>
-              ))}
-            </select>
+          <div className="mb-2 flex items-center justify-end">
             <span className="flex items-center gap-1 rounded-md border border-border bg-surface-3 px-2 py-1 text-xs text-muted">
               <Monitor size={12} /> {aspectRatio}
             </span>

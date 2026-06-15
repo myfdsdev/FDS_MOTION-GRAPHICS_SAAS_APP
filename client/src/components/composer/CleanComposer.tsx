@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2, X, ImageIcon } from "lucide-react";
@@ -27,9 +27,15 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState("");
   const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const isSubmitting = createProject.isPending;
   const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
+  const hasChat = chatMessages.length > 0 || askAssistant.isPending;
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [chatMessages, askAssistant.isPending]);
 
   const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -155,6 +161,47 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       )}
 
       <div className="bg-surface border border-border rounded-2xl px-4 pt-3 pb-2.5 shadow-card focus-within:border-neutral-600 transition-colors">
+        {hasChat && (
+          <div className="mb-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+            <div className="flex flex-col gap-2">
+              {chatMessages.map((message, index) => (
+                <div
+                  key={`${message.role}-${index}`}
+                  className={message.role === "user" ? "flex justify-end" : "flex items-end gap-2"}
+                >
+                  {message.role === "assistant" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent">
+                      <Sparkles size={14} />
+                    </div>
+                  )}
+                  <div
+                    className={
+                      message.role === "user"
+                        ? "max-w-[80%] whitespace-pre-wrap rounded-[18px] rounded-br-md bg-gradient-to-br from-[#3797f0] to-accent px-3.5 py-2 text-left text-sm leading-relaxed text-white shadow-sm"
+                        : "max-w-[82%] whitespace-pre-wrap rounded-[18px] rounded-bl-md border border-border/70 bg-surface-2 px-3.5 py-2 text-left text-sm leading-relaxed text-fg shadow-sm"
+                    }
+                  >
+                    {message.text}
+                  </div>
+                </div>
+              ))}
+              {askAssistant.isPending && (
+                <div className="flex items-end gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent">
+                    <Sparkles size={14} />
+                  </div>
+                  <div className="flex items-center gap-1 rounded-[18px] rounded-bl-md border border-border/70 bg-surface-2 px-3.5 py-3 shadow-sm">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:120ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:240ms]" />
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+        )}
+
         <div className="relative">
           {prompt === "" && (
             <TextType
@@ -280,32 +327,6 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
           </div>
         </div>
       </div>
-
-      {chatMessages.length > 0 && (
-        <div className="mt-3 space-y-2 rounded-xl border border-border bg-surface/90 p-3 text-sm leading-relaxed shadow-card">
-          {chatMessages.map((message, index) => (
-            <div
-              key={`${message.role}-${index}`}
-              className={
-                message.role === "user"
-                  ? "ml-auto max-w-[85%] rounded-lg bg-accent px-3 py-2 text-accent-ink"
-                  : "mr-auto max-w-[90%] rounded-lg bg-surface-2 px-3 py-2 text-muted"
-              }
-            >
-              {message.text}
-            </div>
-          ))}
-          {askAssistant.isPending && (
-            <div className="mr-auto max-w-[90%] rounded-lg bg-surface-2 px-3 py-2 text-muted">
-              Thinking...
-            </div>
-          )}
-        </div>
-      )}
-
-      <p className="text-center text-xs text-faint mt-3">
-        Press Enter to chat. Click the arrow to generate video
-      </p>
     </div>
   );
 }
