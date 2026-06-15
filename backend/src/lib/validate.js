@@ -195,6 +195,70 @@ function trimAfterDefaultExport(source) {
   return source.slice(0, end);
 }
 
+function collectNumericConstants(ast) {
+  const constants = new Map();
+  traverse(ast, {
+    VariableDeclarator(p) {
+      if (p.parent?.type !== "VariableDeclaration" || p.parent.kind !== "const") return;
+      if (p.node.id.type !== "Identifier" || !p.node.init) return;
+      const value = evalStaticNumber(p.node.init, constants);
+      if (Number.isFinite(value)) constants.set(p.node.id.name, value);
+    },
+  });
+  return constants;
+}
+
+function evalStaticNumber(node, constants) {
+  if (!node) return null;
+  if (node.type === "NumericLiteral") return node.value;
+  if (node.type === "Identifier") return constants.has(node.name) ? constants.get(node.name) : null;
+  if (node.type === "UnaryExpression") {
+    const value = evalStaticNumber(node.argument, constants);
+    if (!Number.isFinite(value)) return null;
+    if (node.operator === "-") return -value;
+    if (node.operator === "+") return value;
+    return null;
+  }
+  if (node.type === "BinaryExpression") {
+    const left = evalStaticNumber(node.left, constants);
+    const right = evalStaticNumber(node.right, constants);
+    if (!Number.isFinite(left) || !Number.isFinite(right)) return null;
+    if (node.operator === "+") return left + right;
+    if (node.operator === "-") return left - right;
+    if (node.operator === "*") return left * right;
+    if (node.operator === "/" && right !== 0) return left / right;
+    if (node.operator === "%" && right !== 0) return left % right;
+    return null;
+  }
+  if (node.type === "ParenthesizedExpression") {
+    return evalStaticNumber(node.expression, constants);
+  }
+  if (node.type === "TSAsExpression" || node.type === "TSTypeAssertion") {
+    return evalStaticNumber(node.expression, constants);
+  }
+  return null;
+}
+
+function evalStaticNumberArray(node, constants) {
+  if (!node || node.type !== "ArrayExpression") return null;
+  const values = [];
+  for (const element of node.elements) {
+    if (!element) return null;
+    const value = evalStaticNumber(element, constants);
+    if (!Number.isFinite(value)) return null;
+    values.push(value);
+  }
+  return values;
+}
+
+function staticArrayLength(node) {
+  return node?.type === "ArrayExpression" ? node.elements.length : null;
+}
+
+function formatRange(values) {
+  return `[${values.map((value) => Number.isInteger(value) ? String(value) : value.toFixed(3)).join(", ")}]`;
+}
+
 export function validateComponent(rawSource) {
   let code = stripFences(rawSource);
   if (!code) {
@@ -222,6 +286,7 @@ export function validateComponent(rawSource) {
   }
 
   const violations = [];
+  const numericConstants = collectNumericConstants(ast);
 
   traverse(ast, {
     StringLiteral(p) {
@@ -262,6 +327,29 @@ export function validateComponent(rawSource) {
       const callee = p.node.callee;
       if (callee.type === "Identifier" && BANNED_IDENTIFIERS.has(callee.name)) {
         violations.push(`Banned call: ${callee.name}().`);
+      }
+      if (
+        callee.type === "Identifier" &&
+        (callee.name === "interpolate" || callee.name === "interpolateColors")
+      ) {
+        const inputRange = evalStaticNumberArray(p.node.arguments[1], numericConstants);
+        if (inputRange) {
+          for (let i = 1; i < inputRange.length; i++) {
+            if (inputRange[i] <= inputRange[i - 1]) {
+              violations.push(
+                `${callee.name}() inputRange must be strictly increasing; got ${formatRange(inputRange)}.`
+              );
+              break;
+            }
+          }
+        }
+        const inputLength = staticArrayLength(p.node.arguments[1]);
+        const outputLength = staticArrayLength(p.node.arguments[2]);
+        if (inputLength != null && outputLength != null && inputLength !== outputLength) {
+          violations.push(
+            `${callee.name}() inputRange and outputRange must have equal length; got ${inputLength} and ${outputLength}.`
+          );
+        }
       }
     },
     NewExpression(p) {

@@ -20,5 +20,9 @@ Same hard rules as before:
 - Do not use named exports for helpers. Helpers must be plain const/function
   declarations. The only export at the end should be:
   export default UserComposition;
+- For every interpolate()/interpolateColors() call, inputRange must be strictly
+  increasing after constants are evaluated, and outputRange must be the same
+  length. If the error mentions a range like [555,585,570,590], reorder or
+  rewrite that range so it only increases.
 Keep everything that worked; change only what's needed to fix the error.
 `.trim();

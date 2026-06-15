@@ -16,6 +16,49 @@ interface Props {
   durationSec?: number;
 }
 
+const EMPTY_CHAT_REPLY =
+  "Tell me what kind of video you want to make, paste a script, or attach a reference image.";
+
+const GREETING_REPLY =
+  "Hi! Tell me what kind of video you want, paste a script, or attach a reference image. Click the arrow when you're ready to generate.";
+
+const VIDEO_TASK_REPLY =
+  "Sure. Type the video idea, paste your script, or attach a reference image here. When the prompt is ready, click the arrow to generate.";
+
+const GREETING_RE = /^(hi|hello|hey|yo|helo|hlow|good morning|good afternoon|good evening|good night|gm)\b/i;
+const DIRECT_GENERATE_RE = /\b(make|create|generate|build|produce|turn|animate|design)\b/i;
+const VIDEO_OUTPUT_RE =
+  /\b(video|ad|promo|reel|short|youtube|intro|outro|explainer|animation|animate|motion|scene|storyboard|chart|caption|template)\b/i;
+const CHAT_ONLY_RE =
+  /\b(prompt|idea|suggest|example|how|why|what|fix|error|bug|problem|debug|setup|install|not working|failed|crash)\b|\b(create|write)\s+(a\s+)?script\b/i;
+const TECHNICAL_HELP_RE =
+  /\b(remotion|render|renderer|component|timeline|frame|fps|lottie|audio|tts|voiceover|api|backend|frontend|mongodb|worker|deploy|error|bug|debug|setup|install|failed|crash|not working)\b/i;
+
+function isGreeting(input: string) {
+  return GREETING_RE.test(input.trim());
+}
+
+function shouldGenerateFromEnter(input: string) {
+  const text = input.trim();
+  return (
+    text.length >= 10 &&
+    isVideoAssistantTopic(text) &&
+    DIRECT_GENERATE_RE.test(text) &&
+    VIDEO_OUTPUT_RE.test(text) &&
+    !CHAT_ONLY_RE.test(text)
+  );
+}
+
+function shouldAskBackendAssistant(input: string) {
+  return TECHNICAL_HELP_RE.test(input);
+}
+
+function compactAssistantReply(input: string) {
+  const reply = input.replace(/\s+/g, " ").trim();
+  if (reply.length <= 320) return reply;
+  return `${reply.slice(0, 317).trim()}...`;
+}
+
 export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props) {
   const navigate = useNavigate();
   const createProject = useCreateProject();
@@ -62,6 +105,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       return;
     }
     if (!isVideoAssistantTopic(prompt)) {
+      setChatMessages((prev) => [...prev, { role: "assistant", text: VIDEO_ASSISTANT_SCOPE_MESSAGE }]);
       toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
       return;
     }
@@ -104,26 +148,14 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const handleChatSubmit = async () => {
     const message = prompt.trim();
     if (message.length < 2) {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text: "Ask me about video making, Remotion/software setup, rendering, audio, or the generator workflow.",
-        },
-      ]);
+      setChatMessages((prev) => [...prev, { role: "assistant", text: EMPTY_CHAT_REPLY }]);
       return;
     }
     setPrompt("");
     setChatMessages((prev) => [...prev, { role: "user", text: message }]);
 
-    if (/^(hi|hello|hey|yo)\b/i.test(message)) {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text: "Hi. I can help with video prompts, Remotion components, render problems, audio/TTS, templates, and software setup for this app.",
-        },
-      ]);
+    if (isGreeting(message)) {
+      setChatMessages((prev) => [...prev, { role: "assistant", text: GREETING_REPLY }]);
       return;
     }
 
@@ -131,9 +163,15 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       setChatMessages((prev) => [...prev, { role: "assistant", text: VIDEO_ASSISTANT_SCOPE_MESSAGE }]);
       return;
     }
+
+    if (!shouldAskBackendAssistant(message)) {
+      setChatMessages((prev) => [...prev, { role: "assistant", text: VIDEO_TASK_REPLY }]);
+      return;
+    }
+
     try {
       const result = await askAssistant.mutateAsync(message);
-      setChatMessages((prev) => [...prev, { role: "assistant", text: result.reply }]);
+      setChatMessages((prev) => [...prev, { role: "assistant", text: compactAssistantReply(result.reply) }]);
     } catch (e) {
       setChatMessages((prev) => [
         ...prev,
@@ -145,7 +183,12 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!askAssistant.isPending) handleChatSubmit();
+      if (askAssistant.isPending || isSubmitting) return;
+      if (shouldGenerateFromEnter(prompt)) {
+        void handleCreate();
+      } else {
+        void handleChatSubmit();
+      }
     }
   };
 
@@ -167,7 +210,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
               {chatMessages.map((message, index) => (
                 <div
                   key={`${message.role}-${index}`}
-                  className={message.role === "user" ? "flex justify-end" : "flex items-end gap-2"}
+                  className={message.role === "user" ? "flex min-w-0 justify-end" : "flex min-w-0 items-end gap-2"}
                 >
                   {message.role === "assistant" && (
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent">
@@ -177,8 +220,8 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
                   <div
                     className={
                       message.role === "user"
-                        ? "max-w-[80%] whitespace-pre-wrap rounded-[18px] rounded-br-md bg-gradient-to-br from-[#3797f0] to-accent px-3.5 py-2 text-left text-sm leading-relaxed text-white shadow-sm"
-                        : "max-w-[82%] whitespace-pre-wrap rounded-[18px] rounded-bl-md border border-border/70 bg-surface-2 px-3.5 py-2 text-left text-sm leading-relaxed text-fg shadow-sm"
+                        ? "max-w-[80%] break-words whitespace-pre-wrap rounded-[18px] rounded-br-md bg-gradient-to-br from-[#3797f0] to-accent px-3.5 py-2 text-left text-sm leading-relaxed text-white shadow-sm"
+                        : "min-w-0 max-w-[calc(100%-2.25rem)] break-words whitespace-pre-wrap rounded-[18px] rounded-bl-md border border-border/70 bg-surface-2 px-3.5 py-2 text-left text-sm leading-relaxed text-fg shadow-sm"
                     }
                   >
                     {message.text}

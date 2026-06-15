@@ -22,7 +22,9 @@ Allowed scope:
 If the user asks about anything outside that scope, reply with this exact sentence:
 "${VIDEO_ASSISTANT_SCOPE_MESSAGE}"
 
-For allowed questions, be practical, clear, and detailed enough to help the user act. Keep replies under 180 words unless the user asks for exact code or steps.`;
+For allowed video creation requests, do not draft a long prompt by default. Tell the user to type the video idea, paste a script, or attach a reference image, then use the generate arrow.
+
+For allowed technical questions, be practical and clear. Keep replies under 90 words unless the user asks for exact code or steps.`;
 
 assistantRouter.post("/chat", requireAuth, validate(AssistantChatInput), async (req, res, next) => {
   try {
@@ -40,7 +42,7 @@ assistantRouter.post("/chat", requireAuth, validate(AssistantChatInput), async (
     const reply = await callLLM({
       system: ASSISTANT_SYSTEM_PROMPT,
       user: message,
-      maxTokens: 700,
+      maxTokens: 260,
     });
 
     res.json({ reply: reply.trim() || VIDEO_ASSISTANT_SCOPE_MESSAGE });

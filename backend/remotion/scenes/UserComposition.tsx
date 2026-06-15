@@ -1,423 +1,342 @@
 import React from "react";
 import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from "remotion";
 
+const BACKGROUND_COLOR = "#121E2C"; // Dark blue
+const MAIN_TEXT_COLOR = "#FFFFFF"; // White
+const ACCENT_COLOR_GROWTH = "#00A896"; // Teal-green for growth bars
+const ACCENT_COLOR_HIGHLIGHT = "#FFC107"; // Gold for percentages/impact
+
 export const UserComposition: React.FC = () => {
+  const videoConfig = useVideoConfig();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
 
-  // Color Palette
-  const primaryRed = "#A01E24"; // Deep, rich red
-  const accentTurquoise = "#35858B"; // Vibrant, jewel-like
-  const accentSaffron = "#F2C94C"; // Warm, inviting yellow
-  const neutralCream = "#F7F4E9"; // Soft background/text color
-  const darkContrast = "#1C1C1C"; // For text on light backgrounds
+  const fps = videoConfig.fps;
+  const durationInFrames = videoConfig.durationInFrames; // 600 frames
 
-  // --- Scene 1: "Turkey" Title Reveal (0-4s) ---
-  const titleIntroDuration = 4 * fps; // 4 seconds
-  const turkeyLetters = "TURKEY".split('');
-  const letterSprings = turkeyLetters.map((_, i) =>
-    spring({
-      frame: frame - i * 3, // Staggered entry
-      fps,
-      config: { damping: 15, stiffness: 200, mass: 0.5 },
-      delay: 5
-    })
-  );
-
-  const titleScale = spring({
-    frame: frame - 10,
+  // Scene 1: "CONSISTENT GROWTH" Title (Frames 0-120)
+  const introDuration = 120;
+  const consistentSpring = spring({
+    frame: frame - 10, // Start slightly later
     fps,
-    config: { damping: 10, stiffness: 100 },
-    delay: 0
+    config: { damping: 15, mass: 0.8, overshootClamping: false },
+  });
+  const growthSpring = spring({
+    frame: frame - 30, // Start even later
+    fps,
+    config: { damping: 15, mass: 0.8, overshootClamping: false },
+  });
+  const introFadeOut = interpolate(frame, [introDuration - 30, introDuration], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
 
-  const titleFadeOut = interpolate(
-    frame,
-    [titleIntroDuration - 30, titleIntroDuration],
-    [1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
+  // Scene 2: Revenue Bars Animation (Frames 120-360)
+  const barsStartFrame = 120;
+  const barsDuration = 240; // 360 - 120
+  const barData = [
+    { label: "Q1", heightRatio: 0.4, value: "+10%" },
+    { label: "Q2", heightRatio: 0.6, value: "+15%" },
+    { label: "Q3", heightRatio: 0.8, value: "+20%" },
+    { label: "Q4", heightRatio: 1.0, value: "+25%" },
+  ];
+  const maxBarHeight = 400; // Max height for a bar
 
-  // --- Scene 2: "Authentic Turkish Cuisine" (4-10s) ---
-  const cuisineIntroDuration = 6 * fps; // 6 seconds
-  const cuisineStartFrame = titleIntroDuration;
-
-  const cuisineTextSpring = spring({
-    frame: frame - cuisineStartFrame - 15,
+  // Scene 3: "STRONG PERFORMANCE" with Percentage (Frames 360-500)
+  const performanceStartFrame = 360;
+  const performanceDuration = 140; // 500 - 360
+  const strongSpring = spring({
+    frame: frame - (performanceStartFrame + 20),
     fps,
-    config: { damping: 12, stiffness: 150, mass: 0.8 },
+    config: { damping: 12, mass: 0.7 },
+  });
+  const performanceSpring = spring({
+    frame: frame - (performanceStartFrame + 40),
+    fps,
+    config: { damping: 12, mass: 0.7 },
+  });
+  const percentageSpring = spring({
+    frame: frame - (performanceStartFrame + 80),
+    fps,
+    config: { damping: 10, mass: 0.6, stiffness: 200 },
+  });
+  const performanceFadeOut = interpolate(frame, [performanceStartFrame + performanceDuration - 30, performanceStartFrame + performanceDuration], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
 
-  const cuisineTextOpacity = interpolate(
-    frame,
-    [cuisineStartFrame + 15, cuisineStartFrame + 45],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-  const cuisineTextY = interpolate(cuisineTextSpring, [0, 1], [200, 0]);
-
-  const cuisineBandTranslateX = spring({
-    frame: frame - cuisineStartFrame,
-    fps,
-    config: { damping: 15, stiffness: 150 },
-    delay: 0
-  });
-
-  const cuisineFadeOut = interpolate(
-    frame,
-    [cuisineStartFrame + cuisineIntroDuration - 30, cuisineStartFrame + cuisineIntroDuration],
-    [1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-
-  // --- Scene 3: "Vibrant Flavors" - Set Piece (10-16s) ---
-  const flavorsIntroDuration = 6 * fps; // 6 seconds
-  const flavorsStartFrame = cuisineStartFrame + cuisineIntroDuration;
-
-  const flavorsTextSpring = spring({
-    frame: frame - flavorsStartFrame - 15,
-    fps,
-    config: { damping: 12, stiffness: 150, mass: 0.8 },
-  });
-
-  const flavorsTextOpacity = interpolate(
-    frame,
-    [flavorsStartFrame + 15, flavorsStartFrame + 45],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-  const flavorsTextScale = interpolate(flavorsTextSpring, [0, 1], [0.8, 1]);
-
-  // Abstract food plating elements
-  const plateScale = spring({
-    frame: frame - flavorsStartFrame - 10,
-    fps,
-    config: { damping: 10, stiffness: 100 },
-  });
-
-  const circle1X = interpolate(
-    spring({ frame: frame - flavorsStartFrame - 30, fps, config: { damping: 10, stiffness: 100 } }),
-    [0, 1],
-    [-200, 0]
-  );
-  const circle1Y = interpolate(
-    spring({ frame: frame - flavorsStartFrame - 35, fps, config: { damping: 10, stiffness: 100 } }),
-    [0, 1],
-    [200, 0]
-  );
-
-  const lineProgress1 = interpolate(
-    frame - flavorsStartFrame - 40,
-    [0, 20],
-    [0, 1],
-    { easing: Easing.out(Easing.ease) }
-  );
-  const lineProgress2 = interpolate(
-    frame - flavorsStartFrame - 50,
-    [0, 20],
-    [0, 1],
-    { easing: Easing.out(Easing.ease) }
-  );
-
-  const patternOpacity = interpolate(
-    frame,
-    [flavorsStartFrame + 60, flavorsStartFrame + 90],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-  const flavorsFadeOut = interpolate(
-    frame,
-    [flavorsStartFrame + flavorsIntroDuration - 30, flavorsStartFrame + flavorsIntroDuration],
-    [1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-  // --- Scene 4: Outro - "Experience Turkey" (16-20s) ---
-  const outroDuration = 4 * fps; // 4 seconds
-  const outroStartFrame = flavorsStartFrame + flavorsIntroDuration;
-
+  // Scene 4: Conclusion (Frames 500-600)
+  const conclusionStartFrame = 500;
+  const conclusionDuration = 100;
   const outroTextSpring = spring({
-    frame: frame - outroStartFrame - 15,
+    frame: frame - (conclusionStartFrame + 30),
     fps,
-    config: { damping: 12, stiffness: 150, mass: 0.8 },
+    config: { damping: 10, mass: 0.8 },
+  });
+  const outroFadeOut = interpolate(frame, [durationInFrames - 30, durationInFrames], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
 
-  const outroTextOpacity = interpolate(
-    frame,
-    [outroStartFrame + 15, outroStartFrame + 45],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-  const outroTextY = interpolate(outroTextSpring, [0, 1], [100, 0]);
-
-  const outroWordmarkScale = spring({
-    frame: frame - outroStartFrame - 0,
-    fps,
-    config: { damping: 10, stiffness: 100 },
-  });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: primaryRed, overflow: "hidden" }}>
-      {/* Scene 1: "Turkey" Title Reveal */}
-      <Sequence from={0} durationInFrames={titleIntroDuration}>
+    <AbsoluteFill style={{ backgroundColor: BACKGROUND_COLOR, overflow: "hidden" }}>
+      {/* Background grid/lines animation (subtle) */}
+      <div
+        style={{
+          position: "absolute",
+          width: "200%",
+          height: "200%",
+          left: "-50%",
+          top: "-50%",
+          background: `
+            repeating-linear-gradient(
+              0deg,
+              rgba(255,255,255,0.03) 0px,
+              rgba(255,255,255,0.03) 1px,
+              transparent 1px,
+              transparent 40px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              rgba(255,255,255,0.03) 0px,
+              rgba(255,255,255,0.03) 1px,
+              transparent 1px,
+              transparent 40px
+            )
+          `,
+          transform: `translate(${interpolate(frame, [0, durationInFrames], [0, -100], { easing: Easing.linear })}px, ${interpolate(frame, [0, durationInFrames], [0, -50], { easing: Easing.linear })}px)`,
+          opacity: 0.8,
+        }}
+      />
+
+      {/* Scene 1: "CONSISTENT GROWTH" Title */}
+      <Sequence from={0} durationInFrames={introDuration}>
         <AbsoluteFill
           style={{
-            backgroundColor: primaryRed,
             justifyContent: "center",
             alignItems: "center",
-            opacity: titleFadeOut
+            opacity: introFadeOut,
           }}
         >
           <div
             style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              transform: `scale(${titleScale})`,
-              lineHeight: 0.8,
+              fontSize: 120,
+              fontWeight: "900",
+              color: MAIN_TEXT_COLOR,
+              transform: `scale(${consistentSpring}) translateY(${interpolate(
+                consistentSpring,
+                [0, 1],
+                [-50, 0]
+              )}px)`,
+              opacity: interpolate(consistentSpring, [0.5, 1], [0, 1]),
+              fontFamily: "sans-serif",
+              letterSpacing: -5,
+              textShadow: "0 0 20px rgba(255,255,255,0.2)",
             }}
           >
-            {turkeyLetters.map((char, i) => (
-              <span
-                key={i}
+            CONSISTENT
+          </div>
+          <div
+            style={{
+              fontSize: 150,
+              fontWeight: "900",
+              color: ACCENT_COLOR_GROWTH,
+              transform: `scale(${growthSpring}) translateY(${interpolate(
+                growthSpring,
+                [0, 1],
+                [50, 0]
+              )}px)`,
+              opacity: interpolate(growthSpring, [0.5, 1], [0, 1]),
+              fontFamily: "sans-serif",
+              marginTop: -30,
+              letterSpacing: -8,
+              textShadow: `0 0 20px ${ACCENT_COLOR_GROWTH}80`,
+            }}
+          >
+            GROWTH
+          </div>
+        </AbsoluteFill>
+      </Sequence>
+
+      {/* Scene 2: Revenue Bars Animation */}
+      <Sequence from={barsStartFrame} durationInFrames={barsDuration}>
+        <AbsoluteFill
+          style={{
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "row",
+            gap: 80,
+            transform: `translateY(${interpolate(frame - barsStartFrame, [0, barsDuration - 30], [50, -50], { extrapolateRight: "clamp" })}px)`, // Subtle vertical drift
+            opacity: interpolate(frame, [barsStartFrame, barsStartFrame + 30, barsStartFrame + barsDuration - 30, barsStartFrame + barsDuration], [0, 1, 1, 0], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp"
+            })
+          }}
+        >
+          {barData.map((data, i) => {
+            const barDelay = 15; // Delay in frames for each bar
+            const barIntroStart = barsStartFrame + 20 + i * barDelay;
+            const barHeightProgress = spring({
+              frame: frame - barIntroStart,
+              fps,
+              config: { damping: 10, mass: 0.5, stiffness: 100 },
+            });
+
+            const barHeight = interpolate(
+              barHeightProgress,
+              [0, 1],
+              [0, maxBarHeight * data.heightRatio]
+            );
+
+            const valueOpacity = interpolate(
+              frame,
+              [barIntroStart + 20, barIntroStart + 40],
+              [0, 1],
+              {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }
+            );
+
+            return (
+              <div
+                key={data.label}
                 style={{
-                  color: neutralCream,
-                  fontSize: "300px",
-                  fontWeight: "900",
-                  fontFamily: "sans-serif",
-                  transform: `translateY(${interpolate(
-                    letterSprings[i],
-                    [0, 1],
-                    [100, 0],
-                    { extrapolateLeft: "clamp" }
-                  )}px) scale(${interpolate(
-                    letterSprings[i],
-                    [0, 1],
-                    [0.5, 1],
-                    { extrapolateLeft: "clamp" }
-                  )})`,
-                  display: "inline-block", // Required for transform on span
-                  opacity: interpolate(
-                    letterSprings[i],
-                    [0, 0.5],
-                    [0, 1],
-                    { extrapolateLeft: "clamp" }
-                  ),
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
                 }}
               >
-                {char}
-              </span>
-            ))}
-          </div>
+                <div
+                  style={{
+                    backgroundColor: ACCENT_COLOR_GROWTH,
+                    width: 70,
+                    height: barHeight,
+                    borderRadius: 10,
+                    marginBottom: 10,
+                    boxShadow: `0 0 20px ${ACCENT_COLOR_GROWTH}80`,
+                    transformOrigin: "bottom",
+                    transform: `scaleY(${barHeightProgress})`,
+                  }}
+                />
+                <div
+                  style={{
+                    fontSize: 40,
+                    fontWeight: "bold",
+                    color: MAIN_TEXT_COLOR,
+                    fontFamily: "sans-serif",
+                    marginTop: 10,
+                  }}
+                >
+                  {data.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: 30,
+                    fontWeight: "bold",
+                    color: ACCENT_COLOR_HIGHLIGHT,
+                    fontFamily: "sans-serif",
+                    opacity: valueOpacity,
+                    marginTop: 5,
+                    textShadow: `0 0 10px ${ACCENT_COLOR_HIGHLIGHT}80`,
+                  }}
+                >
+                  {data.value}
+                </div>
+              </div>
+            );
+          })}
         </AbsoluteFill>
       </Sequence>
 
-      {/* Scene 2: "Authentic Turkish Cuisine" */}
-      <Sequence from={cuisineStartFrame} durationInFrames={cuisineIntroDuration}>
+      {/* Scene 3: "STRONG PERFORMANCE" with Percentage */}
+      <Sequence from={performanceStartFrame} durationInFrames={performanceDuration}>
         <AbsoluteFill
           style={{
-            backgroundColor: accentTurquoise,
             justifyContent: "center",
             alignItems: "center",
-            opacity: cuisineFadeOut
+            opacity: performanceFadeOut,
           }}
         >
           <div
             style={{
-              position: "absolute",
-              width: "100%",
-              height: "100%",
-              backgroundColor: primaryRed,
-              transform: `translateX(${interpolate(cuisineBandTranslateX, [0, 1], [-1920, 0])}px)`,
-            }}
-          />
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              backgroundColor: accentTurquoise,
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              transform: `translateX(${interpolate(cuisineBandTranslateX, [0, 1], [1920, 0])}px)`,
-            }}
-          >
-            <div
-              style={{
-                textAlign: "center",
-                color: neutralCream,
-                fontFamily: "sans-serif",
-                fontWeight: "800",
-                fontSize: "120px",
-                lineHeight: "1.2",
-                opacity: cuisineTextOpacity,
-                transform: `translateY(${cuisineTextY}px)`,
-              }}
-            >
-              <div>AUTHENTIC</div>
-              <div>TURKISH</div>
-              <div>CUISINE</div>
-            </div>
-          </div>
-        </AbsoluteFill>
-      </Sequence>
-
-      {/* Scene 3: "Vibrant Flavors" - Set Piece */}
-      <Sequence from={flavorsStartFrame} durationInFrames={flavorsIntroDuration}>
-        <AbsoluteFill
-          style={{
-            backgroundColor: neutralCream,
-            justifyContent: "center",
-            alignItems: "center",
-            opacity: flavorsFadeOut
-          }}
-        >
-          {/* Abstract Plate */}
-          <div
-            style={{
-              width: "500px",
-              height: "500px",
-              borderRadius: "50%",
-              backgroundColor: "#E0DCD1",
-              position: "absolute",
-              transform: `scale(${plateScale})`,
-              boxShadow: "0 15px 30px rgba(0,0,0,0.1)",
-            }}
-          />
-
-          {/* Abstract food elements */}
-          <div
-            style={{
-              width: "150px",
-              height: "150px",
-              borderRadius: "50%",
-              backgroundColor: primaryRed,
-              position: "absolute",
-              top: "calc(50% - 200px)",
-              left: "calc(50% - 250px)",
-              transform: `translate(${circle1X}px, ${circle1Y}px) scale(${interpolate(plateScale, [0,1],[0.5,1])})`,
-              opacity: interpolate(plateScale, [0, 0.5], [0, 1], { extrapolateLeft: "clamp" }),
-            }}
-          />
-          <div
-            style={{
-              width: "120px",
-              height: "120px",
-              borderRadius: "50%",
-              backgroundColor: accentSaffron,
-              position: "absolute",
-              top: "calc(50% + 100px)",
-              left: "calc(50% + 150px)",
-              transform: `translate(${circle1X * -0.5}px, ${circle1Y * 0.8}px) scale(${interpolate(plateScale, [0,1],[0.5,1])})`,
-              opacity: interpolate(plateScale, [0, 0.5], [0, 1], { extrapolateLeft: "clamp" }),
-            }}
-          />
-          <div
-            style={{
-              width: "100px",
-              height: "100px",
-              borderRadius: "50%",
-              backgroundColor: accentTurquoise,
-              position: "absolute",
-              top: "calc(50% - 50px)",
-              left: "calc(50% + 200px)",
-              transform: `translate(${circle1X * 0.3}px, ${circle1Y * -0.6}px) scale(${interpolate(plateScale, [0,1],[0.5,1])})`,
-              opacity: interpolate(plateScale, [0, 0.5], [0, 1], { extrapolateLeft: "clamp" }),
-            }}
-          />
-
-          {/* Decorative lines/patterns */}
-          <svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 1920 1080"
-            style={{ position: "absolute", opacity: patternOpacity }}
-          >
-            <line
-              x1="0"
-              y1="1080"
-              x2={interpolate(lineProgress1, [0, 1], [0, 1920])}
-              y2={interpolate(lineProgress1, [0, 1], [1080, 0])}
-              stroke={darkContrast}
-              strokeWidth="10"
-              strokeLinecap="round"
-            />
-            <line
-              x1="1920"
-              y1="0"
-              x2={interpolate(lineProgress2, [0, 1], [1920, 0])}
-              y2={interpolate(lineProgress2, [0, 1], [0, 1080])}
-              stroke={primaryRed}
-              strokeWidth="10"
-              strokeLinecap="round"
-            />
-          </svg>
-
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              textAlign: "center",
-              color: darkContrast,
-              fontFamily: "sans-serif",
+              fontSize: 100,
               fontWeight: "900",
-              fontSize: "100px",
-              lineHeight: "1.2",
-              opacity: flavorsTextOpacity,
-              transform: `scale(${flavorsTextScale})`,
-              marginTop: "200px", // Position below the abstract plate
+              color: MAIN_TEXT_COLOR,
+              transform: `scale(${strongSpring}) translateY(${interpolate(
+                strongSpring,
+                [0, 1],
+                [-50, 0]
+              )}px)`,
+              opacity: interpolate(strongSpring, [0.5, 1], [0, 1]),
+              fontFamily: "sans-serif",
+              letterSpacing: -5,
+              textShadow: "0 0 20px rgba(255,255,255,0.2)",
             }}
           >
-            <div>VIBRANT</div>
-            <div>FLAVORS</div>
+            STRONG
+          </div>
+          <div
+            style={{
+              fontSize: 120,
+              fontWeight: "900",
+              color: ACCENT_COLOR_HIGHLIGHT,
+              transform: `scale(${performanceSpring}) translateY(${interpolate(
+                performanceSpring,
+                [0, 1],
+                [50, 0]
+              )}px)`,
+              opacity: interpolate(performanceSpring, [0.5, 1], [0, 1]),
+              fontFamily: "sans-serif",
+              marginTop: -30,
+              letterSpacing: -8,
+              textShadow: `0 0 20px ${ACCENT_COLOR_HIGHLIGHT}80`,
+            }}
+          >
+            PERFORMANCE
+          </div>
+          <div
+            style={{
+              fontSize: 180,
+              fontWeight: "900",
+              color: ACCENT_COLOR_GROWTH,
+              fontFamily: "sans-serif",
+              marginTop: 40,
+              transform: `scale(${percentageSpring})`,
+              opacity: interpolate(percentageSpring, [0.5, 1], [0, 1]),
+              textShadow: `0 0 30px ${ACCENT_COLOR_GROWTH}80`,
+            }}
+          >
+            +25%
           </div>
         </AbsoluteFill>
       </Sequence>
 
-      {/* Scene 4: Outro - "Experience Turkey" */}
-      <Sequence from={outroStartFrame} durationInFrames={outroDuration}>
+      {/* Scene 4: Conclusion */}
+      <Sequence from={conclusionStartFrame} durationInFrames={conclusionDuration}>
         <AbsoluteFill
           style={{
-            backgroundColor: darkContrast,
             justifyContent: "center",
             alignItems: "center",
+            opacity: outroFadeOut,
           }}
         >
           <div
             style={{
-              textAlign: "center",
-              color: neutralCream,
+              fontSize: 80,
+              fontWeight: "bold",
+              color: MAIN_TEXT_COLOR,
               fontFamily: "sans-serif",
-              fontWeight: "800",
-              fontSize: "120px",
-              lineHeight: "1.2",
-              marginBottom: "50px",
-              opacity: outroTextOpacity,
-              transform: `translateY(${outroTextY}px)`,
+              textAlign: "center",
+              lineHeight: 1.2,
+              transform: `scale(${outroTextSpring})`,
+              opacity: interpolate(outroTextSpring, [0.5, 1], [0, 1]),
+              textShadow: "0 0 15px rgba(255,255,255,0.2)",
             }}
           >
-            <div>EXPERIENCE</div>
-            <div>TURKEY</div>
-          </div>
-          <div
-            style={{
-              fontSize: "60px",
-              color: accentSaffron,
-              fontFamily: "serif",
-              fontStyle: "italic",
-              fontWeight: "600",
-              transform: `scale(${outroWordmarkScale})`,
-              opacity: interpolate(outroWordmarkScale, [0.5, 1], [0, 1], { extrapolateLeft: "clamp" }),
-            }}
-          >
-            Your Culinary Journey Awaits
+            DRIVING SUCCESS
+            <br />
+            TOGETHER
           </div>
         </AbsoluteFill>
       </Sequence>

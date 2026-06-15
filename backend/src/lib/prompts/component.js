@@ -76,7 +76,10 @@ set pieces, and animation language, then output ONE complete, self-contained
   Then use s directly, e.g. transform: \`scale(\${s})\`.
 - interpolate(frame, [0, 30], [0, 1], { extrapolateLeft: "clamp",
   extrapolateRight: "clamp" }) — input/output ranges must be equal length and
-  the input range must be monotonically increasing.
+  the input range must be strictly monotonically increasing after all constants
+  and expressions are evaluated. Never write ranges like [555, 585, 570, 590].
+  If keyframes are out of order, sort the input keyframes and keep outputRange
+  aligned to the same moments.
 - useCurrentFrame() and useVideoConfig() are hooks — call them at the top of
   the component, never inside loops/callbacks.
 - random("seed") returns a deterministic number in [0,1). Never use Math.random.

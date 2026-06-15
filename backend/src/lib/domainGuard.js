@@ -1,5 +1,5 @@
 export const VIDEO_ASSISTANT_SCOPE_MESSAGE =
-  "I can help with video generation, Remotion/software setup, rendering, audio/TTS, templates, components, prompts, and creative direction. Ask me about the video or app workflow you want to build.";
+  "I can't help with that here. Tell me what kind of video you want to make, paste a script, or attach a reference image.";
 
 const ALLOWED_TERMS = [
   "video",
@@ -37,6 +37,9 @@ const ALLOWED_TERMS = [
   "layout",
   "design",
   "storyboard",
+  "script",
+  "reference",
+  "idea",
   "prompt",
   "promo",
   "ad",
@@ -46,6 +49,8 @@ const ALLOWED_TERMS = [
   "intro",
   "outro",
   "reel",
+  "social",
+  "instagram",
   "tiktok",
   "youtube",
   "shorts",
