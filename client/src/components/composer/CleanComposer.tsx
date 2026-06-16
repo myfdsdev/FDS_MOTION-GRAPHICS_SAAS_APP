@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2, X, ImageIcon } from "lucide-react";
-import { useAskAssistant, useCreateProject, useEnhancePrompt } from "@/lib/queries";
+import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
 import { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } from "@/lib/domainGuard";
 import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
@@ -16,23 +16,12 @@ interface Props {
   durationSec?: number;
 }
 
-const EMPTY_CHAT_REPLY =
+const PROMPT_GUIDANCE =
   "Tell me what kind of video you want to make, paste a script, or attach a reference image.";
 
-const GREETING_REPLY =
-  "Hi! Tell me what kind of video you want, paste a script, or attach a reference image. Click the arrow when you're ready to generate.";
-
-const VIDEO_TASK_REPLY =
-  "Sure. Type the video idea, paste your script, or attach a reference image here. When the prompt is ready, click the arrow to generate.";
-
 const GREETING_RE = /^(hi|hello|hey|yo|helo|hlow|good morning|good afternoon|good evening|good night|gm)\b/i;
-const DIRECT_GENERATE_RE = /\b(make|create|generate|build|produce|turn|animate|design)\b/i;
-const VIDEO_OUTPUT_RE =
-  /\b(video|ad|promo|reel|short|youtube|intro|outro|explainer|animation|animate|motion|scene|storyboard|chart|caption|template)\b/i;
 const CHAT_ONLY_RE =
   /\b(prompt|idea|suggest|example|how|why|what|fix|error|bug|problem|debug|setup|install|not working|failed|crash)\b|\b(create|write)\s+(a\s+)?script\b/i;
-const TECHNICAL_HELP_RE =
-  /\b(remotion|render|renderer|component|timeline|frame|fps|lottie|audio|tts|voiceover|api|backend|frontend|mongodb|worker|deploy|error|bug|debug|setup|install|failed|crash|not working)\b/i;
 
 function isGreeting(input: string) {
   return GREETING_RE.test(input.trim());
@@ -40,45 +29,21 @@ function isGreeting(input: string) {
 
 function shouldGenerateFromEnter(input: string) {
   const text = input.trim();
-  return (
-    text.length >= 10 &&
-    isVideoAssistantTopic(text) &&
-    DIRECT_GENERATE_RE.test(text) &&
-    VIDEO_OUTPUT_RE.test(text) &&
-    !CHAT_ONLY_RE.test(text)
-  );
-}
-
-function shouldAskBackendAssistant(input: string) {
-  return TECHNICAL_HELP_RE.test(input);
-}
-
-function compactAssistantReply(input: string) {
-  const reply = input.replace(/\s+/g, " ").trim();
-  if (reply.length <= 320) return reply;
-  return `${reply.slice(0, 317).trim()}...`;
+  return text.length >= 10 && isVideoAssistantTopic(text) && !isGreeting(text) && !CHAT_ONLY_RE.test(text);
 }
 
 export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props) {
   const navigate = useNavigate();
   const createProject = useCreateProject();
   const enhance = useEnhancePrompt();
-  const askAssistant = useAskAssistant();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [prompt, setPrompt] = useState("");
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState("");
-  const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const isSubmitting = createProject.isPending;
   const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
-  const hasChat = chatMessages.length > 0 || askAssistant.isPending;
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [chatMessages, askAssistant.isPending]);
 
   const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,7 +70,6 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       return;
     }
     if (!isVideoAssistantTopic(prompt)) {
-      setChatMessages((prev) => [...prev, { role: "assistant", text: VIDEO_ASSISTANT_SCOPE_MESSAGE }]);
       toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
       return;
     }
@@ -145,50 +109,37 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
     }
   };
 
-  const handleChatSubmit = async () => {
+  const handlePromptSubmit = () => {
     const message = prompt.trim();
     if (message.length < 2) {
-      setChatMessages((prev) => [...prev, { role: "assistant", text: EMPTY_CHAT_REPLY }]);
+      toast.message(PROMPT_GUIDANCE);
       return;
     }
-    setPrompt("");
-    setChatMessages((prev) => [...prev, { role: "user", text: message }]);
 
     if (isGreeting(message)) {
-      setChatMessages((prev) => [...prev, { role: "assistant", text: GREETING_REPLY }]);
+      setPrompt("");
+      toast.message(PROMPT_GUIDANCE);
       return;
     }
 
     if (!isVideoAssistantTopic(message)) {
-      setChatMessages((prev) => [...prev, { role: "assistant", text: VIDEO_ASSISTANT_SCOPE_MESSAGE }]);
+      toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
       return;
     }
 
-    if (!shouldAskBackendAssistant(message)) {
-      setChatMessages((prev) => [...prev, { role: "assistant", text: VIDEO_TASK_REPLY }]);
+    if (shouldGenerateFromEnter(message)) {
+      void handleCreate();
       return;
     }
 
-    try {
-      const result = await askAssistant.mutateAsync(message);
-      setChatMessages((prev) => [...prev, { role: "assistant", text: compactAssistantReply(result.reply) }]);
-    } catch (e) {
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: e instanceof Error ? e.message : "Assistant reply failed" },
-      ]);
-    }
+    toast.message(PROMPT_GUIDANCE);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (askAssistant.isPending || isSubmitting) return;
-      if (shouldGenerateFromEnter(prompt)) {
-        void handleCreate();
-      } else {
-        void handleChatSubmit();
-      }
+      if (isSubmitting) return;
+      handlePromptSubmit();
     }
   };
 
@@ -204,47 +155,6 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       )}
 
       <div className="bg-surface border border-border rounded-2xl px-4 pt-3 pb-2.5 shadow-card focus-within:border-neutral-600 transition-colors">
-        {hasChat && (
-          <div className="mb-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
-            <div className="flex flex-col gap-2">
-              {chatMessages.map((message, index) => (
-                <div
-                  key={`${message.role}-${index}`}
-                  className={message.role === "user" ? "flex min-w-0 justify-end" : "flex min-w-0 items-end gap-2"}
-                >
-                  {message.role === "assistant" && (
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent">
-                      <Sparkles size={14} />
-                    </div>
-                  )}
-                  <div
-                    className={
-                      message.role === "user"
-                        ? "max-w-[80%] break-words whitespace-pre-wrap rounded-[18px] rounded-br-md bg-gradient-to-br from-[#3797f0] to-accent px-3.5 py-2 text-left text-sm leading-relaxed text-white shadow-sm"
-                        : "min-w-0 max-w-[calc(100%-2.25rem)] break-words whitespace-pre-wrap rounded-[18px] rounded-bl-md border border-border/70 bg-surface-2 px-3.5 py-2 text-left text-sm leading-relaxed text-fg shadow-sm"
-                    }
-                  >
-                    {message.text}
-                  </div>
-                </div>
-              ))}
-              {askAssistant.isPending && (
-                <div className="flex items-end gap-2">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent">
-                    <Sparkles size={14} />
-                  </div>
-                  <div className="flex items-center gap-1 rounded-[18px] rounded-bl-md border border-border/70 bg-surface-2 px-3.5 py-3 shadow-sm">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:120ms]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:240ms]" />
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-          </div>
-        )}
-
         <div className="relative">
           {prompt === "" && (
             <TextType
@@ -252,7 +162,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
               aria-hidden
               className="pointer-events-none absolute left-1.5 top-2 text-[15px] leading-normal text-faint"
               text={[
-                "How can I help you today?",
+                "Describe the video you want to create",
                 "Make a 30-second product demo",
                 "Animate a chart of our revenue growth",
                 "Create a YouTube intro for my channel",
