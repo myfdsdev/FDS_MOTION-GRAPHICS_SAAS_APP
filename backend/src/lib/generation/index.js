@@ -22,9 +22,9 @@ import {
 export { CAPABILITY, estimateCost };
 
 // Registered media-gen providers. fal + kie are real aggregators; mock is the
-// offline fallback for tests / no-key dev (only "available" when opted in).
-// Default preference is array order; override globally or per-capability via env.
-const PROVIDERS = [falProvider, kieProvider, mockProvider];
+// offline fallback for tests / no-key dev (only "available" when opted in via env).
+// When GENERATION_MOCK=1, mock is checked FIRST and takes priority over real providers.
+const PROVIDERS = process.env.GENERATION_MOCK ? [mockProvider, falProvider, kieProvider] : [falProvider, kieProvider, mockProvider];
 
 // Routing preferences via env:
 //   GENERATION_PREFER=kie,fal                 → global priority order

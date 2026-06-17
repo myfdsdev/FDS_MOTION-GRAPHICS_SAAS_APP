@@ -11,6 +11,7 @@
     "worker:dev": "node --watch worker.js",
     "gen": "node render-component.js",
     "render:component": "node render-component.js",
+    "gen:video:e2e": "node gen-video-e2e.js",
     "seed": "node src/seed.js",
     "seed:reset": "node src/seed.js --reset"
   },
