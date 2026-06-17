@@ -9,6 +9,7 @@
 // image/video generation takes minutes — callers run this from the worker, not
 // a request handler.
 
+import { elevenlabsProvider } from "./providers/elevenlabs.js";
 import { falProvider } from "./providers/fal.js";
 import { kieProvider } from "./providers/kie.js";
 import { mockProvider } from "./providers/mock.js";
@@ -21,10 +22,13 @@ import {
 
 export { CAPABILITY, estimateCost };
 
-// Registered media-gen providers. fal + kie are real aggregators; mock is the
-// offline fallback for tests / no-key dev (only "available" when opted in via env).
-// When GENERATION_MOCK=1, mock is checked FIRST and takes priority over real providers.
-const PROVIDERS = process.env.GENERATION_MOCK ? [mockProvider, falProvider, kieProvider] : [falProvider, kieProvider, mockProvider];
+// Registered media-gen providers. elevenlabs is a REAL synchronous TTS path
+// (preferred for speech); fal + kie are real queue-based aggregators; mock is
+// the offline fallback (only "available" when opted in via env). When
+// GENERATION_MOCK=1, mock is checked FIRST so tests never hit a real API.
+const REAL_PROVIDERS = [elevenlabsProvider, falProvider, kieProvider];
+const MOCK_ON = process.env.GENERATION_MOCK === "1" || process.env.GENERATION_MOCK === "true";
+const PROVIDERS = MOCK_ON ? [mockProvider, ...REAL_PROVIDERS] : [...REAL_PROVIDERS, mockProvider];
 
 // Routing preferences via env:
 //   GENERATION_PREFER=kie,fal                 → global priority order
