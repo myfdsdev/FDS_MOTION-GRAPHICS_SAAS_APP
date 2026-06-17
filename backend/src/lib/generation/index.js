@@ -10,6 +10,7 @@
 // a request handler.
 
 import { falProvider } from "./providers/fal.js";
+import { kieProvider } from "./providers/kie.js";
 import { mockProvider } from "./providers/mock.js";
 import {
   CAPABILITY,
@@ -20,13 +21,44 @@ import {
 
 export { CAPABILITY, estimateCost };
 
-// Best-provider-first. fal is the real aggregator; mock is the offline
-// fallback used for tests / no-key development (only "available" when opted in).
-const PROVIDERS = [falProvider, mockProvider];
+// Registered media-gen providers. fal + kie are real aggregators; mock is the
+// offline fallback for tests / no-key dev (only "available" when opted in).
+// Default preference is array order; override globally or per-capability via env.
+const PROVIDERS = [falProvider, kieProvider, mockProvider];
 
-/** Providers that are configured AND support the capability, best-first. */
+// Routing preferences via env:
+//   GENERATION_PREFER=kie,fal                 → global priority order
+//   GENERATION_PROVIDER_IMAGE_TO_VIDEO=kie    → force one provider for a capability
+function preferenceOrder() {
+  return (process.env.GENERATION_PREFER || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function forcedProvider(capability) {
+  return (process.env[`GENERATION_PROVIDER_${capability.toUpperCase()}`] || "").trim().toLowerCase() || null;
+}
+
+/** Providers that are configured AND support the capability, in preference order. */
 function candidates(capability) {
-  return PROVIDERS.filter((p) => p.available() && p.supports.has(capability));
+  const forced = forcedProvider(capability);
+  let list = PROVIDERS.filter((p) => p.available() && p.supports.has(capability));
+  if (forced) list = list.filter((p) => p.name === forced);
+  const prefs = preferenceOrder();
+  if (prefs.length) {
+    list = [...list].sort((a, b) => {
+      const ai = prefs.indexOf(a.name);
+      const bi = prefs.indexOf(b.name);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+  }
+  return list;
+}
+
+/** Ordered names of providers that can serve a capability (diagnostics/tests). */
+export function providersFor(capability) {
+  return candidates(capability).map((p) => p.name);
 }
 
 /** True if some configured provider can serve this capability. */
