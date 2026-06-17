@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "scene_plan.schema.json",
+  "title": "scenePlan",
+  "type": "object",
+  "required": ["version", "aspectRatio", "scenes"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "aspectRatio": { "type": "string", "enum": ["16:9", "9:16", "1:1", "4:3"] },
+    "scenes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 6,
+      "items": { "$ref": "#/definitions/scene" }
+    },
+    "narration": { "$ref": "#/definitions/audioTrack" },
+    "music": { "$ref": "#/definitions/audioTrack" },
+    "captions": {
+      "type": "object",
+      "required": ["words"],
+      "properties": {
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["word", "startMs", "endMs"],
+            "properties": {
+              "word": { "type": "string" },
+              "startMs": { "type": "number", "minimum": 0 },
+              "endMs": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "wordsPerPage": { "type": "integer", "minimum": 1, "maximum": 12 }
+      }
+    }
+  },
+  "definitions": {
+    "scene": {
+      "type": "object",
+      "required": ["id", "durationSeconds", "background"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "pattern": "^s[0-9]+$" },
+        "durationSeconds": { "type": "number", "minimum": 1, "maximum": 15 },
+        "description": { "type": "string" },
+        "background": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": { "type": "string", "enum": ["video", "image", "color"] },
+            "source": { "type": "string", "enum": ["generate"] },
+            "src": { "type": "string" },
+            "color": { "type": "string" },
+            "filter": { "type": "string" },
+            "scrim": { "type": "number", "minimum": 0, "maximum": 1 },
+            "trimBeforeSeconds": { "type": "number", "minimum": 0 },
+            "trimAfterSeconds": { "type": "number", "minimum": 0 }
+          }
+        },
+        "asset": {
+          "type": "object",
+          "properties": {
+            "prompt": { "type": "string" },
+            "image": { "type": ["string", "null"] },
+            "sourceVideo": { "type": ["string", "null"] },
+            "referenceImages": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "overlays": {
+          "type": "array",
+          "maxItems": 4,
+          "items": { "$ref": "#/definitions/overlay" }
+        },
+        "fadeInFrames": { "type": "integer", "minimum": 0 },
+        "fadeOutFrames": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "overlay": {
+      "type": "object",
+      "required": ["type", "props"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "heroTitle", "sectionTitle", "textCard", "statCard", "statReveal",
+            "calloutBox", "comparisonCard", "progressBar", "providerChip",
+            "barChart", "lineChart", "pieChart", "kpiGrid", "particles"
+          ]
+        },
+        "props": { "type": "object" },
+        "fromFrames": { "type": "integer", "minimum": 0 },
+        "durationInFrames": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "audioTrack": {
+      "type": "object",
+      "required": ["src"],
+      "properties": {
+        "src": { "type": "string" },
+        "volume": { "type": "number", "minimum": 0, "maximum": 2 },
+        "fadeInSeconds": { "type": "number", "minimum": 0 },
+        "fadeOutSeconds": { "type": "number", "minimum": 0 },
+        "trimBeforeSeconds": { "type": "number", "minimum": 0 },
+        "trimAfterSeconds": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

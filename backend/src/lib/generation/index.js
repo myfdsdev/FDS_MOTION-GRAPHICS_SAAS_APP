@@ -169,3 +169,41 @@ export async function runGeneration({
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+/**
+ * Bridge for buildVideoPlan.js — speaks the scenePlan "operation" vocabulary
+ * (text_to_video / image_to_video / video_to_video / reference_to_video) and
+ * the snake_case params from the plan, and returns the resolved clip as
+ * { url, path } (whichever the provider produced).
+ *
+ * @returns {Promise<{ url?:string, path?:string }>}
+ */
+export async function generateClip({
+  provider,
+  operation,
+  prompt,
+  image_path,
+  source_video_path,
+  reference_image_paths,
+  durationSeconds,
+  aspect_ratio,
+} = {}) {
+  const capability = operation; // operation names already equal CAPABILITY values
+  const result = await runGeneration({
+    capability,
+    provider,
+    params: {
+      prompt,
+      imageUrl: image_path || undefined,
+      sourceVideoUrl: source_video_path || undefined,
+      referenceImages: reference_image_paths || undefined,
+      durationSec: durationSeconds,
+      aspectRatio: aspect_ratio,
+    },
+  });
+  if (!result.ok) {
+    throw new Error(`generateClip(${operation}) failed: ${result.error}`);
+  }
+  const asset = result.assets?.[0] || {};
+  return { url: asset.url, path: asset.path };
+}
