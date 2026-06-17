@@ -49,16 +49,17 @@ async function renderPreviewFrames({ composition, serveUrl, inputProps, outputPa
 }
 
 function usage() {
-  console.log('Usage: npm run gen -- "your video prompt" [--dur 20] [--aspect 16:9|9:16|1:1|4:3] [--premium] [-o out.mp4]');
+  console.log('Usage: npm run gen -- "your video prompt" [--dur 20] [--aspect 16:9|9:16|1:1|4:3] [--style clean-corporate|bold-flat|minimal-mono] [--premium] [-o out.mp4]');
 }
 
 function parseArgs(argv) {
-  const args = { prompt: "", durationSec: 20, aspect: "16:9", premium: false, out: null };
+  const args = { prompt: "", durationSec: 20, aspect: "16:9", premium: false, style: null, out: null };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--dur" || a === "--duration") args.durationSec = Number(argv[++i]) || 20;
     else if (a === "--aspect") args.aspect = argv[++i] || "16:9";
+    else if (a === "--style") args.style = argv[++i] || null;
     else if (a === "--premium") args.premium = true;
     else if (a === "-o" || a === "--out") args.out = argv[++i];
     else if (a === "-h" || a === "--help") args.help = true;
@@ -88,6 +89,7 @@ async function main() {
     prompt: args.prompt,
     durationSec: args.durationSec,
     aspect: args.aspect,
+    style: args.style,
     premium: args.premium,
     onProgress: (stage) => console.log(`[gen] ${stage}…`),
   });

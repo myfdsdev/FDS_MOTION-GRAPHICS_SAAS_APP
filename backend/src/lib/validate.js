@@ -20,6 +20,21 @@ import _traverse from "@babel/traverse";
 const traverse = _traverse.default || _traverse;
 
 const ALLOWED_IMPORTS = new Set(["react", "remotion"]);
+
+// Pre-built component library shipped in remotion/components. Generated scenes
+// live in remotion/scenes, so they reach the library via a "../components"
+// relative import. Everything (charts included) is re-exported from the package
+// index, but we also allow the "../components/charts" subpath the model may use.
+const COMPONENT_LIBRARY_SOURCES = new Set(["../components", "../components/charts"]);
+const ALLOWED_LIBRARY_IMPORTS = new Set([
+  "TextCard", "StatCard", "ProgressBar", "CalloutBox", "ComparisonCard",
+  "CaptionOverlay", "SectionTitle", "StatReveal", "HeroTitle", "ParticleOverlay",
+  "AnimeScene", "TerminalScene", "ScreenshotScene", "ProviderChip",
+  "BarChart", "LineChart", "PieChart", "KPIGrid",
+  // type-only exports
+  "ParticleType", "CameraMotion", "AnimeSceneProps", "TerminalStep",
+  "ScreenshotStep", "Region", "Point",
+]);
 const ALLOWED_REMOTION_IMPORTS = new Set([
   "AbsoluteFill",
   "AnimatedImage",
@@ -296,11 +311,27 @@ export function validateComponent(rawSource) {
     },
     ImportDeclaration(p) {
       const src = p.node.source.value;
-      if (!ALLOWED_IMPORTS.has(src)) {
-        violations.push(`Illegal import from "${src}" (only "react" and "remotion" allowed).`);
+      const isLibrary = COMPONENT_LIBRARY_SOURCES.has(src);
+      if (!ALLOWED_IMPORTS.has(src) && !isLibrary) {
+        violations.push(`Illegal import from "${src}" (only "react", "remotion", and "../components" allowed).`);
       }
       if (BANNED_NODE_MODULES.has(src)) {
         violations.push(`Banned node module import: "${src}".`);
+      }
+      if (isLibrary) {
+        for (const specifier of p.node.specifiers) {
+          if (
+            specifier.type === "ImportDefaultSpecifier" ||
+            specifier.type === "ImportNamespaceSpecifier"
+          ) {
+            violations.push(`Imports from "${src}" must be named (e.g. { BarChart }).`);
+            continue;
+          }
+          const imported = specifier.imported?.name;
+          if (!imported || !ALLOWED_LIBRARY_IMPORTS.has(imported)) {
+            violations.push(`Unknown component import from "${src}": ${imported || specifier.type}.`);
+          }
+        }
       }
       if (src === "react") {
         for (const specifier of p.node.specifiers) {

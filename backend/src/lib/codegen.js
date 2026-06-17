@@ -10,6 +10,7 @@ import { COMPONENT_SYSTEM_PROMPT } from "./prompts/component.js";
 import { RETRY_SYSTEM_PROMPT } from "./prompts/retry.js";
 import { ENHANCE_SYSTEM_PROMPT } from "./prompts/enhance.js";
 import { REVIEW_SYSTEM_PROMPT } from "./prompts/review.js";
+import { renderStyleBlock } from "./styles/playbooks.js";
 
 const FPS = 30;
 const DIMENSIONS = {
@@ -49,6 +50,7 @@ export async function enhanceBrief(userPrompt) {
  * @param {number} [o.durationSec]    default 20
  * @param {"16:9"|"9:16"|"1:1"|"4:3"} [o.aspect]
  * @param {boolean} [o.premium]       use premium model + review pass
+ * @param {string} [o.style]          style playbook id (see styles/playbooks.js)
  * @param {(stage:string)=>void} [o.onProgress]
  * @returns {Promise<{ source:string, brief:string, width:number, height:number, durationInFrames:number, fps:number }>}
  */
@@ -57,6 +59,7 @@ export async function generateComponent({
   durationSec = 20,
   aspect = "16:9",
   premium = false,
+  style = null,
   onProgress = () => {},
 }) {
   if (!hasAnyProvider()) {
@@ -76,6 +79,7 @@ export async function generateComponent({
     durationInFrames,
     width,
     height,
+    styleGuide: renderStyleBlock(style),
   });
 
   onProgress("generating");

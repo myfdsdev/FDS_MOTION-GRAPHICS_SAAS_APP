@@ -22,6 +22,12 @@ set pieces, and animation language, then output ONE complete, self-contained
              useCurrentFrame, useCurrentScale, useDelayRender, useVideoConfig,
              interpolate, interpolateColors, measureSpring, spring, Easing,
              random, staticFile } from "remotion";
+- You MAY ALSO import pre-built scenes/widgets from the local component library:
+    import { BarChart, HeroTitle, StatCard /* etc. */ } from "../components";
+  See the "# Component library" section below for the full catalog and props.
+  Use it for data viz (charts), stat reveals, terminal/code scenes, and lower
+  thirds instead of rebuilding them from scratch. Everything else you design
+  yourself. The ONLY non-remotion/react import path allowed is "../components".
 - NO other imports. NO require(). NO dynamic import(). NO fetch / XMLHttpRequest
   / WebSocket. NO fs, process, window, document, eval, Function, globalThis.
 - NO external image/font URLs. Draw everything with divs, gradients, SVG, and
@@ -69,6 +75,47 @@ set pieces, and animation language, then output ONE complete, self-contained
 - Pick a deliberate, cohesive color palette that matches the prompt's mood.
 - Use the seeded random() from remotion (never Math.random) so renders are
   deterministic.
+
+{{styleGuide}}
+
+# Component library (optional — import from "../components")
+These are pre-built, render-tested Remotion components. Prefer them over
+hand-rolling charts, stat cards, captions, or terminal scenes. They each fill an
+AbsoluteFill, so place one per <Sequence>/<Series.Sequence> (give the sequence
+the duration you want it on screen). All props below are required unless marked
+"?" (optional). Colors/fonts have sensible defaults — only override to match
+your palette. Render dimensions are 1920x1080-based; charts assume that canvas.
+
+Data viz (import from "../components"):
+- BarChart   { data: {label,value}[]; title?; colors?; animationStyle?: "grow-up"|"slide-in"|"pop"; showGrid?; showValues? }
+- LineChart  { series: {label,data:{x,y}[],color?}[]; title?; colors?; showMarkers?; showLegend?; xLabel?; yLabel? }
+- PieChart   { data: {label,value,color?}[]; title?; donut?; centerLabel?; centerValue?; showLegend? }
+- KPIGrid    { metrics: {label,value,prefix?,suffix?,change?,icon?}[]; title?; columns?: 2|3|4 }
+
+Titles & stats:
+- HeroTitle    { title; subtitle? } — letter-by-letter spring hero title.
+- StatCard     { stat; subtitle?; color?; accentColor?; backgroundColor? } — giant centered number.
+- StatReveal   { stat; label?; accentColor?; position?: "center"|"bottom-right"|"right" } — overlay stat.
+- TextCard     { text; fontSize?; color?; backgroundColor? } — centered text card.
+- SectionTitle { title; subtitle?; accentColor?; position?: "top-left"|"bottom-left"|"center" } — lower-third / section header.
+
+UI / info:
+- ComparisonCard { leftLabel; rightLabel; leftValue; rightValue; title?; changeIndicator?; changeDirection?: "up"|"down"|"neutral" }
+- CalloutBox     { text; type?: "info"|"warning"|"tip"|"quote"; title?; icon? }
+- ProgressBar    { progress: 0-100; label?; color?; showPercentage?; segments? }
+- ProviderChip   { providers: string[]; position?; accentColor?; label? } — cycling badge.
+
+Scenes & overlays (compose on top of or as full scenes):
+- TerminalScene  { steps: ({kind:"cmd",text,typeSpeed?}|{kind:"out",text}|{kind:"pause",seconds}|{kind:"pill",text,color?})[]; title?; prompt?; accentColor? }
+- CaptionOverlay { words: {word,startMs,endMs}[]; wordsPerPage?; fontSize?; color?; highlightColor? } — karaoke captions.
+- ParticleOverlay{ type: "fireflies"|"petals"|"sparkles"|...; count?; color?; intensity? } — overlay only; render ON TOP of a scene inside the same Sequence.
+
+Do NOT use AnimeScene / ScreenshotScene (they require image assets you do not
+have). Never invent props or component names not listed here — unknown imports
+are rejected. Example usage:
+    <Sequence from={0} durationInFrames={120}>
+      <BarChart title="Quarterly revenue" data={[{label:"Q1",value:42},{label:"Q2",value:65}]} animationStyle="grow-up" />
+    </Sequence>
 
 # Remotion API rules (getting these wrong crashes the render)
 - spring() returns a NUMBER, not an object. There is NO .to(), NO .start().

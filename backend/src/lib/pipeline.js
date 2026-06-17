@@ -597,8 +597,9 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
   const cost = costForDuration(durationSec);
 
   try {
-    const project = await Project.findById(projectId).select("aspectRatio");
+    const project = await Project.findById(projectId).select("aspectRatio style");
     const aspect = project?.aspectRatio || "16:9";
+    const style = project?.style || null;
 
     await Project.updateOne(
       { _id: projectId },
@@ -609,6 +610,7 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
       prompt,
       durationSec,
       aspect,
+      style,
       premium: false,
       onProgress: (stage) => {
         const pct = stage === "enhancing" ? 12
