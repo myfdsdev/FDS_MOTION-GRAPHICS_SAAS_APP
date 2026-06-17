@@ -10,6 +10,8 @@
 // a request handler.
 
 import { elevenlabsProvider } from "./providers/elevenlabs.js";
+import { systemProvider } from "./providers/system.js";
+import { runwayProvider } from "./providers/runway.js";
 import { falProvider } from "./providers/fal.js";
 import { kieProvider } from "./providers/kie.js";
 import { mockProvider } from "./providers/mock.js";
@@ -26,7 +28,10 @@ export { CAPABILITY, estimateCost };
 // (preferred for speech); fal + kie are real queue-based aggregators; mock is
 // the offline fallback (only "available" when opted in via env). When
 // GENERATION_MOCK=1, mock is checked FIRST so tests never hit a real API.
-const REAL_PROVIDERS = [elevenlabsProvider, falProvider, kieProvider];
+// system (free OS TTS) sits right after elevenlabs so speech always has a real
+// fallback when the paid path 402s — submit-phase fallback in runGeneration
+// rolls to it automatically.
+const REAL_PROVIDERS = [elevenlabsProvider, systemProvider, runwayProvider, falProvider, kieProvider];
 const MOCK_ON = process.env.GENERATION_MOCK === "1" || process.env.GENERATION_MOCK === "true";
 const PROVIDERS = MOCK_ON ? [mockProvider, ...REAL_PROVIDERS] : [...REAL_PROVIDERS, mockProvider];
 
@@ -111,30 +116,54 @@ export async function runGeneration({
   if (!isKnownCapability(capability)) throw new Error(`Unknown capability: ${capability}`);
   assertParams(capability, params);
 
-  const prov = selectProvider(capability, provider);
+  // Explicit provider → just that one; otherwise the full ordered candidate
+  // list so a failed SUBMIT can fall back to the next provider (e.g. ElevenLabs
+  // 402 → system SAPI). Once a job is submitted we do NOT fall back mid-poll —
+  // that could double-spend on a paid provider.
+  const chosen = provider ? [selectProvider(capability, provider)] : candidates(capability);
+  if (!chosen.length) {
+    throw new Error(
+      `No generation provider available for "${capability}". Set FAL_KEY/KIE_API_KEY in backend/.env (or GENERATION_MOCK=1 for offline testing).`
+    );
+  }
   const costUsd = estimateCost(capability, params);
 
-  onProgress({ stage: "submitting", costUsd });
-  const handle = await prov.submit(capability, params);
-  handle.capability = capability; // some normalizers (fal) need it at poll time
-  const jobId = handle.jobId;
-
-  const started = Date.now();
-  for (;;) {
-    const res = await prov.poll(jobId, handle);
-    if (res.status === "done") {
-      onProgress({ stage: "done", progress: 1, costUsd });
-      return { ok: true, capability, provider: prov.name, assets: res.assets || [], costUsd, raw: res.raw };
+  let lastErr;
+  for (const prov of chosen) {
+    let handle;
+    try {
+      onProgress({ stage: "submitting", provider: prov.name, costUsd });
+      handle = await prov.submit(capability, params);
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[generation] ${prov.name} submit failed: ${err?.message || err}. Trying next provider…`);
+      continue;
     }
-    if (res.status === "failed") {
-      return { ok: false, capability, provider: prov.name, error: res.error || "generation failed", costUsd };
+    handle.capability = capability; // some normalizers (fal) need it at poll time
+    const jobId = handle.jobId;
+    const started = Date.now();
+    for (;;) {
+      let res;
+      try {
+        res = await prov.poll(jobId, handle);
+      } catch (err) {
+        return { ok: false, capability, provider: prov.name, error: String(err?.message || err), costUsd };
+      }
+      if (res.status === "done") {
+        onProgress({ stage: "done", progress: 1, provider: prov.name, costUsd });
+        return { ok: true, capability, provider: prov.name, assets: res.assets || [], costUsd, raw: res.raw };
+      }
+      if (res.status === "failed") {
+        return { ok: false, capability, provider: prov.name, error: res.error || "generation failed", costUsd };
+      }
+      onProgress({ stage: res.status || "running", progress: res.progress, provider: prov.name });
+      if (Date.now() - started > timeoutMs) {
+        return { ok: false, capability, provider: prov.name, error: "generation timed out", costUsd };
+      }
+      await sleep(pollIntervalMs);
     }
-    onProgress({ stage: res.status || "running", progress: res.progress });
-    if (Date.now() - started > timeoutMs) {
-      return { ok: false, capability, provider: prov.name, error: "generation timed out", costUsd };
-    }
-    await sleep(pollIntervalMs);
   }
+  throw lastErr || new Error(`No provider could start ${capability}`);
 }
 
 function sleep(ms) {

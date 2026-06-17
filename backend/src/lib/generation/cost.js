@@ -1,67 +1,88 @@
-// Cost tracker — reserve budget before generation, reconcile actual spend after.
-// Integrates with the credits system so users can't burn cash on failed/wasted
-// jobs. Workflow: estimate → reserve → run job → reconcile (deduct actual, refund delta).
+// Cost tracker — REAL credit integration. Reserve credits before a generation
+// job (atomic conditional decrement so concurrent jobs can't overspend),
+// reconcile actual spend after, refund the difference. Backed by User.credits
+// + the CreditTx ledger in models.js.
+//
+// USD ↔ credits: estimators in capabilities.js return USD; we convert at
+// CREDITS_PER_USD (default 100 → 1 credit = $0.01). Tune via env.
 
+import { User, CreditTx } from "../../models.js";
 import { estimateCost } from "./capabilities.js";
 
-export const COST = {
-  // Hard cap per job type so one bad call doesn't drain the account. Override
-  // via MAX_COST_PER_<CAPABILITY> env. Estimate should land *under* these.
-  MAX_PER_JOB: {
-    text_to_image: 0.50,
-    image_to_video: 5.0,
-    text_to_video: 5.0,
-    text_to_speech: 0.10,
-    music: 0.50,
-    transcribe: 0.50,
-  },
+export const CREDITS_PER_USD = Number(process.env.CREDITS_PER_USD || 100);
+
+// Hard ceiling per job type so one bad call can't drain an account.
+const MAX_PER_JOB_USD = {
+  text_to_image: 0.5,
+  image_to_video: 5.0,
+  text_to_video: 5.0,
+  text_to_speech: 0.1,
+  music: 0.5,
+  transcribe: 0.5,
 };
 
 export function maxCostFor(capability) {
   const envKey = `MAX_COST_PER_${capability.toUpperCase()}`;
-  return process.env[envKey] ? Number(process.env[envKey]) : COST.MAX_PER_JOB[capability] || 1.0;
+  return process.env[envKey] ? Number(process.env[envKey]) : MAX_PER_JOB_USD[capability] || 1.0;
+}
+
+export function usdToCredits(usd) {
+  return Math.max(1, Math.ceil(usd * CREDITS_PER_USD));
 }
 
 /**
- * Reserve budget for a generation job. Throws if user's balance is too low or
- * the estimated cost exceeds per-job limits.
+ * Reserve credits for a job. Atomic: only decrements if the user still has
+ * enough, so two concurrent jobs can't both pass the check. Throws on
+ * over-limit estimate or insufficient balance.
  *
- * @returns { estimatedCostUsd, reserved: true }
+ * @returns {Promise<{ estimatedCostUsd, reservedCredits, balance }>}
  */
-export async function reserveBudget(userId, capability, params = {}) {
-  const estimated = estimateCost(capability, params);
+export async function reserveBudget(userId, capability, params = {}, projectId = null) {
+  const estimatedCostUsd = estimateCost(capability, params);
   const max = maxCostFor(capability);
-
-  if (estimated > max) {
+  if (estimatedCostUsd > max) {
     throw new Error(
-      `${capability} estimated cost $${estimated.toFixed(3)} exceeds job limit $${max.toFixed(3)}. Use cheaper params.`
+      `${capability} estimate $${estimatedCostUsd.toFixed(3)} exceeds per-job limit $${max.toFixed(3)}.`
     );
   }
+  const reservedCredits = usdToCredits(estimatedCostUsd);
 
-  // In a real app, fetch user's credit balance from DB. For now, assume
-  // sufficient (guards are here; integrate with your credits table when ready).
-  // placeholder: assume user has credits
-  const userBalance = 100; // TODO: fetch from User.credits
-  if (estimated > userBalance) {
-    throw new Error(`Insufficient balance. Estimated $${estimated.toFixed(3)}, have $${userBalance.toFixed(3)}.`);
+  const updated = await User.findOneAndUpdate(
+    { _id: userId, credits: { $gte: reservedCredits } },
+    { $inc: { credits: -reservedCredits } },
+    { new: true }
+  );
+  if (!updated) {
+    throw new Error(`Insufficient credits: need ${reservedCredits} for ${capability}.`);
   }
+  await CreditTx.create({
+    userId,
+    delta: -reservedCredits,
+    reason: `gen:${capability}:reserve`,
+    projectId,
+  });
 
-  return { estimatedCostUsd: estimated, reserved: true };
+  return { estimatedCostUsd, reservedCredits, balance: updated.credits };
 }
 
 /**
- * Reconcile actual spend after a job completes. If the provider returned a
- * `costUsd` in the result, use it; otherwise fall back to the estimate.
- * Refund the difference between reserved and actual.
+ * Reconcile after a job. If actual spend (provider-reported USD, else estimate)
+ * is less than reserved, refund the difference to the user's balance + ledger.
  *
- * @returns { actualCostUsd, refundedUsd }
+ * @returns {Promise<{ actualCredits, refundedCredits }>}
  */
-export async function reconcileCost(userId, estimatedUsd, actualUsd = null) {
-  const final = actualUsd ?? estimatedUsd;
-  const refunded = Math.max(0, estimatedUsd - final);
+export async function reconcileCost(userId, reservedCredits, actualUsd = null, projectId = null) {
+  const actualCredits = actualUsd == null ? reservedCredits : usdToCredits(actualUsd);
+  const refundedCredits = Math.max(0, reservedCredits - actualCredits);
 
-  // TODO: update User.credits with the deduction + refund
-  // await User.updateOne({ _id: userId }, { $inc: { credits: -final } });
-
-  return { actualCostUsd: final, refundedUsd: refunded };
+  if (refundedCredits > 0) {
+    await User.updateOne({ _id: userId }, { $inc: { credits: refundedCredits } });
+    await CreditTx.create({
+      userId,
+      delta: refundedCredits,
+      reason: `gen:reconcile:refund`,
+      projectId,
+    });
+  }
+  return { actualCredits, refundedCredits };
 }
