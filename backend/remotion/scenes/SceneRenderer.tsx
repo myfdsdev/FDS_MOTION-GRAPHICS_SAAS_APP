@@ -157,6 +157,27 @@ export interface SceneRendererProps {
   plan: VideoPlan;
 }
 
+function toFiniteNumber(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toNonNegativeFrames(value: unknown, fallback: number): number {
+  return Math.max(0, Math.round(toFiniteNumber(value, fallback)));
+}
+
+function toPositiveFrames(value: unknown, fallback: number): number {
+  return Math.max(1, Math.round(toFiniteNumber(value, fallback)));
+}
+
+function sceneDurationSeconds(scene: Scene): number {
+  const legacyDuration = (scene as { durationSec?: unknown }).durationSec;
+  return Math.max(
+    0.1,
+    toFiniteNumber(scene.durationSeconds, toFiniteNumber(legacyDuration, 3)),
+  );
+}
+
 /* ---------- overlay dispatch: JSON type -> real component ------------ */
 
 const OVERLAY_COMPONENTS: Record<OverlayType, React.ComponentType<any>> = {
@@ -182,9 +203,11 @@ const OverlayLayer: React.FC<{ overlay: Overlay; sceneFrames: number }> = ({
 }) => {
   const Comp = OVERLAY_COMPONENTS[overlay.type];
   if (!Comp) return null;
-  const from = overlay.fromFrames ?? 0;
+  const from = toNonNegativeFrames(overlay.fromFrames, 0);
   const duration =
-    overlay.durationInFrames ?? Math.max(1, sceneFrames - from);
+    overlay.durationInFrames !== undefined
+      ? toPositiveFrames(overlay.durationInFrames, 1)
+      : Math.max(1, sceneFrames - from);
   return (
     <Sequence from={from} durationInFrames={duration} layout="none">
       <AbsoluteFill style={{ pointerEvents: "none" }}>
@@ -199,10 +222,14 @@ const OverlayLayer: React.FC<{ overlay: Overlay; sceneFrames: number }> = ({
 const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
+  const safeDurationInFrames = toPositiveFrames(
+    durationInFrames,
+    sceneDurationSeconds(scene) * fps,
+  );
 
-  const fadeIn = scene.fadeInFrames ?? 8;
-  const fadeOut = scene.fadeOutFrames ?? 8;
-  const fadeOutStart = Math.max(fadeIn, durationInFrames - fadeOut);
+  const fadeIn = toNonNegativeFrames(scene.fadeInFrames, 8);
+  const fadeOut = toNonNegativeFrames(scene.fadeOutFrames, 8);
+  const fadeOutStart = Math.max(0, safeDurationInFrames - Math.max(1, fadeOut));
   const opacity = Math.min(
     fadeIn === 0
       ? 1
@@ -212,7 +239,7 @@ const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
         }),
     fadeOut === 0
       ? 1
-      : interpolate(frame, [fadeOutStart, durationInFrames], [1, 0], {
+      : interpolate(frame, [fadeOutStart, safeDurationInFrames], [1, 0], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         }),
@@ -229,7 +256,7 @@ const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
       : undefined;
 
   // slow push-in keeps even a static clip feeling alive
-  const scale = interpolate(frame, [0, durationInFrames], [1.02, 1], {
+  const scale = interpolate(frame, [0, safeDurationInFrames], [1.02, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -281,7 +308,7 @@ const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
         <OverlayLayer
           key={`${overlay.type}-${i}`}
           overlay={overlay}
-          sceneFrames={durationInFrames}
+          sceneFrames={safeDurationInFrames}
         />
       ))}
     </AbsoluteFill>
@@ -296,6 +323,7 @@ const AudioLayer: React.FC<{ track: AudioTrack; defaultVolume: number }> = ({
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
+  const safeDurationInFrames = toPositiveFrames(durationInFrames, FPS);
   const volume = track.volume ?? defaultVolume;
   const fadeInFrames = Math.max(1, Math.round((track.fadeInSeconds ?? 0.3) * fps));
   const fadeOutFrames = Math.max(1, Math.round((track.fadeOutSeconds ?? 0.5) * fps));
@@ -316,7 +344,7 @@ const AudioLayer: React.FC<{ track: AudioTrack; defaultVolume: number }> = ({
     }),
     interpolate(
       frame,
-      [durationInFrames - fadeOutFrames, durationInFrames],
+      [safeDurationInFrames - fadeOutFrames, safeDurationInFrames],
       [volume, 0],
       { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
     ),
@@ -348,7 +376,7 @@ export const SceneRenderer: React.FC<SceneRendererProps> = ({ plan }) => {
 
       {/* Scenes laid end-to-end */}
       {plan.scenes.map((scene) => {
-        const dur = Math.max(1, Math.round(scene.durationSeconds * FPS));
+        const dur = toPositiveFrames(sceneDurationSeconds(scene) * FPS, FPS);
         const from = cursor;
         cursor += dur;
         return (
@@ -382,7 +410,7 @@ export const calculateSceneMetadata: CalculateMetadataFunction<
   SceneRendererProps
 > = async ({ props }) => {
   const totalSeconds = (props.plan?.scenes ?? []).reduce(
-    (sum, s) => sum + (s.durationSeconds || 0),
+    (sum, s) => sum + sceneDurationSeconds(s),
     0,
   );
   const [width, height] = DIMENSIONS[props.aspectRatio ?? "16:9"] ?? DIMENSIONS["16:9"];

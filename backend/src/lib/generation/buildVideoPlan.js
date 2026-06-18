@@ -33,6 +33,15 @@ function usableGeneratedSrc(src) {
   return src;
 }
 
+function finiteNumber(value, fallback) {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function sceneDurationSeconds(scene) {
+  return Math.max(0.1, finiteNumber(scene.durationSeconds, finiteNumber(scene.durationSec, 3)));
+}
+
 /**
  * @param {object} scenePlan  validated against scene_plan.schema
  * @param {object} ctx        { provider, aspectRatio, jobId, onProgress }
@@ -60,7 +69,7 @@ export async function buildVideoPlan(scenePlan, ctx = {}) {
         image_path: scene.asset?.image,
         source_video_path: scene.asset?.sourceVideo,
         reference_image_paths: scene.asset?.referenceImages,
-        durationSeconds: scene.durationSeconds,
+        durationSeconds: sceneDurationSeconds(scene),
         aspect_ratio: aspectRatio,
         jobId: ctx.jobId,
       });
@@ -75,7 +84,7 @@ export async function buildVideoPlan(scenePlan, ctx = {}) {
   // ---- 2. GATHER: rebuild scenes with resolved asset paths -------------
   const scenes = scenePlan.scenes.map((scene) => ({
     id: scene.id,
-    durationSeconds: scene.durationSeconds,
+    durationSeconds: sceneDurationSeconds(scene),
     fadeInFrames: scene.fadeInFrames,
     fadeOutFrames: scene.fadeOutFrames,
     background: {
