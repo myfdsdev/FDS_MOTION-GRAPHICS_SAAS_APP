@@ -52,13 +52,13 @@ const CATALOG: Record<Category, ProviderDef[]> = {
   ],
   video: [
     { id: "runway", name: "Runway", brand: "#a78bfa", desc: "Gen-4 cinematic image→video.", models: [{ name: "gen4_turbo", caps: ["i2v", "t2v"] }, { name: "gen4_aleph", caps: ["v2v"] }] },
-    { id: "kie", name: "kie.ai", brand: "#22d3ee", desc: "Veo / Kling via one key.", models: [{ name: "veo3", caps: ["t2v", "i2v"] }, { name: "kling-2", caps: ["i2v", "t2v"] }] },
+    { id: "kie", name: "kie.ai", brand: "#22d3ee", desc: "Kling video via one key.", models: [{ name: "kling-2.6/text-to-video", caps: ["t2v"] }, { name: "kling-2.6/image-to-video", caps: ["i2v"] }] },
     { id: "fal", name: "fal.ai", brand: "#ff5c8a", desc: "Kling / LTX / MiniMax video.", models: [{ name: "kling-video", caps: ["i2v", "t2v"] }, { name: "ltx-video", caps: ["t2v"] }] },
   ],
   image: [
     { id: "fal", name: "fal.ai", brand: "#ff5c8a", desc: "FLUX image models.", models: [{ name: "flux/dev", caps: ["t2i", "i2i"] }, { name: "flux/schnell", caps: ["t2i"] }] },
     { id: "runway", name: "Runway", brand: "#a78bfa", desc: "Gen-4 stills.", models: [{ name: "gen4_image", caps: ["t2i", "i2i"] }] },
-    { id: "kie", name: "kie.ai", brand: "#22d3ee", desc: "GPT-image / Nano-banana.", models: [{ name: "gpt4o-image", caps: ["t2i"] }] },
+    { id: "kie", name: "kie.ai", brand: "#22d3ee", desc: "GPT-image / Nano Banana.", models: [{ name: "nano-banana-pro", caps: ["t2i"] }] },
   ],
   music: [
     { id: "fal", name: "fal.ai", brand: "#ff5c8a", desc: "ElevenLabs music models.", models: [{ name: "elevenlabs/music" }] },

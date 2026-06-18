@@ -22,6 +22,10 @@ export const MODEL_SETTINGS = [
   { id: "FAL_MODEL_IMAGE_TO_VIDEO", label: "fal · Image → Video", provider: "fal", group: "media", default: "fal-ai/kling-video/v1/standard/image-to-video" },
   { id: "FAL_MODEL_TEXT_TO_VIDEO", label: "fal · Text → Video", provider: "fal", group: "media", default: "fal-ai/kling-video/v1/standard/text-to-video" },
   { id: "FAL_MODEL_MUSIC", label: "fal · Music", provider: "fal", group: "media", default: "fal-ai/elevenlabs/music" },
+  { id: "KIE_MODEL_TEXT_TO_IMAGE", label: "Kie · Text → Image", provider: "kie", group: "media", default: "nano-banana-pro" },
+  { id: "KIE_MODEL_IMAGE_TO_VIDEO", label: "Kie · Image → Video", provider: "kie", group: "media", default: "kling-2.6/image-to-video" },
+  { id: "KIE_MODEL_TEXT_TO_VIDEO", label: "Kie · Text → Video", provider: "kie", group: "media", default: "kling-2.6/text-to-video" },
+  { id: "KIE_MODEL_MUSIC", label: "Kie · Music", provider: "kie", group: "media", default: "suno-v5" },
   { id: "RUNWAY_VIDEO_MODEL", label: "Runway · Video", provider: "runway", group: "media", default: "gen4_turbo" },
   { id: "RUNWAY_IMAGE_MODEL", label: "Runway · Image", provider: "runway", group: "media", default: "gen4_image" },
 ];

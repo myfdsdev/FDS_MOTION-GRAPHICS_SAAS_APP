@@ -22,8 +22,9 @@ const OVERLAY_TYPES = new Set([
   "barChart", "lineChart", "pieChart", "kpiGrid", "particles",
 ]);
 
-// Per-model max clip length (seconds). Keep durations <= this for "generate".
-const PROVIDER_MAX_SECONDS = Number(process.env.GEN_MAX_CLIP_SECONDS || 10);
+// Per-model max clip length (seconds). Kie Kling 2.6 defaults to 5-second
+// clips, so keep generated scenes inside that unless explicitly overridden.
+const PROVIDER_MAX_SECONDS = Number(process.env.GEN_MAX_CLIP_SECONDS || 5);
 
 let _validate = null;
 function getValidator() {

@@ -23,27 +23,40 @@ const RECORD_PATH = "/api/v1/jobs/recordInfo";
 // Sensible defaults per capability — overridable everywhere.
 const DEFAULT_MODELS = {
   [CAPABILITY.TEXT_TO_IMAGE]: "nano-banana-pro",
-  [CAPABILITY.IMAGE_TO_VIDEO]: "veo3",
-  [CAPABILITY.TEXT_TO_VIDEO]: "veo3",
+  [CAPABILITY.IMAGE_TO_VIDEO]: "kling-2.6/image-to-video",
+  [CAPABILITY.TEXT_TO_VIDEO]: "kling-2.6/text-to-video",
   [CAPABILITY.MUSIC]: "suno-v5",
 };
 
 // kie aspect-ratio options (Jobs API). Map our aspect strings through.
 const KIE_RATIOS = new Set(["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "auto"]);
+const DEFAULT_VIDEO_DURATIONS = Object.freeze([5]);
 
 function key() {
-  return getProviderKey("kie") || process.env.KIE_KEY || "";
+  return getProviderKey("kie") || process.env.KIE_API_KEY || process.env.KIE_KEY || "";
 }
 function authHeaders() {
   return { Authorization: `Bearer ${key()}`, "Content-Type": "application/json" };
 }
 
 function modelFor(capability, params = {}) {
-  return (
+  const model =
     params.model ||
     getCustomModel("kie", capability) ||
-    getModel(`KIE_MODEL_${capability.toUpperCase()}`, DEFAULT_MODELS[capability] || "")
-  );
+    getModel(`KIE_MODEL_${capability.toUpperCase()}`, DEFAULT_MODELS[capability] || "");
+  return normalizeModel(capability, model);
+}
+
+function normalizeModel(capability, model = "") {
+  const clean = String(model || "").trim();
+  const lower = clean.toLowerCase();
+
+  if (["veo3", "veo-3", "veo3.1", "veo-3.1", "kling-2", "kling2"].includes(lower)) {
+    if (capability === CAPABILITY.IMAGE_TO_VIDEO) return DEFAULT_MODELS[CAPABILITY.IMAGE_TO_VIDEO];
+    if (capability === CAPABILITY.TEXT_TO_VIDEO) return DEFAULT_MODELS[CAPABILITY.TEXT_TO_VIDEO];
+  }
+
+  return clean;
 }
 
 function ratioOf(params = {}) {
@@ -51,8 +64,25 @@ function ratioOf(params = {}) {
   return r && KIE_RATIOS.has(r) ? r : "1:1";
 }
 
+function allowedVideoDurations() {
+  const values = String(process.env.KIE_VIDEO_DURATIONS || "")
+    .split(",")
+    .map((v) => Number(v.trim()))
+    .filter((v) => Number.isFinite(v) && v > 0)
+    .sort((a, b) => a - b);
+  return values.length ? values : DEFAULT_VIDEO_DURATIONS;
+}
+
+function durationOf(params = {}) {
+  const requested = Number(params.durationSec) || DEFAULT_VIDEO_DURATIONS[0];
+  const allowed = allowedVideoDurations();
+  const next = allowed.find((v) => v >= requested);
+  return String(next ?? allowed[allowed.length - 1]);
+}
+
 function buildInput(capability, p = {}) {
   const images = p.imageUrl ? [p.imageUrl] : Array.isArray(p.imageInput) ? p.imageInput : [];
+  const duration = durationOf(p);
   switch (capability) {
     case CAPABILITY.TEXT_TO_IMAGE:
       return {
@@ -63,11 +93,18 @@ function buildInput(capability, p = {}) {
         output_format: p.outputFormat || "png",
       };
     case CAPABILITY.IMAGE_TO_VIDEO:
+      return {
+        prompt: p.prompt || "",
+        image_urls: images,
+        sound: Boolean(p.sound),
+        duration,
+      };
     case CAPABILITY.TEXT_TO_VIDEO:
       return {
         prompt: p.prompt || "",
-        image_input: images,
+        sound: Boolean(p.sound),
         aspect_ratio: ratioOf(p),
+        duration,
       };
     case CAPABILITY.MUSIC:
       return { prompt: p.prompt, ...(p.durationSec ? { duration: p.durationSec } : {}) };
