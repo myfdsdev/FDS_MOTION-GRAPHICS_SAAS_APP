@@ -57,6 +57,37 @@ function subjectTokens(userText) {
     .filter((w) => w.length >= 4); // skip tiny filler words
 }
 
+function validObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function validAudioTrack(value) {
+  return validObject(value) && typeof value.src === "string" && value.src.trim().length > 0;
+}
+
+/**
+ * Fix harmless model drift before schema validation. Optional media fields
+ * should be omitted when unused, but LLMs often emit null/[]/"none" there.
+ */
+export function normalizeScenePlan(plan) {
+  if (!validObject(plan)) return plan;
+
+  const normalized = structuredClone(plan);
+
+  for (const field of ["narration", "music"]) {
+    if (!validAudioTrack(normalized[field])) delete normalized[field];
+  }
+
+  if (Array.isArray(normalized.captions)) {
+    normalized.captions = { words: normalized.captions };
+  }
+  if (!validObject(normalized.captions) || !Array.isArray(normalized.captions.words)) {
+    delete normalized.captions;
+  }
+
+  return normalized;
+}
+
 /**
  * Run the doc §8 validation gate on a parsed plan.
  * @returns {{ ok: boolean, errors: string[] }}
@@ -130,8 +161,9 @@ export async function planScenes(userText, { premium = false, maxAttempts = 3 } 
       lastErrors = ["output was not valid JSON"];
       continue;
     }
-    const { ok, errors } = validateScenePlan(plan, userText);
-    if (ok) return plan;
+    const normalizedPlan = normalizeScenePlan(plan);
+    const { ok, errors } = validateScenePlan(normalizedPlan, userText);
+    if (ok) return normalizedPlan;
     lastErrors = errors;
   }
 

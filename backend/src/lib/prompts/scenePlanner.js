@@ -71,5 +71,8 @@ RULES
 - Prefer image_to_video or reference_to_video when the user supplies assets or
   needs character/product consistency across scenes.
 - aspectRatio: 9:16 for shorts/reels, 16:9 for YouTube/landscape, 1:1 for feed.
+- Omit narration, music, and captions entirely unless you have a real object
+  with usable data. Never output null, [], "none", or placeholder values for
+  these optional fields.
 - Output strictly valid JSON. No trailing commas. No comments. No fences.
 `.trim();
