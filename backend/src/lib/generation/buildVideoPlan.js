@@ -25,6 +25,14 @@ function pickOperation(scene) {
   return "text_to_video";
 }
 
+function usableGeneratedSrc(src) {
+  if (!src || typeof src !== "string") return null;
+  // The mock provider is for pipeline testing only; don't ask Remotion to load
+  // a fake protocol as media.
+  if (src.startsWith("mock://")) return null;
+  return src;
+}
+
 /**
  * @param {object} scenePlan  validated against scene_plan.schema
  * @param {object} ctx        { provider, aspectRatio, jobId, onProgress }
@@ -58,7 +66,7 @@ export async function buildVideoPlan(scenePlan, ctx = {}) {
       });
 
       ctx.onProgress?.({ sceneId: scene.id, operation });
-      return { id: scene.id, src: result.url ?? result.path };
+      return { id: scene.id, src: usableGeneratedSrc(result.url ?? result.path) };
     }),
   );
 

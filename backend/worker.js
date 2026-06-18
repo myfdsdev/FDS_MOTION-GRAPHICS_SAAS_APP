@@ -473,6 +473,11 @@ async function renderProject(project) {
     `[worker] rendering ${id} (${project.aspectRatio}, ${project.durationSec}s, attempt ${project.renderAttempts})…`
   );
 
+  if (!project.componentSource?.trim()) {
+    await renderHybridProject(project);
+    return;
+  }
+
   let lastPhase = "load-plan";
   let previousSceneSource = null;
   let sceneSlotTouched = false;
