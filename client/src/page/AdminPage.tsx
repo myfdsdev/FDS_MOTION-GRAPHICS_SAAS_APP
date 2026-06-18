@@ -265,7 +265,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <div className="order-1 col-span-12 xl:col-span-8">
+      <div className="order-1 col-span-12 xl:col-span-8 xl:row-span-2">
         <ProviderKeysSection isAdmin={isAdmin} />
       </div>
 
@@ -364,7 +364,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <section className="order-5 col-span-12 rounded-[14px] border border-white/[0.07] bg-surface p-[18px] xl:col-span-6">
+      <section className="order-6 col-span-12 rounded-[14px] border border-white/[0.07] bg-surface p-[18px] xl:col-span-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
@@ -516,8 +516,8 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-border bg-surface p-5">
+      <div className="order-7 col-span-12 grid gap-[18px] sm:grid-cols-2 xl:col-span-6">
+        <section className="rounded-[14px] border border-white/[0.07] bg-surface p-[18px]">
           <h2 className="mb-4 text-lg font-semibold">Recent users</h2>
           <div className="space-y-3">
             {data.recentUsers.map((user) => (
@@ -532,25 +532,36 @@ export default function AdminPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-border bg-surface p-5">
+        <section className="rounded-[14px] border border-white/[0.07] bg-surface p-[18px]">
           <h2 className="mb-4 text-lg font-semibold">Recent projects</h2>
           <div className="space-y-3">
-            {data.recentProjects.map((project) => (
-              <div key={project.id} className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{project.prompt}</p>
-                  <p className="text-xs text-muted">
-                    {project.status} - {formatRelativeTime(project.createdAt)}
-                  </p>
+            {data.recentProjects.map((project) => {
+              const failed = project.status === "FAILED" || project.progress === 0;
+              return (
+                <div key={project.id} className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{project.prompt}</p>
+                    <p className="truncate text-xs text-muted">
+                      {project.status} · {formatRelativeTime(project.createdAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      failed
+                        ? "bg-red-500/15 text-red-400"
+                        : "bg-accent/15 text-accent-soft"
+                    }`}
+                  >
+                    {project.progress}%
+                  </span>
                 </div>
-                <p className="shrink-0 text-xs text-muted">{project.progress}%</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </div>
 
-      <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+      <section className="order-5 col-span-12 rounded-[14px] border border-white/[0.07] bg-surface p-[18px] xl:col-span-4">
         <h2 className="mb-4 text-lg font-semibold">Credits</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
@@ -567,6 +578,7 @@ export default function AdminPage() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }
@@ -646,7 +658,7 @@ function ProviderKeysSection({ isAdmin }: { isAdmin: boolean }) {
   }, {});
 
   return (
-    <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+    <section className="rounded-[14px] border border-white/[0.07] bg-surface p-[18px]">
       <div className="mb-1 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
@@ -771,7 +783,7 @@ function ProviderModelsSection({ isAdmin }: { isAdmin: boolean }) {
   }, {});
 
   return (
-    <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+    <section className="rounded-[14px] border border-white/[0.07] bg-surface p-[18px]">
       <div className="mb-1 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
