@@ -178,6 +178,145 @@ function sceneDurationSeconds(scene: Scene): number {
   );
 }
 
+function recordOf(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function textOf(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function numberOf(value: unknown, fallback: number): number {
+  return toFiniteNumber(value, fallback);
+}
+
+function stringArrayOf(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) {
+    const items = value.filter((item): item is string => typeof item === "string" && item.trim());
+    if (items.length) return items;
+  }
+  if (typeof value === "string" && value.trim()) return [value];
+  return fallback;
+}
+
+function chartDataOf(value: unknown) {
+  const fallback = [
+    { label: "Reach", value: 42 },
+    { label: "Orders", value: 68 },
+    { label: "Growth", value: 91 },
+  ];
+  if (!Array.isArray(value) || !value.length) return fallback;
+  return value
+    .map((item, index) => {
+      const row = recordOf(item);
+      return {
+        label: textOf(row.label, `Item ${index + 1}`),
+        value: numberOf(row.value, fallback[index % fallback.length].value),
+        color: typeof row.color === "string" ? row.color : undefined,
+      };
+    })
+    .filter((item) => Number.isFinite(item.value));
+}
+
+function lineSeriesOf(value: unknown) {
+  const fallback = [
+    {
+      label: "Momentum",
+      data: [
+        { x: 0, y: 18 },
+        { x: 1, y: 44 },
+        { x: 2, y: 76 },
+        { x: 3, y: 96 },
+      ],
+    },
+  ];
+  if (!Array.isArray(value) || !value.length) return fallback;
+  const series = value
+    .map((item, index) => {
+      const row = recordOf(item);
+      const data = Array.isArray(row.data)
+        ? row.data.map((point, pointIndex) => {
+            const p = recordOf(point);
+            return {
+              x: numberOf(p.x, pointIndex),
+              y: numberOf(p.y, (pointIndex + 1) * 20),
+            };
+          })
+        : [];
+      return {
+        label: textOf(row.label, `Series ${index + 1}`),
+        data: data.length >= 2 ? data : fallback[0].data,
+        color: typeof row.color === "string" ? row.color : undefined,
+      };
+    });
+  return series.length ? series : fallback;
+}
+
+function metricsOf(value: unknown) {
+  const fallback = [
+    { label: "Speed", value: 2, suffix: "x" },
+    { label: "Saves", value: 35, suffix: "%" },
+    { label: "Ready", value: 24, suffix: "/7" },
+  ];
+  if (!Array.isArray(value) || !value.length) return fallback;
+  return value.map((item, index) => {
+    const row = recordOf(item);
+    return {
+      label: textOf(row.label, fallback[index % fallback.length].label),
+      value: numberOf(row.value, fallback[index % fallback.length].value),
+      prefix: typeof row.prefix === "string" ? row.prefix : undefined,
+      suffix: typeof row.suffix === "string" ? row.suffix : undefined,
+      change: row.change == null ? undefined : numberOf(row.change, 0),
+      icon: typeof row.icon === "string" ? row.icon : undefined,
+    };
+  });
+}
+
+function normalizeOverlayProps(type: OverlayType, rawProps: unknown): Record<string, unknown> {
+  const props = recordOf(rawProps);
+  const title = textOf(props.title, textOf(props.text, "Key moment"));
+
+  switch (type) {
+    case "heroTitle":
+      return { ...props, title, subtitle: props.subtitle };
+    case "sectionTitle":
+      return { ...props, title, subtitle: props.subtitle };
+    case "textCard":
+      return { ...props, text: textOf(props.text, title) };
+    case "statCard":
+      return { ...props, stat: textOf(props.stat, textOf(props.value, "Fast")), subtitle: props.subtitle };
+    case "statReveal":
+      return { ...props, stat: textOf(props.stat, textOf(props.value, "Fast")), label: props.label };
+    case "calloutBox":
+      return { ...props, text: textOf(props.text, title) };
+    case "comparisonCard":
+      return {
+        ...props,
+        leftLabel: textOf(props.leftLabel, "Before"),
+        rightLabel: textOf(props.rightLabel, "After"),
+        leftValue: textOf(props.leftValue, "Slow"),
+        rightValue: textOf(props.rightValue, "Fast"),
+      };
+    case "progressBar":
+      return { ...props, progress: Math.max(0, Math.min(100, numberOf(props.progress, 72))) };
+    case "providerChip":
+      return { ...props, providers: stringArrayOf(props.providers, ["Kie", "Remotion", "AI video"]) };
+    case "barChart":
+    case "pieChart":
+      return { ...props, data: chartDataOf(props.data), title: props.title };
+    case "lineChart":
+      return { ...props, series: lineSeriesOf(props.series), title: props.title };
+    case "kpiGrid":
+      return { ...props, metrics: metricsOf(props.metrics), title: props.title };
+    case "particles":
+      return { ...props, type: textOf(props.type, "sparkles") };
+    default:
+      return props;
+  }
+}
+
 /* ---------- overlay dispatch: JSON type -> real component ------------ */
 
 const OVERLAY_COMPONENTS: Record<OverlayType, React.ComponentType<any>> = {
@@ -208,10 +347,11 @@ const OverlayLayer: React.FC<{ overlay: Overlay; sceneFrames: number }> = ({
     overlay.durationInFrames !== undefined
       ? toPositiveFrames(overlay.durationInFrames, 1)
       : Math.max(1, sceneFrames - from);
+  const props = normalizeOverlayProps(overlay.type, overlay.props);
   return (
     <Sequence from={from} durationInFrames={duration} layout="none">
       <AbsoluteFill style={{ pointerEvents: "none" }}>
-        <Comp {...overlay.props} />
+        <Comp {...props} />
       </AbsoluteFill>
     </Sequence>
   );

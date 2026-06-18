@@ -21,7 +21,7 @@ const POS_STYLES: Record<string, React.CSSProperties> = {
 };
 
 export const ProviderChip: React.FC<ProviderChipProps> = ({
-  providers,
+  providers = ["Kie", "Remotion"],
   cycleSeconds = 2.5,
   position = "bottom-right",
   accentColor = "#22D3EE",
@@ -29,10 +29,11 @@ export const ProviderChip: React.FC<ProviderChipProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const safeProviders = providers.length ? providers : ["Kie", "Remotion"];
 
   const cycleFrames = Math.max(1, Math.round(cycleSeconds * fps));
-  const idx = Math.floor(frame / cycleFrames) % providers.length;
-  const current = providers[idx];
+  const idx = Math.floor(frame / cycleFrames) % safeProviders.length;
+  const current = safeProviders[idx];
   const framesIntoCycle = frame % cycleFrames;
 
   // Spring in on cycle start
