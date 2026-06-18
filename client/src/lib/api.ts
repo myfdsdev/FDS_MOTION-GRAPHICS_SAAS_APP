@@ -371,6 +371,7 @@ export async function saveProviderModels(
 
 export interface ProvidersConfig {
   enabledModels: Record<string, boolean>;
+  customModels?: Record<string, string>;
 }
 
 export async function getProvidersConfig(): Promise<ProvidersConfig> {

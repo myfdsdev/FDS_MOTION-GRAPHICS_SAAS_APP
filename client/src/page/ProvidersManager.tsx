@@ -87,6 +87,8 @@ export default function ProvidersManager({ isAdmin }: { isAdmin: boolean }) {
 
   const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
   const [pendingToggles, setPendingToggles] = useState<Record<string, boolean>>({});
+  // Custom model per provider+category (free text → "put any model"). Key: `${provider}:${category}`.
+  const [modelDrafts, setModelDrafts] = useState<Record<string, string>>({});
 
   const keyById = useMemo(() => {
     const m: Record<string, ProviderKeySummary> = {};
@@ -112,6 +114,16 @@ export default function ProvidersManager({ isAdmin }: { isAdmin: boolean }) {
     setPendingToggles((p) => ({ ...p, [k]: !isEnabled(provider, model) }));
   };
 
+  const modelKey = (provider: string) => `${provider}:${activeCategory}`;
+  const customModelValue = (provider: string) => {
+    const k = modelKey(provider);
+    if (k in modelDrafts) return modelDrafts[k];
+    return config?.customModels?.[k] ?? "";
+  };
+  const editedModelKeys = Object.keys(modelDrafts).filter(
+    (k) => (modelDrafts[k] ?? "") !== (config?.customModels?.[k] ?? "")
+  );
+
   const saveOneKey = async (providerId: string) => {
     const v = (keyDrafts[providerId] ?? "").trim();
     if (!v) return;
@@ -127,18 +139,26 @@ export default function ProvidersManager({ isAdmin }: { isAdmin: boolean }) {
   const saveAll = async () => {
     const keyPatch: Record<string, string> = {};
     for (const [id, v] of Object.entries(keyDrafts)) if (v.trim()) keyPatch[id] = v.trim();
+    const modelPatch: Record<string, string> = {};
+    for (const k of editedModelKeys) modelPatch[k] = (modelDrafts[k] ?? "").trim();
     try {
       if (Object.keys(keyPatch).length) await saveKeys.mutateAsync(keyPatch);
-      if (Object.keys(pendingToggles).length) await saveConfig.mutateAsync({ enabledModels: pendingToggles });
+      if (Object.keys(pendingToggles).length || Object.keys(modelPatch).length) {
+        await saveConfig.mutateAsync({ enabledModels: pendingToggles, customModels: modelPatch });
+      }
       setKeyDrafts({});
       setPendingToggles({});
+      setModelDrafts({});
       toast.success("Provider config saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save");
     }
   };
 
-  const dirty = Object.values(keyDrafts).some((v) => v.trim()) || Object.keys(pendingToggles).length > 0;
+  const dirty =
+    Object.values(keyDrafts).some((v) => v.trim()) ||
+    Object.keys(pendingToggles).length > 0 ||
+    editedModelKeys.length > 0;
   const providers = CATALOG[activeCategory];
   const meta = CATEGORY_META[activeCategory];
 
@@ -209,6 +229,9 @@ export default function ProvidersManager({ isAdmin }: { isAdmin: boolean }) {
             saving={saveKeys.isPending}
             isEnabled={(m) => isEnabled(p.id, m)}
             onToggle={(m) => toggleModel(p.id, m)}
+            modelValue={customModelValue(p.id)}
+            modelPlaceholder={p.models[0]?.name ?? "model name"}
+            onModel={(v) => setModelDrafts((d) => ({ ...d, [modelKey(p.id)]: v }))}
           />
         ))}
       </div>
@@ -241,6 +264,9 @@ function ProviderCard({
   saving,
   isEnabled,
   onToggle,
+  modelValue,
+  modelPlaceholder,
+  onModel,
 }: {
   provider: ProviderDef;
   categoryCaps?: Cap[];
@@ -251,6 +277,9 @@ function ProviderCard({
   saving: boolean;
   isEnabled: (model: string) => boolean;
   onToggle: (model: string) => void;
+  modelValue: string;
+  modelPlaceholder: string;
+  onModel: (v: string) => void;
 }) {
   const configured = provider.noKey || Boolean(keyInfo?.configured);
   return (
@@ -292,6 +321,20 @@ function ProviderCard({
           </button>
         </div>
       ) : null}
+
+      {/* custom model — type ANY model name (e.g. nano-banana-pro) */}
+      <div className="mt-2 flex items-center gap-2">
+        <span className="shrink-0 text-[11px] font-medium text-faint">Model</span>
+        <input
+          type="text"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={modelPlaceholder}
+          value={modelValue}
+          onChange={(e) => onModel(e.target.value)}
+          className="w-full rounded-md border border-border bg-surface px-2.5 py-1 font-mono text-xs outline-none focus:border-accent"
+        />
+      </div>
 
       {/* models */}
       <div className="mt-3 space-y-1.5">
