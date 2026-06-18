@@ -3,6 +3,7 @@ import { ApiUsage, CreditTx, Project, User } from "../models.js";
 import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
 import { getAppSettings, updateAppSettings } from "../lib/settings.js";
 import { providerKeySummaries, setProviderKeys, PROVIDERS } from "../lib/providerKeys.js";
+import { providerModelSummaries, setProviderModels, MODEL_SETTINGS } from "../lib/providerModels.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { UpdateAdminSettingsInput } from "../schemas.js";
@@ -153,6 +154,35 @@ adminRouter.put("/provider-keys", async (req, res, next) => {
     }
     const providers = await setProviderKeys(keys);
     res.json({ providers });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Provider models (admin-managed; which model each provider uses) -------
+
+adminRouter.get("/provider-models", async (_req, res, next) => {
+  try {
+    res.json({ models: providerModelSummaries() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Body: { models: { <settingId>: "<model slug or empty to reset>" } }
+adminRouter.put("/provider-models", async (req, res, next) => {
+  try {
+    const models = req.body?.models;
+    if (!models || typeof models !== "object" || Array.isArray(models)) {
+      return res.status(400).json({ error: "Body must be { models: { settingId: value } }" });
+    }
+    const known = new Set(MODEL_SETTINGS.map((m) => m.id));
+    const bad = Object.keys(models).filter((k) => !known.has(k));
+    if (bad.length) {
+      return res.status(400).json({ error: `Unknown model setting(s): ${bad.join(", ")}` });
+    }
+    const updated = await setProviderModels(models);
+    res.json({ models: updated });
   } catch (err) {
     next(err);
   }

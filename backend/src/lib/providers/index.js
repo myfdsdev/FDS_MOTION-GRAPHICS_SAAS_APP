@@ -8,6 +8,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { getProviderKey } from "../providerKeys.js";
+import { getModel } from "../providerModels.js";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -21,7 +22,7 @@ export function availableProviders() {
     out.push({
       provider: "anthropic",
       key: anthropicKey,
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
+      model: getModel("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
       premiumModel: process.env.ANTHROPIC_PREMIUM_MODEL || "claude-opus-4-8",
     });
   }
@@ -30,7 +31,7 @@ export function availableProviders() {
     out.push({
       provider: "openai",
       key: openaiKey,
-      model: process.env.OPENAI_MODEL || "gpt-4o",
+      model: getModel("OPENAI_MODEL", "gpt-4o"),
       premiumModel: process.env.OPENAI_PREMIUM_MODEL || "gpt-4o",
     });
   }
@@ -39,7 +40,7 @@ export function availableProviders() {
     out.push({
       provider: "openrouter",
       key: openrouterKey,
-      model: process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet",
+      model: getModel("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet"),
       premiumModel: process.env.OPENROUTER_PREMIUM_MODEL || "anthropic/claude-3.5-sonnet",
     });
   }
@@ -48,7 +49,7 @@ export function availableProviders() {
     out.push({
       provider: "gemini",
       key: geminiKey,
-      model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+      model: getModel("GEMINI_MODEL", "gemini-2.0-flash"),
       premiumModel: process.env.GEMINI_PREMIUM_MODEL || "gemini-2.0-flash",
     });
   }

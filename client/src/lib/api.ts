@@ -342,6 +342,33 @@ export async function saveProviderKeys(
   return data.providers;
 }
 
+export interface ProviderModelSummary {
+  id: string;
+  label: string;
+  provider: string;
+  group: string;
+  value: string;
+  source: "db" | "env" | "default";
+  default: string;
+}
+
+export async function getProviderModels(): Promise<ProviderModelSummary[]> {
+  if (USE_MOCKS) return [];
+  const data = await realFetch<{ models: ProviderModelSummary[] }>("/api/admin/provider-models");
+  return data.models;
+}
+
+export async function saveProviderModels(
+  models: Record<string, string>
+): Promise<ProviderModelSummary[]> {
+  if (USE_MOCKS) return [];
+  const data = await realFetch<{ models: ProviderModelSummary[] }>("/api/admin/provider-models", {
+    method: "PUT",
+    body: JSON.stringify({ models }),
+  });
+  return data.models;
+}
+
 function mockSlug(value: string) {
   const slug = value
     .toLowerCase()

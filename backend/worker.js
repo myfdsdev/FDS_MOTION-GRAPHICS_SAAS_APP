@@ -228,6 +228,7 @@ export async function startWorker() {
   fs.mkdirSync(VIDEOS_DIR, { recursive: true });
   await connectDB();
   await (await import("./src/lib/providerKeys.js")).loadProviderKeys();
+  await (await import("./src/lib/providerModels.js")).loadProviderModels();
 
   console.log("[worker] ensuring headless browser (first run downloads Chrome)…");
   await ensureBrowser();

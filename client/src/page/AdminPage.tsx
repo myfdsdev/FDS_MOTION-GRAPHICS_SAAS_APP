@@ -6,11 +6,13 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  Cpu,
   FileJson,
   Gauge,
   KeyRound,
   Library,
   Loader2,
+  RefreshCw,
   Server,
   UploadCloud,
   Users,
@@ -23,11 +25,17 @@ import {
   useLottieAssets,
   useMe,
   useProviderKeys,
+  useProviderModels,
   useSaveProviderKeys,
+  useSaveProviderModels,
   useUpdateAdminSettings,
   useUploadLottieAsset,
 } from "@/lib/queries";
-import { getLottieAnimation, type ProviderKeySummary } from "@/lib/api";
+import {
+  getLottieAnimation,
+  type ProviderKeySummary,
+  type ProviderModelSummary,
+} from "@/lib/api";
 import { formatRelativeTime } from "@/lib/utils";
 import type { LottieAssetSummary, VideoCategory } from "@/types";
 
@@ -82,7 +90,7 @@ function formatUsagePeriod(start: string, end: string) {
 export default function AdminPage() {
   const { data: me, isLoading: meLoading } = useMe();
   const isAdmin = Boolean(me?.isAdmin);
-  const { data, isLoading } = useAdminOverview(isAdmin);
+  const { data, isLoading, refetch, isFetching } = useAdminOverview(isAdmin);
   const { data: lottieAssets = [], isLoading: lottieLoading } = useLottieAssets(isAdmin);
   const updateSettings = useUpdateAdminSettings();
   const uploadLottie = useUploadLottieAsset();
@@ -192,25 +200,43 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Admin</h1>
-        <p className="mt-2 text-sm text-muted">System overview and recent activity.</p>
+    <div className="mx-auto w-full max-w-[1500px] px-8 py-[26px]">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Admin</h1>
+          <p className="mt-1.5 text-sm text-muted">System overview and configuration.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-sm font-medium text-muted transition-colors hover:border-accent/40 hover:text-fg"
+        >
+          <RefreshCw size={15} className={isFetching ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-[18px] xl:grid-cols-4">
         {statCards.map(({ key, label, icon: Icon }) => (
-          <section key={key} className="rounded-lg border border-border bg-surface p-5">
-            <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
+          <section key={key} className="rounded-[14px] border border-white/[0.07] bg-surface p-[18px]">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
               <Icon size={17} />
             </div>
             <p className="text-sm text-muted">{label}</p>
-            <p className="mt-1 text-2xl font-bold">{data.stats[key]}</p>
+            <p
+              className={`mt-1 text-[26px] font-bold leading-none ${
+                key === "failedProjects" && data.stats[key] > 0 ? "text-red-400" : ""
+              }`}
+            >
+              {data.stats[key]}
+            </p>
           </section>
         ))}
       </div>
 
-      <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+      <div className="mt-[18px] grid grid-cols-12 items-start gap-[18px]">
+
+      <section className="order-2 col-span-12 rounded-[14px] border border-white/[0.07] bg-surface p-[18px] xl:col-span-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
@@ -239,9 +265,15 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <ProviderKeysSection isAdmin={isAdmin} />
+      <div className="order-1 col-span-12 xl:col-span-8">
+        <ProviderKeysSection isAdmin={isAdmin} />
+      </div>
 
-      <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+      <div className="order-4 col-span-12 xl:col-span-8">
+        <ProviderModelsSection isAdmin={isAdmin} />
+      </div>
+
+      <section className="order-3 col-span-12 rounded-[14px] border border-white/[0.07] bg-surface p-[18px] xl:col-span-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
@@ -332,7 +364,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <section className="mt-6 rounded-xl border border-border bg-surface p-5">
+      <section className="order-5 col-span-12 rounded-[14px] border border-white/[0.07] bg-surface p-[18px] xl:col-span-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
@@ -679,6 +711,128 @@ function ProviderKeysSection({ isAdmin }: { isAdmin: boolean }) {
                           className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:text-fg disabled:opacity-50"
                         >
                           Clear
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const MODEL_GROUP_LABELS: Record<string, string> = {
+  brain: "LLM / Brain models",
+  media: "Media generation models",
+};
+
+function ProviderModelsSection({ isAdmin }: { isAdmin: boolean }) {
+  const { data: models = [], isLoading } = useProviderModels(isAdmin);
+  const saveModels = useSaveProviderModels();
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  // Only send fields the admin actually edited (differ from current value).
+  const edited = models.filter((m) => drafts[m.id] !== undefined && drafts[m.id] !== m.value);
+
+  const onSave = async () => {
+    const patch: Record<string, string> = {};
+    for (const m of edited) patch[m.id] = drafts[m.id];
+    if (!Object.keys(patch).length) return;
+    try {
+      await saveModels.mutateAsync(patch);
+      setDrafts({});
+      toast.success(`Saved ${Object.keys(patch).length} model(s)`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save models");
+    }
+  };
+
+  const onReset = async (id: string, label: string) => {
+    try {
+      await saveModels.mutateAsync({ [id]: "" });
+      setDrafts((d) => {
+        const next = { ...d };
+        delete next[id];
+        return next;
+      });
+      toast.success(`Reset ${label} to default`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not reset model");
+    }
+  };
+
+  const grouped = models.reduce<Record<string, ProviderModelSummary[]>>((acc, m) => {
+    (acc[m.group] ||= []).push(m);
+    return acc;
+  }, {});
+
+  return (
+    <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+      <div className="mb-1 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
+            <Cpu size={17} />
+          </div>
+          <h2 className="text-lg font-semibold">Provider models</h2>
+          <p className="mt-1 text-sm text-muted">
+            Which model each provider uses. A saved value overrides <code className="text-faint">.env</code> and
+            the built-in default. Leave blank to use the default shown.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saveModels.isPending || edited.length === 0}
+          className="inline-flex shrink-0 items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saveModels.isPending ? <Loader2 size={15} className="animate-spin" /> : null}
+          Save {edited.length > 0 ? `(${edited.length})` : ""}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <p className="mt-4 text-sm text-muted">Loading models…</p>
+      ) : (
+        <div className="mt-4 space-y-6">
+          {Object.entries(grouped).map(([group, items]) => (
+            <div key={group}>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">
+                {MODEL_GROUP_LABELS[group] ?? group}
+              </p>
+              <div className="space-y-2.5">
+                {items.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-col gap-2 rounded-md border border-border bg-surface-2/40 p-3 sm:flex-row sm:items-center"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate text-sm font-medium">{m.label}</span>
+                      <Badge variant={m.source === "db" ? "accent" : "default"} className="shrink-0">
+                        {m.source}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder={m.default}
+                        value={drafts[m.id] ?? m.value}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [m.id]: e.target.value }))}
+                        className="w-full rounded-md border border-border bg-surface px-3 py-1.5 font-mono text-xs outline-none focus:border-accent sm:w-80"
+                      />
+                      {m.source === "db" ? (
+                        <button
+                          type="button"
+                          onClick={() => onReset(m.id, m.label)}
+                          disabled={saveModels.isPending}
+                          className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:text-fg disabled:opacity-50"
+                        >
+                          Reset
                         </button>
                       ) : null}
                     </div>

@@ -248,6 +248,24 @@ export function useSaveProviderKeys() {
   });
 }
 
+export function useProviderModels(enabled = true) {
+  return useQuery({
+    queryKey: ["admin-provider-models"],
+    queryFn: api.getProviderModels,
+    enabled,
+  });
+}
+
+export function useSaveProviderModels() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (models: Record<string, string>) => api.saveProviderModels(models),
+    onSuccess: (models) => {
+      qc.setQueryData(["admin-provider-models"], models);
+    },
+  });
+}
+
 export function useLottieAssets(enabled = true) {
   return useQuery({
     queryKey: ["admin-lottie-assets"],

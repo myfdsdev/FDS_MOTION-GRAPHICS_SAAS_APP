@@ -10,6 +10,7 @@
 
 import { CAPABILITY } from "../capabilities.js";
 import { getProviderKey } from "../../providerKeys.js";
+import { getModel } from "../../providerModels.js";
 
 const BASE = process.env.RUNWAY_API_BASE || "https://api.dev.runwayml.com";
 const API_VERSION = process.env.RUNWAY_API_VERSION || "2024-11-06";
@@ -43,14 +44,14 @@ function endpoint(capability) {
 function buildInput(capability, p = {}) {
   if (capability === CAPABILITY.TEXT_TO_IMAGE) {
     return {
-      model: process.env.RUNWAY_IMAGE_MODEL || "gen4_image",
+      model: getModel("RUNWAY_IMAGE_MODEL", "gen4_image"),
       promptText: p.prompt,
       ratio: ratioFor(p.aspectRatio),
     };
   }
   // image_to_video
   return {
-    model: process.env.RUNWAY_VIDEO_MODEL || "gen4_turbo",
+    model: getModel("RUNWAY_VIDEO_MODEL", "gen4_turbo"),
     promptImage: p.imageUrl,
     promptText: p.prompt || "",
     ratio: ratioFor(p.aspectRatio),

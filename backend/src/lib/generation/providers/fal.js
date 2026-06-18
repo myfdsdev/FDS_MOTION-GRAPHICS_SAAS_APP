@@ -10,6 +10,7 @@
 
 import { CAPABILITY, CAPABILITY_OUTPUT } from "../capabilities.js";
 import { getProviderKey } from "../../providerKeys.js";
+import { getModel } from "../../providerModels.js";
 
 const QUEUE_BASE = "https://queue.fal.run";
 
@@ -25,7 +26,7 @@ const DEFAULT_MODELS = {
 
 function modelFor(capability) {
   const envKey = `FAL_MODEL_${capability.toUpperCase()}`;
-  return process.env[envKey] || DEFAULT_MODELS[capability];
+  return getModel(envKey, DEFAULT_MODELS[capability]);
 }
 
 function key() {

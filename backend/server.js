@@ -2,10 +2,12 @@ import "dotenv/config";
 import { createApp } from "./src/app.js";
 import { connectDB } from "./src/db.js";
 import { loadProviderKeys } from "./src/lib/providerKeys.js";
+import { loadProviderModels } from "./src/lib/providerModels.js";
 
 async function main() {
   await connectDB();
   await loadProviderKeys(); // hydrate admin-managed API keys (DB overrides .env)
+  await loadProviderModels(); // hydrate admin-managed model overrides
   const app = createApp();
   const PORT = Number(process.env.PORT) || 3001;
   app.listen(PORT, () => console.log(`API listening on :${PORT}`));
