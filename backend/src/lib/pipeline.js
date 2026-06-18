@@ -17,7 +17,6 @@ import {
 import { costForDuration, refundCredits } from "./credits.js";
 import { decryptSecret } from "./secrets.js";
 import { getAppSettings } from "./settings.js";
-import { generateComponent } from "./codegen.js";
 // variety.js retained on disk for future use but no longer imported.
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
@@ -597,48 +596,30 @@ export async function runPipeline(projectId, userId, prompt, durationSec) {
   const cost = costForDuration(durationSec);
 
   try {
-    const project = await Project.findById(projectId).select("aspectRatio style");
-    const aspect = project?.aspectRatio || "16:9";
-    const style = project?.style || null;
-
-    await Project.updateOne(
-      { _id: projectId },
-      { status: "GENERATING_ASSETS", progress: 10, errorMessage: null, errorPhase: null }
-    );
-
-    const { source, brief } = await generateComponent({
-      prompt,
-      durationSec,
-      aspect,
-      style,
-      premium: false,
-      onProgress: (stage) => {
-        const pct = stage === "enhancing" ? 12
-          : stage === "generating" ? 20
-          : stage.startsWith("retry") ? 22
-          : stage === "reviewing" ? 26
-          : 28;
-        Project.updateOne({ _id: projectId }, { progress: pct }).catch(() => {});
-      },
-    });
-
-    // Save the component and queue it. The worker claims QUEUED projects,
-    // writes the component into the Remotion scene slot, bundles, and renders.
     await Project.updateOne(
       { _id: projectId },
       {
         status: "QUEUED",
-        progress: 30,
-        componentSource: source,
-        brief,
+        progress: 2,
+        prompt,
+        durationSec,
+        componentSource: null,
+        brief: null,
         sceneJson: null,
+        renderPlan: null,
+        outputUrl: null,
+        errorMessage: null,
+        errorPhase: null,
+        errorCode: null,
+        errorStack: null,
+        errorAt: null,
       }
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Code-gen error";
+    const message = err instanceof Error ? err.message : "Queue error";
     const code = err instanceof Error ? err.code || err.name || null : null;
     const stack = err instanceof Error ? err.stack || null : null;
-    console.error(`[pipeline] project ${projectId} code-gen failed:`, err);
+    console.error(`[pipeline] project ${projectId} queue failed:`, err);
     await Project.updateOne(
       { _id: projectId },
       {

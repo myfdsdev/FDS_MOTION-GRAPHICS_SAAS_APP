@@ -10,6 +10,9 @@ import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";
 import { fixComponent } from "./src/lib/codegen.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
+import { planScenes } from "./src/lib/generation/planScenes.js";
+import { buildVideoPlan } from "./src/lib/generation/buildVideoPlan.js";
+import { providersFor } from "./src/lib/generation/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIDEOS_DIR = path.join(__dirname, "public", "videos");
@@ -287,6 +290,182 @@ const DIMENSIONS = {
   "1:1": [1080, 1080],
   "4:3": [1440, 1080],
 };
+
+function preferredHybridProvider() {
+  const forced =
+    process.env.HYBRID_VIDEO_PROVIDER ||
+    process.env.GENERATION_VIDEO_PROVIDER ||
+    process.env.GENERATION_PROVIDER_TEXT_TO_VIDEO ||
+    "";
+  if (forced.trim()) return forced.trim().toLowerCase();
+
+  const videoProviders = providersFor("text_to_video");
+  if (videoProviders.includes("kie")) return "kie";
+  return undefined;
+}
+
+async function renderHybridProject(project) {
+  const id = String(project._id);
+  const aspect = project.aspectRatio || "16:9";
+  const outPath = path.join(VIDEOS_DIR, `${id}.mp4`);
+  let lastPhase = "plan-scenes";
+
+  try {
+    await Project.updateOne(
+      { _id: id },
+      {
+        progress: 8,
+        renderHeartbeatAt: new Date(),
+        errorPhase: null,
+        errorCode: null,
+        errorMessage: null,
+        errorStack: null,
+      }
+    );
+
+    let scenePlan = project.renderPlan?.scenePlan || null;
+    let videoPlan = project.renderPlan?.videoPlan || null;
+
+    if (!scenePlan) {
+      lastPhase = "plan-scenes";
+      scenePlan = await planScenes(
+        `${project.prompt}\n\nTarget duration: ${project.durationSec}s. Target aspect ratio: ${aspect}.`
+      );
+      await Project.updateOne(
+        { _id: id },
+        {
+          progress: 18,
+          renderHeartbeatAt: new Date(),
+          renderPlan: { scenePlan },
+        }
+      );
+    }
+
+    if (!videoPlan) {
+      lastPhase = "generate-footage";
+      let completedScenes = 0;
+      const totalScenes = Math.max(1, scenePlan.scenes?.length || 1);
+      const provider = preferredHybridProvider();
+      videoPlan = await buildVideoPlan(scenePlan, {
+        provider,
+        aspectRatio: aspect,
+        jobId: id,
+        onProgress: ({ sceneId, operation }) => {
+          completedScenes += 1;
+          const pct = Math.min(68, 24 + Math.round((completedScenes / totalScenes) * 40));
+          Project.updateOne(
+            { _id: id },
+            {
+              progress: pct,
+              renderHeartbeatAt: new Date(),
+              $push: {
+                warnings: {
+                  $each: [
+                    {
+                      phase: "generate-footage",
+                      message: `Resolved ${operation} for ${sceneId}`,
+                      at: new Date(),
+                    },
+                  ],
+                  $slice: -10,
+                },
+              },
+            }
+          ).catch(() => {});
+        },
+      });
+      await Project.updateOne(
+        { _id: id },
+        {
+          progress: 70,
+          renderHeartbeatAt: new Date(),
+          renderPlan: { scenePlan, videoPlan },
+        }
+      );
+    }
+
+    const inputProps = { aspectRatio: aspect, plan: videoPlan };
+
+    lastPhase = "bundle";
+    const serveUrl = await bundle({ entryPoint: ENTRY, webpackOverride });
+    lastPhase = "select-composition";
+    const composition = await selectComposition({ serveUrl, id: "scene", inputProps });
+    lastPhase = "preflight";
+    await renderPreviewFrames({
+      composition,
+      serveUrl,
+      inputProps,
+      outputPrefix: id,
+      logPrefix: `[worker] ${id}`,
+    });
+
+    lastPhase = "render";
+    await renderMedia({
+      composition,
+      serveUrl,
+      codec: "h264",
+      outputLocation: outPath,
+      inputProps,
+      onProgress: ({ progress }) => {
+        const pct = Math.min(99, Math.round(72 + progress * 25));
+        Project.updateOne(
+          { _id: id },
+          { progress: pct, renderHeartbeatAt: new Date() }
+        ).catch(() => {});
+      },
+    });
+
+    let outputUrl = `${PUBLIC_BASE}/videos/${id}.mp4`;
+    if (isStorageConfigured()) {
+      lastPhase = "upload";
+      outputUrl = await uploadFile(outPath, `videos/${id}.mp4`, "video/mp4");
+      await fs.promises.rm(outPath, { force: true }).catch(() => {});
+      console.log(`[worker] uploaded ${id} -> ${outputUrl}`);
+    }
+
+    lastPhase = "finalize";
+    await Project.updateOne(
+      { _id: id },
+      {
+        status: "DONE",
+        progress: 100,
+        outputUrl,
+        sceneJson: null,
+        componentSource: null,
+        errorMessage: null,
+        errorPhase: null,
+        errorCode: null,
+        errorStack: null,
+        errorAt: null,
+        renderHeartbeatAt: new Date(),
+      }
+    );
+
+    console.log(`[worker] hybrid done ${id}`);
+  } catch (err) {
+    const desc = describeError(err);
+    const phase = err?.phase || lastPhase || "render";
+    console.error(`[worker] hybrid ${id} failed in phase=${phase} code=${desc.code}:`, desc.message);
+    if (desc.stack) console.error(desc.stack);
+
+    await Project.updateOne(
+      { _id: id },
+      {
+        status: "FAILED",
+        progress: 0,
+        errorMessage: desc.message,
+        errorCode: desc.code,
+        errorStack: desc.stack,
+        errorPhase: phase,
+        errorAt: new Date(),
+        outputUrl: null,
+      }
+    );
+    await refundCredits(String(project.userId), costForDuration(project.durationSec), id).catch(
+      (refundErr) => console.error(`[worker] refund failed for ${id}:`, refundErr)
+    );
+  }
+}
 
 async function renderProject(project) {
   const id = String(project._id);

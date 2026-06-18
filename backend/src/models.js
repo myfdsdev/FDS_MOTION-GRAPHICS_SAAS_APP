@@ -65,6 +65,10 @@ const projectSchema = new Schema(
     status: { type: String, enum: PROJECT_STATUSES, default: "PLANNING" },
     script: { type: String, default: null },
     sceneJson: { type: Schema.Types.Mixed, default: null },
+    // Plan-driven hybrid renderer data:
+    // { scenePlan } after LLM planning, then { scenePlan, videoPlan } after
+    // generated footage URLs are resolved for SceneRenderer.
+    renderPlan: { type: Schema.Types.Mixed, default: null },
     // ---- Code-gen architecture ----
     // The AI-generated Remotion component source (.tsx) for this project.
     // The worker writes this into remotion/scenes/UserComposition.tsx before
@@ -97,6 +101,8 @@ const projectSchema = new Schema(
       enum: [
         null,
         "load-plan",
+        "plan-scenes",
+        "generate-footage",
         "attach-lottie",
         "bundle",
         "select-composition",

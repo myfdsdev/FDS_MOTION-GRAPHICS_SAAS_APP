@@ -103,6 +103,8 @@ export interface Project {
   errorMessage?: string;
   errorPhase?:
     | "load-plan"
+    | "plan-scenes"
+    | "generate-footage"
     | "attach-lottie"
     | "bundle"
     | "select-composition"

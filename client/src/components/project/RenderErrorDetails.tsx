@@ -5,6 +5,8 @@ import { Tooltip } from "@/components/ui/Tooltip";
 
 const PHASE_LABEL: Record<NonNullable<Project["errorPhase"]>, string> = {
   "load-plan": "Loading the scene plan",
+  "plan-scenes": "Planning hybrid scenes",
+  "generate-footage": "Generating footage clips",
   "attach-lottie": "Attaching Lottie assets",
   bundle: "Bundling the Remotion composition",
   "select-composition": "Selecting the composition",
