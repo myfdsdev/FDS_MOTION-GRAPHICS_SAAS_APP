@@ -587,11 +587,10 @@ async function persistVoiceover(projectId, audio, script) {
   return { url, duration: estimateVoiceoverDuration(script) };
 }
 
-// Fire-and-forget pipeline. It never creates placeholder videos. If AI or the
-// real renderer is unavailable, the project fails and credits are refunded.
-// Code-gen pipeline. The AI writes a complete Remotion component (.tsx); we
-// validate it and save it on the project, then queue it for the render worker.
-// No JSON plan, no preset vocabulary — the component IS the video.
+// Fire-and-forget pipeline. It queues the worker-driven hybrid flow:
+// prompt -> scene plan -> generated footage -> SceneRenderer -> MP4.
+// If the real renderer or providers are unavailable, the project fails and
+// credits are refunded.
 export async function runPipeline(projectId, userId, prompt, durationSec) {
   const cost = costForDuration(durationSec);
 

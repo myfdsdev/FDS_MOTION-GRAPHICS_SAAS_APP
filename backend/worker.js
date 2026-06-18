@@ -350,7 +350,7 @@ async function renderHybridProject(project) {
         provider,
         aspectRatio: aspect,
         jobId: id,
-        onProgress: ({ sceneId, operation }) => {
+        onProgress: () => {
           completedScenes += 1;
           const pct = Math.min(68, 24 + Math.round((completedScenes / totalScenes) * 40));
           Project.updateOne(
@@ -358,18 +358,6 @@ async function renderHybridProject(project) {
             {
               progress: pct,
               renderHeartbeatAt: new Date(),
-              $push: {
-                warnings: {
-                  $each: [
-                    {
-                      phase: "generate-footage",
-                      message: `Resolved ${operation} for ${sceneId}`,
-                      at: new Date(),
-                    },
-                  ],
-                  $slice: -10,
-                },
-              },
             }
           ).catch(() => {});
         },
