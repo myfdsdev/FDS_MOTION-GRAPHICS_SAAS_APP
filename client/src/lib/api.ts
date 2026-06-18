@@ -369,6 +369,23 @@ export async function saveProviderModels(
   return data.models;
 }
 
+export interface ProvidersConfig {
+  enabledModels: Record<string, boolean>;
+}
+
+export async function getProvidersConfig(): Promise<ProvidersConfig> {
+  if (USE_MOCKS) return { enabledModels: {} };
+  return realFetch<ProvidersConfig>("/api/admin/providers-config");
+}
+
+export async function saveProvidersConfig(cfg: ProvidersConfig): Promise<ProvidersConfig> {
+  if (USE_MOCKS) return cfg;
+  return realFetch<ProvidersConfig>("/api/admin/providers-config", {
+    method: "PUT",
+    body: JSON.stringify(cfg),
+  });
+}
+
 function mockSlug(value: string) {
   const slug = value
     .toLowerCase()

@@ -256,6 +256,22 @@ export function useProviderModels(enabled = true) {
   });
 }
 
+export function useProvidersConfig(enabled = true) {
+  return useQuery({
+    queryKey: ["admin-providers-config"],
+    queryFn: api.getProvidersConfig,
+    enabled,
+  });
+}
+
+export function useSaveProvidersConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cfg: api.ProvidersConfig) => api.saveProvidersConfig(cfg),
+    onSuccess: (cfg) => qc.setQueryData(["admin-providers-config"], cfg),
+  });
+}
+
 export function useSaveProviderModels() {
   const qc = useQueryClient();
   return useMutation({

@@ -229,6 +229,7 @@ export async function startWorker() {
   await connectDB();
   await (await import("./src/lib/providerKeys.js")).loadProviderKeys();
   await (await import("./src/lib/providerModels.js")).loadProviderModels();
+  await (await import("./src/lib/providersConfig.js")).loadProvidersConfig();
 
   console.log("[worker] ensuring headless browser (first run downloads Chrome)…");
   await ensureBrowser();

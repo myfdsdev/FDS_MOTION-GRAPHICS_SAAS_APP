@@ -4,6 +4,7 @@ import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
 import { getAppSettings, updateAppSettings } from "../lib/settings.js";
 import { providerKeySummaries, setProviderKeys, PROVIDERS } from "../lib/providerKeys.js";
 import { providerModelSummaries, setProviderModels, MODEL_SETTINGS } from "../lib/providerModels.js";
+import { getProvidersConfig, setProvidersConfig } from "../lib/providersConfig.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { UpdateAdminSettingsInput } from "../schemas.js";
@@ -183,6 +184,30 @@ adminRouter.put("/provider-models", async (req, res, next) => {
     }
     const updated = await setProviderModels(models);
     res.json({ models: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Providers config (per-model enable/disable from the Providers manager) --
+
+adminRouter.get("/providers-config", async (_req, res, next) => {
+  try {
+    res.json(getProvidersConfig());
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Body: { enabledModels: { "<provider>:<model>": boolean } }
+adminRouter.put("/providers-config", async (req, res, next) => {
+  try {
+    const enabledModels = req.body?.enabledModels;
+    if (enabledModels && (typeof enabledModels !== "object" || Array.isArray(enabledModels))) {
+      return res.status(400).json({ error: "enabledModels must be an object map" });
+    }
+    const updated = await setProvidersConfig({ enabledModels: enabledModels || {} });
+    res.json(updated);
   } catch (err) {
     next(err);
   }
