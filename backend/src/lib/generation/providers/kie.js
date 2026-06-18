@@ -10,11 +10,12 @@
 // confirm, exactly like the fal model slugs. Auth: `Authorization: Bearer <key>`.
 
 import { CAPABILITY, CAPABILITY_OUTPUT } from "../capabilities.js";
+import { getProviderKey } from "../../providerKeys.js";
 
 const BASE = process.env.KIE_API_BASE || "https://api.kie.ai";
 
 function key() {
-  return process.env.KIE_API_KEY || process.env.KIE_KEY || "";
+  return getProviderKey("kie") || process.env.KIE_KEY || "";
 }
 function authHeaders() {
   return { Authorization: `Bearer ${key()}`, "Content-Type": "application/json" };

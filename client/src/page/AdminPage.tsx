@@ -11,6 +11,7 @@ import {
   KeyRound,
   Library,
   Loader2,
+  Server,
   UploadCloud,
   Users,
 } from "lucide-react";
@@ -21,10 +22,12 @@ import {
   useAdminOverview,
   useLottieAssets,
   useMe,
+  useProviderKeys,
+  useSaveProviderKeys,
   useUpdateAdminSettings,
   useUploadLottieAsset,
 } from "@/lib/queries";
-import { getLottieAnimation } from "@/lib/api";
+import { getLottieAnimation, type ProviderKeySummary } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/utils";
 import type { LottieAssetSummary, VideoCategory } from "@/types";
 
@@ -235,6 +238,8 @@ export default function AdminPage() {
           </button>
         </div>
       </section>
+
+      <ProviderKeysSection isAdmin={isAdmin} />
 
       <section className="mt-6 rounded-lg border border-border bg-surface p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -564,5 +569,126 @@ function LottieTile({ asset }: { asset: LottieAssetSummary }) {
         <p className="truncate text-[10px] capitalize text-white/60">{formatCategory(asset.category)}</p>
       </div>
     </div>
+  );
+}
+
+const KEY_CATEGORY_LABELS: Record<string, string> = {
+  brain: "LLM / Brain — writes scripts & scene plans",
+  media: "Media generation — images, video, music",
+  voice: "Voice — narration",
+};
+
+function ProviderKeysSection({ isAdmin }: { isAdmin: boolean }) {
+  const { data: providers = [], isLoading } = useProviderKeys(isAdmin);
+  const saveKeys = useSaveProviderKeys();
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  const dirty = Object.entries(drafts).filter(([, v]) => v.trim().length > 0);
+
+  const onSave = async () => {
+    const keys: Record<string, string> = {};
+    for (const [id, v] of dirty) keys[id] = v.trim();
+    if (!Object.keys(keys).length) return;
+    try {
+      await saveKeys.mutateAsync(keys);
+      setDrafts({});
+      toast.success(`Saved ${Object.keys(keys).length} key(s)`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save keys");
+    }
+  };
+
+  const onClear = async (id: string, label: string) => {
+    try {
+      await saveKeys.mutateAsync({ [id]: "" });
+      setDrafts((d) => ({ ...d, [id]: "" }));
+      toast.success(`Cleared ${label} (falls back to .env)`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not clear key");
+    }
+  };
+
+  const grouped = providers.reduce<Record<string, ProviderKeySummary[]>>((acc, p) => {
+    (acc[p.category] ||= []).push(p);
+    return acc;
+  }, {});
+
+  return (
+    <section className="mt-6 rounded-lg border border-border bg-surface p-5">
+      <div className="mb-1 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-accent-soft">
+            <Server size={17} />
+          </div>
+          <h2 className="text-lg font-semibold">Provider API keys</h2>
+          <p className="mt-1 text-sm text-muted">
+            Stored encrypted. A saved key overrides the matching <code className="text-faint">.env</code> value;
+            clear it to fall back. Keys are never shown again — only the last 4 characters.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saveKeys.isPending || dirty.length === 0}
+          className="inline-flex shrink-0 items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saveKeys.isPending ? <Loader2 size={15} className="animate-spin" /> : null}
+          Save {dirty.length > 0 ? `(${dirty.length})` : ""}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <p className="mt-4 text-sm text-muted">Loading keys…</p>
+      ) : (
+        <div className="mt-4 space-y-6">
+          {Object.entries(grouped).map(([category, items]) => (
+            <div key={category}>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">
+                {KEY_CATEGORY_LABELS[category] ?? category}
+              </p>
+              <div className="space-y-2.5">
+                {items.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex flex-col gap-2 rounded-md border border-border bg-surface-2/40 p-3 sm:flex-row sm:items-center"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate text-sm font-medium">{p.label}</span>
+                      {p.configured ? (
+                        <Badge variant={p.source === "db" ? "accent" : "warning"} className="shrink-0">
+                          {p.source === "db" ? "saved" : "from .env"} ····{p.last4}
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" className="shrink-0">not set</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        placeholder={p.configured ? "Replace key…" : "Paste key…"}
+                        value={drafts[p.id] ?? ""}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
+                        className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-accent sm:w-64"
+                      />
+                      {p.source === "db" ? (
+                        <button
+                          type="button"
+                          onClick={() => onClear(p.id, p.label)}
+                          disabled={saveKeys.isPending}
+                          className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted transition-colors hover:text-fg disabled:opacity-50"
+                        >
+                          Clear
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

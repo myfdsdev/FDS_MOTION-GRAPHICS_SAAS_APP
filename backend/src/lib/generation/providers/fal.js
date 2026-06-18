@@ -9,6 +9,7 @@
 // without touching engine code. Auth header is `Authorization: Key <FAL_KEY>`.
 
 import { CAPABILITY, CAPABILITY_OUTPUT } from "../capabilities.js";
+import { getProviderKey } from "../../providerKeys.js";
 
 const QUEUE_BASE = "https://queue.fal.run";
 
@@ -28,7 +29,7 @@ function modelFor(capability) {
 }
 
 function key() {
-  return process.env.FAL_KEY || process.env.FAL_API_KEY || "";
+  return getProviderKey("fal");
 }
 
 function authHeaders() {

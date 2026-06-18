@@ -1,9 +1,11 @@
 import "dotenv/config";
 import { createApp } from "./src/app.js";
 import { connectDB } from "./src/db.js";
+import { loadProviderKeys } from "./src/lib/providerKeys.js";
 
 async function main() {
   await connectDB();
+  await loadProviderKeys(); // hydrate admin-managed API keys (DB overrides .env)
   const app = createApp();
   const PORT = Number(process.env.PORT) || 3001;
   app.listen(PORT, () => console.log(`API listening on :${PORT}`));

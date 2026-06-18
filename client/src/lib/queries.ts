@@ -230,6 +230,24 @@ export function useUpdateAdminSettings() {
   });
 }
 
+export function useProviderKeys(enabled = true) {
+  return useQuery({
+    queryKey: ["admin-provider-keys"],
+    queryFn: api.getProviderKeys,
+    enabled,
+  });
+}
+
+export function useSaveProviderKeys() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (keys: Record<string, string>) => api.saveProviderKeys(keys),
+    onSuccess: (providers) => {
+      qc.setQueryData(["admin-provider-keys"], providers);
+    },
+  });
+}
+
 export function useLottieAssets(enabled = true) {
   return useQuery({
     queryKey: ["admin-lottie-assets"],

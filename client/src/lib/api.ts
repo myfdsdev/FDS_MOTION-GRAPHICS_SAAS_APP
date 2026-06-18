@@ -316,6 +316,32 @@ export async function updateAdminSettings(input: Partial<AdminSettings>): Promis
   });
 }
 
+export interface ProviderKeySummary {
+  id: string;
+  label: string;
+  category: string;
+  configured: boolean;
+  source: "db" | "env" | null;
+  last4: string | null;
+}
+
+export async function getProviderKeys(): Promise<ProviderKeySummary[]> {
+  if (USE_MOCKS) return [];
+  const data = await realFetch<{ providers: ProviderKeySummary[] }>("/api/admin/provider-keys");
+  return data.providers;
+}
+
+export async function saveProviderKeys(
+  keys: Record<string, string>
+): Promise<ProviderKeySummary[]> {
+  if (USE_MOCKS) return [];
+  const data = await realFetch<{ providers: ProviderKeySummary[] }>("/api/admin/provider-keys", {
+    method: "PUT",
+    body: JSON.stringify({ keys }),
+  });
+  return data.providers;
+}
+
 function mockSlug(value: string) {
   const slug = value
     .toLowerCase()

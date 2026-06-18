@@ -9,12 +9,13 @@
 // overridable via env; verify against https://docs.dev.runwayml.com.
 
 import { CAPABILITY } from "../capabilities.js";
+import { getProviderKey } from "../../providerKeys.js";
 
 const BASE = process.env.RUNWAY_API_BASE || "https://api.dev.runwayml.com";
 const API_VERSION = process.env.RUNWAY_API_VERSION || "2024-11-06";
 
 function key() {
-  return process.env.RUNWAY_API_KEY || process.env.RUNWAYML_API_SECRET || "";
+  return getProviderKey("runway") || process.env.RUNWAYML_API_SECRET || "";
 }
 function headers() {
   return {

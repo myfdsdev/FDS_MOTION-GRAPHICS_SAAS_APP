@@ -7,12 +7,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CAPABILITY } from "../capabilities.js";
+import { getProviderKey } from "../../providerKeys.js";
 
 const API_BASE = "https://api.elevenlabs.io/v1/text-to-speech";
 const OUT_DIR = path.resolve("public", "tts");
 
 function key() {
-  return process.env.ELEVENLABS_API_KEY || "";
+  return getProviderKey("elevenlabs");
 }
 function defaultVoice() {
   return process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // Rachel (free stock)

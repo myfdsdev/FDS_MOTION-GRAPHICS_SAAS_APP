@@ -7,41 +7,47 @@
 // keys can be layered on later.
 
 import Anthropic from "@anthropic-ai/sdk";
+import { getProviderKey } from "../providerKeys.js";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-/** Ordered list of configured providers, best-first. */
+/** Ordered list of configured providers, best-first. Keys resolve from the
+ *  admin panel (DB) first, then .env — see lib/providerKeys.js. */
 export function availableProviders() {
   const out = [];
-  if (process.env.ANTHROPIC_API_KEY) {
+  const anthropicKey = getProviderKey("anthropic");
+  if (anthropicKey) {
     out.push({
       provider: "anthropic",
-      key: process.env.ANTHROPIC_API_KEY,
+      key: anthropicKey,
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
       premiumModel: process.env.ANTHROPIC_PREMIUM_MODEL || "claude-opus-4-8",
     });
   }
-  if (process.env.OPENAI_API_KEY) {
+  const openaiKey = getProviderKey("openai");
+  if (openaiKey) {
     out.push({
       provider: "openai",
-      key: process.env.OPENAI_API_KEY,
+      key: openaiKey,
       model: process.env.OPENAI_MODEL || "gpt-4o",
       premiumModel: process.env.OPENAI_PREMIUM_MODEL || "gpt-4o",
     });
   }
-  if (process.env.OPENROUTER_API_KEY) {
+  const openrouterKey = getProviderKey("openrouter");
+  if (openrouterKey) {
     out.push({
       provider: "openrouter",
-      key: process.env.OPENROUTER_API_KEY,
+      key: openrouterKey,
       model: process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet",
       premiumModel: process.env.OPENROUTER_PREMIUM_MODEL || "anthropic/claude-3.5-sonnet",
     });
   }
-  if (process.env.GEMINI_API_KEY) {
+  const geminiKey = getProviderKey("gemini");
+  if (geminiKey) {
     out.push({
       provider: "gemini",
-      key: process.env.GEMINI_API_KEY,
+      key: geminiKey,
       model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
       premiumModel: process.env.GEMINI_PREMIUM_MODEL || "gemini-2.0-flash",
     });

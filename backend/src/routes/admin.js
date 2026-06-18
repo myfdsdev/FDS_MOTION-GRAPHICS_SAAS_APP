@@ -2,6 +2,7 @@ import { Router } from "express";
 import { ApiUsage, CreditTx, Project, User } from "../models.js";
 import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
 import { getAppSettings, updateAppSettings } from "../lib/settings.js";
+import { providerKeySummaries, setProviderKeys, PROVIDERS } from "../lib/providerKeys.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { UpdateAdminSettingsInput } from "../schemas.js";
@@ -122,6 +123,36 @@ adminRouter.patch("/settings", validate(UpdateAdminSettingsInput), async (req, r
   try {
     const settings = await updateAppSettings(req.body);
     res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Provider API keys (admin-managed; encrypted at rest) -----------------
+
+// Safe summaries only — never returns raw keys.
+adminRouter.get("/provider-keys", async (_req, res, next) => {
+  try {
+    res.json({ providers: providerKeySummaries() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Save keys. Body: { keys: { <providerId>: "<value or empty to clear>" } }.
+adminRouter.put("/provider-keys", async (req, res, next) => {
+  try {
+    const keys = req.body?.keys;
+    if (!keys || typeof keys !== "object" || Array.isArray(keys)) {
+      return res.status(400).json({ error: "Body must be { keys: { providerId: value } }" });
+    }
+    const known = new Set(PROVIDERS.map((p) => p.id));
+    const bad = Object.keys(keys).filter((k) => !known.has(k));
+    if (bad.length) {
+      return res.status(400).json({ error: `Unknown provider(s): ${bad.join(", ")}` });
+    }
+    const providers = await setProviderKeys(keys);
+    res.json({ providers });
   } catch (err) {
     next(err);
   }
