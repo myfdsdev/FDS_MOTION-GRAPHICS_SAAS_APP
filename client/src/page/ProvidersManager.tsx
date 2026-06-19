@@ -52,7 +52,7 @@ const CATALOG: Record<Category, ProviderDef[]> = {
   ],
   video: [
     { id: "runway", name: "Runway", brand: "#a78bfa", desc: "Gen-4 cinematic image→video.", models: [{ name: "gen4_turbo", caps: ["i2v", "t2v"] }, { name: "gen4_aleph", caps: ["v2v"] }] },
-    { id: "kie", name: "kie.ai", brand: "#22d3ee", desc: "Kling video via one key.", models: [{ name: "kling-2.6/text-to-video", caps: ["t2v"] }, { name: "kling-2.6/image-to-video", caps: ["i2v"] }] },
+    { id: "kie", name: "kie.ai", brand: "#22d3ee", desc: "Grok / Kling video via one key.", models: [{ name: "grok-imagine/image-to-video", caps: ["i2v"] }, { name: "kling-2.6/text-to-video", caps: ["t2v"] }] },
     { id: "fal", name: "fal.ai", brand: "#ff5c8a", desc: "Kling / LTX / MiniMax video.", models: [{ name: "kling-video", caps: ["i2v", "t2v"] }, { name: "ltx-video", caps: ["t2v"] }] },
   ],
   image: [

@@ -11,7 +11,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import { callLLM } from "../providers/index.js";
-import { SCENE_PLANNER_SYSTEM_PROMPT } from "../prompts/scenePlanner.js";
+import { composeScenePlannerSystem } from "../prompts/scenePlanner.js";
+import { pickRecipe, getRecipe } from "./recipes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = path.resolve(__dirname, "../../schemas/scene_plan.schema.json");
@@ -65,6 +66,14 @@ function validAudioTrack(value) {
   return validObject(value) && typeof value.src === "string" && value.src.trim().length > 0;
 }
 
+// Narration is valid if it has a real src OR a spoken script (which the worker
+// synthesizes to audio before render).
+function validNarration(value) {
+  if (!validObject(value)) return false;
+  if (typeof value.src === "string" && value.src.trim()) return true;
+  return typeof value.script === "string" && value.script.trim().length > 0;
+}
+
 /**
  * Fix harmless model drift before schema validation. Optional media fields
  * should be omitted when unused, but LLMs often emit null/[]/"none" there.
@@ -74,9 +83,8 @@ export function normalizeScenePlan(plan) {
 
   const normalized = structuredClone(plan);
 
-  for (const field of ["narration", "music"]) {
-    if (!validAudioTrack(normalized[field])) delete normalized[field];
-  }
+  if (!validNarration(normalized.narration)) delete normalized.narration;
+  if (!validAudioTrack(normalized.music)) delete normalized.music;
 
   if (Array.isArray(normalized.captions)) {
     normalized.captions = { words: normalized.captions };
@@ -125,8 +133,11 @@ export function validateScenePlan(plan, userText = "") {
     for (const ov of s.overlays || []) {
       if (!OVERLAY_TYPES.has(ov.type)) errors.push(`scene ${s.id}: unknown overlay type "${ov.type}"`);
     }
-    // 5. Scrim on text
-    if ((s.overlays || []).length && (s.background?.scrim ?? 0) < 0.3) {
+    // 5. Scrim on text — only required when text sits on FOOTAGE/IMAGE. Flat
+    //    color backgrounds (graphics recipes) are already legible, so we don't
+    //    force them to darken.
+    const overFootage = s.background?.kind === "video" || s.background?.kind === "image";
+    if (overFootage && (s.overlays || []).length && (s.background?.scrim ?? 0) < 0.3) {
       errors.push(`scene ${s.id}: text overlay needs background.scrim >= 0.3`);
     }
     // 6. Duration sanity (only for generated footage)
@@ -143,11 +154,23 @@ export function validateScenePlan(plan, userText = "") {
  * Produce a validated scenePlan from a user description. Retries with the
  * validation errors fed back to the model.
  *
+ * The `recipe` option steers which video TYPE the planner produces (cinematic
+ * ad, data explainer, kinetic typography, product showcase, social short). Pass
+ * a recipe id to force one, "auto" (default) to pick from the prompt text, or
+ * null to use the plain base prompt.
+ *
  * @param {string} userText
- * @param {{ premium?: boolean, maxAttempts?: number }} [opts]
- * @returns {Promise<object>} the validated scenePlan
+ * @param {{ premium?: boolean, maxAttempts?: number, recipe?: string|null, aspectRatio?: string }} [opts]
+ * @returns {Promise<object>} the validated scenePlan (with `recipeId` attached)
  */
-export async function planScenes(userText, { premium = false, maxAttempts = 3 } = {}) {
+export async function planScenes(userText, { premium = false, maxAttempts = 3, recipe = "auto", aspectRatio } = {}) {
+  // Resolve the recipe once. "auto" => deterministic keyword pick; an id =>
+  // that recipe; null/false => base prompt (recipe disabled).
+  let chosen = null;
+  if (recipe === "auto") chosen = pickRecipe(userText, { aspectRatio });
+  else if (recipe) chosen = getRecipe(recipe);
+  const system = composeScenePlannerSystem(chosen);
+
   let lastErrors = [];
   let user = userText;
 
@@ -155,7 +178,7 @@ export async function planScenes(userText, { premium = false, maxAttempts = 3 } 
     if (lastErrors.length) {
       user = `${userText}\n\nYour previous plan was rejected for these reasons:\n- ${lastErrors.join("\n- ")}\nReturn a corrected scenePlan JSON only.`;
     }
-    const raw = await callLLM({ system: SCENE_PLANNER_SYSTEM_PROMPT, user, premium, maxTokens: 4000 });
+    const raw = await callLLM({ system, user, premium, maxTokens: 4000 });
     const plan = extractJson(raw);
     if (!plan) {
       lastErrors = ["output was not valid JSON"];
@@ -163,7 +186,10 @@ export async function planScenes(userText, { premium = false, maxAttempts = 3 } 
     }
     const normalizedPlan = normalizeScenePlan(plan);
     const { ok, errors } = validateScenePlan(normalizedPlan, userText);
-    if (ok) return normalizedPlan;
+    if (ok) {
+      if (chosen) normalizedPlan.recipeId = chosen.id; // record which archetype was used
+      return normalizedPlan;
+    }
     lastErrors = errors;
   }
 

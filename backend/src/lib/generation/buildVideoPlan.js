@@ -42,6 +42,20 @@ function sceneDurationSeconds(scene) {
   return Math.max(0.1, finiteNumber(scene.durationSeconds, finiteNumber(scene.durationSec, 3)));
 }
 
+function safeTaskId(...parts) {
+  return parts
+    .filter(Boolean)
+    .join("_")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 120);
+}
+
+function shouldCreateStillFirst(ctx, operation) {
+  if (operation !== "text_to_video") return false;
+  if (ctx.provider !== "kie") return false;
+  return process.env.KIE_IMAGE_TO_VIDEO_FIRST !== "0";
+}
+
 /**
  * @param {object} scenePlan  validated against scene_plan.schema
  * @param {object} ctx        { provider, aspectRatio, jobId, onProgress }
@@ -61,17 +75,34 @@ export async function buildVideoPlan(scenePlan, ctx = {}) {
         return { id: scene.id, src: scene.background?.src ?? null };
       }
 
-      const operation = pickOperation(scene);
+      let operation = pickOperation(scene);
+      let imagePath = scene.asset?.image;
+      const prompt = scene.asset?.prompt ?? scene.description;
+
+      if (shouldCreateStillFirst(ctx, operation)) {
+        const image = await generateClip({
+          provider: ctx.provider,
+          operation: "text_to_image",
+          prompt,
+          aspect_ratio: aspectRatio,
+          jobId: ctx.jobId,
+          taskId: safeTaskId("task", ctx.jobId, scene.id, "image"),
+        });
+        imagePath = image.url ?? image.path;
+        operation = "image_to_video";
+      }
+
       const result = await generateClip({
         provider: ctx.provider, // "runway" | "fal" | "kie" | ...
         operation, // text_to_video | image_to_video | video_to_video | reference_to_video
-        prompt: scene.asset?.prompt ?? scene.description,
-        image_path: scene.asset?.image,
+        prompt,
+        image_path: imagePath,
         source_video_path: scene.asset?.sourceVideo,
         reference_image_paths: scene.asset?.referenceImages,
         durationSeconds: sceneDurationSeconds(scene),
         aspect_ratio: aspectRatio,
         jobId: ctx.jobId,
+        taskId: safeTaskId("task", ctx.jobId, scene.id, operation),
       });
 
       ctx.onProgress?.({ sceneId: scene.id, operation });

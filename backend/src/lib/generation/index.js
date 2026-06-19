@@ -187,6 +187,7 @@ export async function generateClip({
   reference_image_paths,
   durationSeconds,
   aspect_ratio,
+  taskId,
 } = {}) {
   const capability = operation; // operation names already equal CAPABILITY values
   const result = await runGeneration({
@@ -199,6 +200,7 @@ export async function generateClip({
       referenceImages: reference_image_paths || undefined,
       durationSec: durationSeconds,
       aspectRatio: aspect_ratio,
+      taskId,
     },
   });
   if (!result.ok) {

@@ -12,6 +12,8 @@ import { fixComponent } from "./src/lib/codegen.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 import { planScenes } from "./src/lib/generation/planScenes.js";
 import { buildVideoPlan } from "./src/lib/generation/buildVideoPlan.js";
+import { synthesizeNarration } from "./src/lib/generation/narration.js";
+import { synthesizeMusic } from "./src/lib/generation/music.js";
 import { providersFor } from "./src/lib/generation/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -329,7 +331,10 @@ async function renderHybridProject(project) {
     if (!scenePlan) {
       lastPhase = "plan-scenes";
       scenePlan = await planScenes(
-        `${project.prompt}\n\nTarget duration: ${project.durationSec}s. Target aspect ratio: ${aspect}.`
+        `${project.prompt}\n\nTarget duration: ${project.durationSec}s. Target aspect ratio: ${aspect}.`,
+        // honor a user-picked recipe if the project carries one; otherwise let
+        // the planner auto-select the video TYPE from the prompt + aspect.
+        { recipe: project.recipe || "auto", aspectRatio: aspect }
       );
       await Project.updateOne(
         { _id: id },
@@ -372,10 +377,57 @@ async function renderHybridProject(project) {
       );
     }
 
+    // Narration: synthesize the planned voiceover script to a real audio file
+    // (ElevenLabs or free SAPI). Replace the script-only narration with a
+    // playable { src } — and never let a src-less track reach the renderer.
+    if (scenePlan.narration?.script && !videoPlan.narration?.src) {
+      lastPhase = "narration";
+      const nar = await synthesizeNarration(scenePlan.narration.script).catch((e) => {
+        console.warn(`[worker] ${id} narration failed: ${e?.message || e}`);
+        return null;
+      });
+      videoPlan.narration = nar
+        ? { src: nar.src, volume: scenePlan.narration.volume ?? 1, fadeInSeconds: 0.3, fadeOutSeconds: 0.6 }
+        : undefined;
+      await Project.updateOne(
+        { _id: id },
+        { progress: 72, renderHeartbeatAt: new Date(), renderPlan: { scenePlan, videoPlan } }
+      ).catch(() => {});
+    }
+    if (videoPlan.narration && !videoPlan.narration.src) delete videoPlan.narration;
+
+    // Music bed: generate an instrumental track (kie/Suno) and play it ducked
+    // under the narration. Opt-out with GENERATE_MUSIC=0. The brief comes from
+    // the planner (scenePlan.musicBrief) if present, else the project prompt.
+    // Failure is non-fatal — the video still renders without music.
+    const musicEnabled = process.env.GENERATE_MUSIC !== "0" && process.env.GENERATE_MUSIC !== "false";
+    if (musicEnabled && !videoPlan.music?.src) {
+      lastPhase = "music";
+      const brief =
+        (typeof scenePlan.musicBrief === "string" && scenePlan.musicBrief.trim()) ||
+        `Instrumental background music for: ${project.prompt}`;
+      const bed = await synthesizeMusic(brief).catch((e) => {
+        console.warn(`[worker] ${id} music failed: ${e?.message || e}`);
+        return null;
+      });
+      if (bed?.src) {
+        videoPlan.music = { src: bed.src, volume: 0.16, fadeInSeconds: 0.5, fadeOutSeconds: 0.8 };
+        await Project.updateOne(
+          { _id: id },
+          { progress: 74, renderHeartbeatAt: new Date(), renderPlan: { scenePlan, videoPlan } }
+        ).catch(() => {});
+      }
+    }
+    if (videoPlan.music && !videoPlan.music.src) delete videoPlan.music;
+
     const inputProps = { aspectRatio: aspect, plan: videoPlan };
 
     lastPhase = "bundle";
-    const serveUrl = await bundle({ entryPoint: ENTRY, webpackOverride });
+    const serveUrl = await bundle({
+      entryPoint: ENTRY,
+      webpackOverride,
+      publicDir: path.join(__dirname, "public"),
+    });
     lastPhase = "select-composition";
     const composition = await selectComposition({ serveUrl, id: "scene", inputProps });
     lastPhase = "preflight";

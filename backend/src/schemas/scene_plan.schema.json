@@ -14,7 +14,17 @@
       "maxItems": 6,
       "items": { "$ref": "#/definitions/scene" }
     },
-    "narration": { "$ref": "#/definitions/audioTrack" },
+    "narration": {
+      "type": "object",
+      "properties": {
+        "script": { "type": "string" },
+        "src": { "type": "string" },
+        "volume": { "type": "number", "minimum": 0, "maximum": 2 },
+        "fadeInSeconds": { "type": "number", "minimum": 0 },
+        "fadeOutSeconds": { "type": "number", "minimum": 0 }
+      }
+    },
+    "musicBrief": { "type": "string" },
     "music": { "$ref": "#/definitions/audioTrack" },
     "captions": {
       "type": "object",
