@@ -42,6 +42,14 @@ function sceneDurationSeconds(scene) {
   return Math.max(0.1, finiteNumber(scene.durationSeconds, finiteNumber(scene.durationSec, 3)));
 }
 
+// trimBefore/trimAfter must be positive — Remotion rejects 0. The schema allows
+// 0 (minimum 0), and the LLM sometimes emits 0, so drop non-positive trims here
+// so they never reach the renderer.
+function positiveOrUndefined(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 function safeTaskId(...parts) {
   return parts
     .filter(Boolean)
@@ -124,8 +132,8 @@ export async function buildVideoPlan(scenePlan, ctx = {}) {
       color: scene.background?.color ?? "#000",
       filter: scene.background?.filter,
       scrim: scene.background?.scrim ?? (scene.overlays?.length ? 0.4 : 0),
-      trimBeforeSeconds: scene.background?.trimBeforeSeconds,
-      trimAfterSeconds: scene.background?.trimAfterSeconds,
+      trimBeforeSeconds: positiveOrUndefined(scene.background?.trimBeforeSeconds),
+      trimAfterSeconds: positiveOrUndefined(scene.background?.trimAfterSeconds),
     },
     overlays: scene.overlays ?? [],
   }));

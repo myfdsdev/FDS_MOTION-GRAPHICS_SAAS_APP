@@ -170,6 +170,17 @@ function toPositiveFrames(value: unknown, fallback: number): number {
   return Math.max(1, Math.round(toFiniteNumber(value, fallback)));
 }
 
+// Convert a seconds value to an integer frame count for trimBefore/trimAfter.
+// Returns undefined for missing/zero/negative values — Remotion rejects
+// trimAfter=0 ("must be a positive number"), and trimBefore=0 is a no-op, so in
+// both cases we OMIT the prop rather than pass an invalid 0.
+function trimFrames(seconds: unknown, fps: number): number | undefined {
+  const n = typeof seconds === "number" ? seconds : Number(seconds);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  const frames = Math.round(n * fps);
+  return frames >= 1 ? frames : undefined;
+}
+
 function sceneDurationSeconds(scene: Scene): number {
   const legacyDuration = (scene as { durationSec?: unknown }).durationSec;
   return Math.max(
@@ -386,14 +397,8 @@ const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
   );
 
   const bg = scene.background;
-  const trimBefore =
-    bg.trimBeforeSeconds !== undefined
-      ? Math.round(bg.trimBeforeSeconds * fps)
-      : undefined;
-  const trimAfter =
-    bg.trimAfterSeconds !== undefined
-      ? Math.round(bg.trimAfterSeconds * fps)
-      : undefined;
+  const trimBefore = trimFrames(bg.trimBeforeSeconds, fps);
+  const trimAfter = trimFrames(bg.trimAfterSeconds, fps);
 
   // slow push-in keeps even a static clip feeling alive
   const scale = interpolate(frame, [0, safeDurationInFrames], [1.02, 1], {
@@ -468,14 +473,8 @@ const AudioLayer: React.FC<{ track: AudioTrack; defaultVolume: number }> = ({
   const fadeInFrames = Math.max(1, Math.round((track.fadeInSeconds ?? 0.3) * fps));
   const fadeOutFrames = Math.max(1, Math.round((track.fadeOutSeconds ?? 0.5) * fps));
 
-  const trimBefore =
-    track.trimBeforeSeconds !== undefined
-      ? Math.round(track.trimBeforeSeconds * fps)
-      : undefined;
-  const trimAfter =
-    track.trimAfterSeconds !== undefined
-      ? Math.round(track.trimAfterSeconds * fps)
-      : undefined;
+  const trimBefore = trimFrames(track.trimBeforeSeconds, fps);
+  const trimAfter = trimFrames(track.trimAfterSeconds, fps);
 
   const v = Math.min(
     interpolate(frame, [0, fadeInFrames], [0, volume], {
