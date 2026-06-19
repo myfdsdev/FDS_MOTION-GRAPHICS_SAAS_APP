@@ -33,8 +33,13 @@ const DEFAULT_MODELS = {
   [CAPABILITY.TEXT_TO_IMAGE]: "nano-banana-pro",
   [CAPABILITY.IMAGE_TO_VIDEO]: "grok-imagine/image-to-video",
   [CAPABILITY.TEXT_TO_VIDEO]: "kling-2.6/text-to-video",
+  [CAPABILITY.TEXT_TO_SPEECH]: "elevenlabs/text-to-dialogue-v3",
   [CAPABILITY.MUSIC]: "V5",
 };
+
+// Default ElevenLabs voice id for narration (overridable via KIE_TTS_VOICE or
+// per call). This one ships in kie's text-to-dialogue examples.
+const DEFAULT_TTS_VOICE = "EkK5I93UQWFDigLMpZcX";
 
 // kie aspect-ratio options (Jobs API). Map our aspect strings through.
 const KIE_RATIOS = new Set(["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "auto"]);
@@ -253,6 +258,17 @@ function buildInput(capability, p = {}, model = "") {
         aspect_ratio: ratioOf(p),
         duration,
       };
+    case CAPABILITY.TEXT_TO_SPEECH: {
+      // ElevenLabs voices via kie's Jobs API (model elevenlabs/text-to-dialogue-v3).
+      // Single-narrator voiceover => one dialogue line; callers may pass their
+      // own `dialogue` array for multi-speaker.
+      const voice = p.voice || p.voiceId || process.env.KIE_TTS_VOICE || DEFAULT_TTS_VOICE;
+      const dialogue =
+        Array.isArray(p.dialogue) && p.dialogue.length
+          ? p.dialogue
+          : [{ text: p.text || p.prompt || "", voice }];
+      return { dialogue, stability: p.stability ?? 0.5 };
+    }
     case CAPABILITY.MUSIC:
       return { prompt: p.prompt, ...(p.durationSec ? { duration: p.durationSec } : {}) };
     default:
