@@ -35,6 +35,26 @@ const MAX_AUTO_RETRIES = 2;
 // How often the watchdog scans the queue.
 const WATCHDOG_INTERVAL_MS = 30 * 1000;
 
+// renderMedia hardening. Remote OffthreadVideo decoding (kie MP4 backgrounds) is
+// memory-heavy: Remotion opens one Chrome tab per CPU core by default and the
+// OffthreadVideo cache is unbounded, so a multi-scene render can OOM and KILL the
+// worker process — which surfaces as ORPHAN_MAX_RETRIES (a process death), not a
+// clean caught failure. Cap concurrency + cache, and raise the per-frame timeout
+// (fetching a remote clip can exceed the 30s default). All env-overridable.
+const RENDER_CONCURRENCY = Math.max(1, Number(process.env.RENDER_CONCURRENCY) || 2);
+const RENDER_FRAME_TIMEOUT_MS = Number(process.env.RENDER_FRAME_TIMEOUT_MS) || 120000;
+const OFFTHREAD_CACHE_BYTES =
+  Number(process.env.OFFTHREAD_VIDEO_CACHE_BYTES) || 512 * 1024 * 1024; // 512MB
+
+/** Shared renderMedia options that keep the worker process alive on big renders. */
+function renderHardening() {
+  return {
+    concurrency: RENDER_CONCURRENCY,
+    timeoutInMilliseconds: RENDER_FRAME_TIMEOUT_MS,
+    offthreadVideoCacheSizeInBytes: OFFTHREAD_CACHE_BYTES,
+  };
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function previewFramesFor(durationInFrames) {
@@ -483,6 +503,7 @@ async function renderHybridProject(project) {
       codec: "h264",
       outputLocation: outPath,
       inputProps,
+      ...renderHardening(),
       onProgress: ({ progress }) => {
         const pct = Math.min(99, Math.round(72 + progress * 25));
         Project.updateOne(
@@ -601,6 +622,7 @@ async function renderProject(project) {
           codec: "h264",
           outputLocation: outPath,
           inputProps,
+          ...renderHardening(),
           onProgress: ({ progress }) => {
             const pct = Math.min(99, Math.round(5 + progress * 90));
             Project.updateOne(
