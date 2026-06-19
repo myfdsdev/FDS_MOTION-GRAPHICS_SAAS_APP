@@ -14,6 +14,7 @@ import { planScenes } from "./src/lib/generation/planScenes.js";
 import { buildVideoPlan } from "./src/lib/generation/buildVideoPlan.js";
 import { synthesizeNarration } from "./src/lib/generation/narration.js";
 import { synthesizeMusic } from "./src/lib/generation/music.js";
+import { generateCaptions } from "./src/lib/generation/captions.js";
 import { providersFor } from "./src/lib/generation/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -419,6 +420,42 @@ async function renderHybridProject(project) {
       }
     }
     if (videoPlan.music && !videoPlan.music.src) delete videoPlan.music;
+
+    // Subtitles: build word-level captions synced to the narration. We already
+    // know the spoken text (scenePlan.narration.script); we measure the
+    // synthesized audio's duration and distribute the words across it. Opt-out
+    // with GENERATE_CAPTIONS=0. Non-fatal — render proceeds without captions.
+    const captionsEnabled =
+      process.env.GENERATE_CAPTIONS !== "0" && process.env.GENERATE_CAPTIONS !== "false";
+    if (captionsEnabled && scenePlan.narration?.script && !videoPlan.captions?.words?.length) {
+      lastPhase = "captions";
+      const totalSeconds = (videoPlan.scenes || []).reduce(
+        (sum, s) => sum + (Number(s.durationSeconds) || 0),
+        0
+      );
+      // Resolve a probeable source: http(s) urls (kie) as-is; staticFile-relative
+      // local files (SAPI/ElevenLabs "tts/<file>") -> absolute path under public/.
+      let narrAudio = videoPlan.narration?.src;
+      if (narrAudio && !/^https?:\/\//i.test(narrAudio)) {
+        narrAudio = path.join(__dirname, "public", narrAudio.replace(/^\/+/, ""));
+      }
+      const caps = await generateCaptions({
+        script: scenePlan.narration.script,
+        audioSrc: narrAudio,
+        fallbackSeconds: totalSeconds,
+        wordsPerPage: Number(process.env.CAPTIONS_WORDS_PER_PAGE) || 5,
+      }).catch((e) => {
+        console.warn(`[worker] ${id} captions failed: ${e?.message || e}`);
+        return null;
+      });
+      if (caps?.words?.length) {
+        videoPlan.captions = caps;
+        await Project.updateOne(
+          { _id: id },
+          { progress: 75, renderHeartbeatAt: new Date(), renderPlan: { scenePlan, videoPlan } }
+        ).catch(() => {});
+      }
+    }
 
     const inputProps = { aspectRatio: aspect, plan: videoPlan };
 
