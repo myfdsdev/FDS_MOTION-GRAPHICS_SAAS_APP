@@ -21,6 +21,7 @@ export function toProjectDTO(p) {
     sceneJson: p.sceneJson ?? undefined,
     aspectRatio: p.aspectRatio,
     durationSec: p.durationSec,
+    recipe: p.recipe ?? "auto",
     outputUrl: p.outputUrl ?? undefined,
     thumbnailUrl: p.thumbnailUrl ?? undefined,
     voiceoverUrl: p.voiceoverUrl ?? undefined,

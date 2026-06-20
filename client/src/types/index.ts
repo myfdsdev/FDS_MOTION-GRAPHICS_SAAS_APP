@@ -85,6 +85,15 @@ export interface User {
   createdAt: string;
 }
 
+/** A selectable video template (recipe) the user can pick when creating. */
+export interface Recipe {
+  id: string;
+  label: string;
+  description: string;
+  aspectRatio: string;
+  background: string;
+}
+
 export interface Project {
   id: string;
   userId: string;
@@ -94,6 +103,7 @@ export interface Project {
   sceneJson?: VideoPlan;
   aspectRatio: AspectRatio;
   durationSec: number;
+  recipe?: string;
   outputUrl?: string;
   thumbnailUrl?: string;
   voiceoverUrl?: string;

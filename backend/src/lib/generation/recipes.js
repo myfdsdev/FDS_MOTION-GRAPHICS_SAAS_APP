@@ -81,7 +81,7 @@ Beats: TITLE -> METRIC 1 -> METRIC 2 -> TREND/CHART -> TAKEAWAY.`,
     aspectRatio: "16:9",
     background: "graphics",
     sceneRange: [4, 6],
-    favorOverlays: ["heroTitle", "sectionTitle", "textCard", "calloutBox", "particles"],
+    favorOverlays: ["kineticTitle", "heroTitle", "sectionTitle", "textCard", "calloutBox", "particles"],
     keywords: ["typography", "quote", "lyrics", "manifesto", "text", "words", "message", "announcement", "tagline", "motivational", "kinetic"],
     guidance: `
 VIDEO TYPE: Kinetic Typography (text-driven, NO AI footage).
@@ -111,6 +111,105 @@ use flat COLOR backgrounds. Overlays carry specifics: calloutBox for features,
 statCard for numbers, comparisonCard for before/after. Open on a heroTitle, end
 on a CTA card. Use scrim 0.35-0.5 only on the footage scenes; 0 on color scenes.
 Beats: HERO SHOT -> FEATURE -> FEATURE -> BEFORE/AFTER -> CTA.`,
+  },
+
+  // -------------------------------------------------------------- explainer
+  "explainer": {
+    id: "explainer",
+    label: "Explainer",
+    description: "Step-by-step how-it-works with titles, callouts and progress. Mixed footage/color.",
+    aspectRatio: "16:9",
+    background: "mixed",
+    sceneRange: [4, 6],
+    favorOverlays: ["sectionTitle", "textCard", "calloutBox", "progressBar", "statReveal"],
+    keywords: ["explainer", "how it works", "how-to", "howto", "tutorial", "step", "guide", "walkthrough", "onboarding", "teach", "learn", "process", "works"],
+    guidance: `
+VIDEO TYPE: How-it-works Explainer.
+Walk through a process in clear STEPS. Each scene = one step, introduced by a
+sectionTitle and explained with a textCard or calloutBox; use a progressBar to
+show advancement and a statReveal for a key number. Backgrounds: simple AI
+footage for context OR flat color — keep it clean and uncluttered. Scrim
+0.35-0.5 on footage scenes, 0 on color. Beats: SETUP -> STEP 1 -> STEP 2 ->
+STEP 3 -> RESULT.`,
+  },
+
+  // ------------------------------------------------------------- testimonial
+  "testimonial": {
+    id: "testimonial",
+    label: "Testimonial",
+    description: "Customer quotes and social proof over warm footage or color.",
+    aspectRatio: "16:9",
+    background: "mixed",
+    sceneRange: [3, 5],
+    favorOverlays: ["calloutBox", "textCard", "statCard", "providerChip", "heroTitle"],
+    keywords: ["testimonial", "review", "quote", "customer", "feedback", "social proof", "client", "story", "praise", "rating"],
+    guidance: `
+VIDEO TYPE: Testimonial / Social Proof.
+Each scene features ONE short customer quote (calloutBox or textCard) attributed
+with a name (providerChip) over warm, human AI footage or a soft color. Sprinkle
+a statCard for a result ("4.9 stars", "+30% sales"). Open with a heroTitle, end
+on a CTA. Keep quotes punchy and believable. Scrim 0.4 on footage, 0 on color.
+Beats: HOOK -> QUOTE 1 -> QUOTE 2 -> RESULT STAT -> CTA.`,
+  },
+
+  // ---------------------------------------------------------------- listicle
+  "listicle": {
+    id: "listicle",
+    label: "Top List",
+    description: "Countdown / top-N list with big reveals. Graphics, no footage cost.",
+    aspectRatio: "16:9",
+    background: "graphics",
+    sceneRange: [4, 6],
+    favorOverlays: ["statReveal", "sectionTitle", "textCard", "calloutBox", "particles"],
+    keywords: ["top", "list", "listicle", "countdown", "ranking", "best", "tips", "reasons", "ways", "facts", "rank"],
+    guidance: `
+VIDEO TYPE: Top-N Listicle (graphics, NO AI footage).
+A countdown of items. Backgrounds are bold flat COLOR (background.kind "color",
+changing per scene; never source "generate"). Each scene reveals one list item
+with a big number/statReveal + a sectionTitle and a one-line textCard. Energetic
+and snappy. Set background.scrim to 0. Beats: TITLE ("Top 5...") -> #1 -> #2 ->
+#3 -> WRAP/CTA.`,
+  },
+
+  // -------------------------------------------------------------- promo/sale
+  "promo-sale": {
+    id: "promo-sale",
+    label: "Promo / Sale",
+    description: "Urgent discount promo: big offer, price and CTA. Bold color or footage.",
+    aspectRatio: "16:9",
+    background: "mixed",
+    sceneRange: [3, 5],
+    favorOverlays: ["heroTitle", "statCard", "calloutBox", "comparisonCard", "providerChip"],
+    keywords: ["sale", "discount", "promo", "offer", "deal", "coupon", "limited", "black friday", "clearance", "save", "off"],
+    guidance: `
+VIDEO TYPE: Promo / Sale.
+High-urgency offer video. Lead with a heroTitle hook, slam the discount with a
+big statCard ("50% OFF"), justify with a comparisonCard (was/now price), and end
+on a strong calloutBox CTA with urgency ("Ends Sunday"). Mix punchy product AI
+footage with bold flat-color offer cards. Scrim 0.4 on footage, 0 on color.
+Beats: HOOK -> THE OFFER -> WAS/NOW -> URGENCY/CTA.`,
+  },
+
+  // ----------------------------------------------------------- subtitles
+  "captions": {
+    id: "captions",
+    label: "Subtitles",
+    description: "Big animated subtitles synced to the voiceover, over clean color. No footage.",
+    aspectRatio: "16:9",
+    background: "graphics",
+    sceneRange: [3, 5],
+    favorOverlays: ["sectionTitle"],
+    keywords: ["subtitle", "subtitles", "caption", "captions", "captioned", "voiceover", "voice over", "lyric", "lyrics", "karaoke", "narration", "talking"],
+    guidance: `
+VIDEO TYPE: Subtitle / Captioned Voiceover (the WORDS are the video).
+The auto-generated word-level captions synced to the narration are the MAIN
+visual — they appear automatically, you do NOT add them. Backgrounds are clean
+flat or gradient COLOR (background.kind "color", change per scene; never source
+"generate" — no footage). Add NO overlays, or at most ONE small sectionTitle per
+scene; do not clutter, the captions carry the message. Write a STRONG, clear
+narration script — this video lives or dies on the voiceover. Set background.scrim
+to 0. Keep scenes simple and let the spoken words pop. Beats: OPEN -> POINT ->
+POINT -> CLOSE.`,
   },
 
   // ------------------------------------------------------------ social short

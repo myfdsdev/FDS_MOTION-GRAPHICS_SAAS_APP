@@ -16,6 +16,7 @@ import { enhanceRouter } from "./routes/enhance.js";
 import { localTtsRouter } from "./routes/localTts.js";
 import { profileRouter } from "./routes/profile.js";
 import { projectsRouter } from "./routes/projects.js";
+import { recipesRouter } from "./routes/recipes.js";
 import { stripeRouter, stripeWebhookHandler } from "./routes/stripe.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -78,6 +79,7 @@ export function createApp() {
   app.use("/api/admin", adminRouter);
   app.use("/api/assistant", assistantRouter);
   app.use("/api/projects", projectsRouter);
+  app.use("/api/recipes", recipesRouter);
   app.use("/api/enhance-prompt", enhanceRouter);
   app.use("/api/local-tts", localTtsRouter);
   app.use("/api/billing", billingRouter);

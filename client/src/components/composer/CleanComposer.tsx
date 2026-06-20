@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2, X, ImageIcon } from "lucide-react";
-import { useCreateProject, useEnhancePrompt } from "@/lib/queries";
+import { useCreateProject, useEnhancePrompt, useRecipes } from "@/lib/queries";
 import { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } from "@/lib/domainGuard";
 import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
@@ -36,9 +36,11 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const navigate = useNavigate();
   const createProject = useCreateProject();
   const enhance = useEnhancePrompt();
+  const { data: recipes } = useRecipes();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [prompt, setPrompt] = useState("");
+  const [recipe, setRecipe] = useState("auto");
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState("");
 
@@ -77,6 +79,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
       const proj = await createProject.mutateAsync({
         prompt,
         durationSec,
+        recipe,
         referenceImage: refImage ?? undefined,
       });
       navigate(`/projects/${proj.id}/edit`);
@@ -280,6 +283,33 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
           </div>
         </div>
       </div>
+
+      {/* Template (recipe) picker — below the box */}
+      {recipes && recipes.length > 0 && (
+        <div className="mt-3 flex flex-col items-center gap-1.5">
+          <span className="text-[11px] uppercase tracking-wide text-faint">Template</span>
+          <div className="flex items-center justify-center flex-wrap gap-1.5 max-w-full">
+            {recipes.map((r) => {
+              const active = recipe === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setRecipe(r.id)}
+                  title={r.description}
+                  className={`shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
+                    active
+                      ? "bg-accent text-accent-ink border-accent shadow-accent"
+                      : "border-border text-muted hover:text-fg hover:bg-surface-2"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

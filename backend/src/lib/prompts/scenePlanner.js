@@ -71,9 +71,13 @@ EACH SCENE
 EACH OVERLAY (motion graphics that ride ON TOP of the footage)
 {
   "type": one of:
-    heroTitle, sectionTitle, textCard, statCard, statReveal,
+    heroTitle, kineticTitle, sectionTitle, textCard, statCard, statReveal,
     calloutBox, comparisonCard, progressBar, providerChip,
     barChart, lineChart, pieChart, kpiGrid, particles,
+    // kineticTitle = PREMIUM full-scene animated title (paints its own gradient
+    //   backdrop, glow, grain). Use it as the ONLY overlay on a hero/title scene
+    //   for a high-end look. props: { title, subtitle?, gradient?:[from,to hex],
+    //   bg?:hex, accent?:hex }. Pair with background.kind "color".
   "props": object matching that component (e.g. heroTitle => {title, subtitle}),
   "fromFrames": optional int — when it appears inside the scene,
   "durationInFrames": optional int — how long it stays

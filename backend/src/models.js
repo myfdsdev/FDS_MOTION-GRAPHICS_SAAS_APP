@@ -79,6 +79,9 @@ const projectSchema = new Schema(
     brief: { type: String, default: null },
     aspectRatio: { type: String, default: "16:9" },
     durationSec: { type: Number, default: 20 },
+    /** User-selected video template/recipe (see lib/generation/recipes.js).
+     *  "auto" (or null) lets the planner pick from the prompt. */
+    recipe: { type: String, default: "auto" },
     outputUrl: { type: String, default: null },
     thumbnailUrl: { type: String, default: null },
     /** Narration MP3 produced by ElevenLabs TTS from `script`. Optional. */

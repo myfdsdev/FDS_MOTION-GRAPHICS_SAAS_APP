@@ -115,12 +115,21 @@ export function useProject(id: string | undefined) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prompt, durationSec, referenceImage, aspectRatio }: { prompt: string; durationSec?: number; referenceImage?: string; aspectRatio?: AspectRatio }) =>
-      api.createProject(prompt, durationSec, referenceImage, aspectRatio),
+    mutationFn: ({ prompt, durationSec, referenceImage, aspectRatio, recipe }: { prompt: string; durationSec?: number; referenceImage?: string; aspectRatio?: AspectRatio; recipe?: string }) =>
+      api.createProject(prompt, durationSec, referenceImage, aspectRatio, recipe),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["me"] });
     },
+  });
+}
+
+// Video templates for the create picker. Static-ish — cache for the session.
+export function useRecipes() {
+  return useQuery({
+    queryKey: ["recipes"],
+    queryFn: api.getRecipes,
+    staleTime: 60 * 60 * 1000,
   });
 }
 

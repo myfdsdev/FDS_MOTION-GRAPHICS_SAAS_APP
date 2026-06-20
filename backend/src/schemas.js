@@ -386,6 +386,10 @@ export const CreateProjectInput = z.object({
   prompt: z.string().min(10).max(5000),
   durationSec: z.number().int().min(5).max(60).optional().default(20),
   aspectRatio: AspectRatio.optional().default("16:9"),
+  // Video template/recipe id (or "auto" to let the planner pick). Permissive on
+  // purpose — getRecipe() falls back to the default for unknown values, so
+  // adding recipes never requires a schema change.
+  recipe: z.string().max(40).optional().default("auto"),
   referenceImage: z.string().max(6_000_000).optional(),
 });
 

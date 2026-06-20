@@ -8,7 +8,7 @@ import { webpackOverride } from "./remotion/webpackOverride.js";
 import { connectDB } from "./src/db.js";
 import { Project } from "./src/models.js";
 import { costForDuration, refundCredits } from "./src/lib/credits.js";
-import { fixComponent } from "./src/lib/codegen.js";
+import { fixComponent, generateComponent } from "./src/lib/codegen.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 import { planScenes } from "./src/lib/generation/planScenes.js";
 import { buildVideoPlan } from "./src/lib/generation/buildVideoPlan.js";
@@ -571,7 +571,12 @@ async function renderProject(project) {
     `[worker] rendering ${id} (${project.aspectRatio}, ${project.durationSec}s, attempt ${project.renderAttempts})…`
   );
 
-  if (!project.componentSource?.trim()) {
+  // "No template" (recipe "none"/"code") forces the CODE-GEN path even with no
+  // componentSource yet — the AI writes the entire video as a Remotion TSX
+  // component below. Everything else with no componentSource uses the
+  // plan-driven hybrid/recipe renderer (SceneRenderer).
+  const wantsCodegen = project.recipe === "none" || project.recipe === "code";
+  if (!wantsCodegen && !project.componentSource?.trim()) {
     await renderHybridProject(project);
     return;
   }
@@ -580,10 +585,6 @@ async function renderProject(project) {
   let previousSceneSource = null;
   let sceneSlotTouched = false;
   try {
-    if (!project.componentSource || !project.componentSource.trim()) {
-      throw new Error("Project has no generated component to render");
-    }
-
     const aspect = project.aspectRatio || "16:9";
     const durationInFrames = Math.max(1, Math.round((Number(project.durationSec) || 20) * FPS));
     const inputProps = { aspectRatio: aspect, durationInFrames };
@@ -592,10 +593,31 @@ async function renderProject(project) {
       ? fs.readFileSync(SCENE_PATH, "utf8")
       : null;
 
+    // No-template mode: have the AI write the full Remotion component (TSX). If
+    // we don't already have one, generate + persist it now, then render it below
+    // with the existing self-repair loop.
+    let current = project.componentSource;
+    if (!current?.trim()) {
+      lastPhase = "codegen";
+      await Project.updateOne(
+        { _id: id },
+        { progress: 12, renderHeartbeatAt: new Date() }
+      ).catch(() => {});
+      const gen = await generateComponent({
+        prompt: project.prompt,
+        durationSec: Number(project.durationSec) || 20,
+        aspect,
+      });
+      current = gen.source;
+      await Project.updateOne(
+        { _id: id },
+        { componentSource: current, brief: gen.brief, renderHeartbeatAt: new Date() }
+      ).catch(() => {});
+    }
+
     // Write → bundle → render, with up to 2 self-repair attempts if the
     // component crashes at bundle/render time. The repaired source is saved
     // back to the project so future re-renders use the working version.
-    let current = project.componentSource;
     const MAX_RENDER_ATTEMPTS = 3;
     for (let attempt = 1; attempt <= MAX_RENDER_ATTEMPTS; attempt++) {
       fs.mkdirSync(path.dirname(SCENE_PATH), { recursive: true });
