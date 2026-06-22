@@ -43,7 +43,7 @@ export type AnimationType =
 export type TransitionType = "cut" | "quick-slide" | "zoom-cut" | "fade" | "blur";
 
 export type VideoCategory =
-  |``` "business"
+  | "business"
   | "personal"
   | "saas"
   | "marketing"
