@@ -92,6 +92,8 @@ export interface Recipe {
   description: string;
   aspectRatio: string;
   background: string;
+  /** UI section: "ai-video" (uses footage) or "motion-graphics" (no footage). */
+  group?: string;
 }
 
 export interface Project {

@@ -40,9 +40,20 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [prompt, setPrompt] = useState("");
+  const [section, setSection] = useState<"ai-video" | "motion-graphics">("ai-video");
   const [recipe, setRecipe] = useState("auto");
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState("");
+
+  // Templates split into two sections: AI Video (uses footage) vs Motion
+  // Graphics (no footage). Picking a section filters the templates and the
+  // chosen recipe to that section.
+  const sectionRecipes = (recipes ?? []).filter((r) => (r.group ?? "ai-video") === section);
+  const switchSection = (next: "ai-video" | "motion-graphics") => {
+    setSection(next);
+    const first = (recipes ?? []).find((r) => (r.group ?? "ai-video") === next);
+    if (first) setRecipe(first.id);
+  };
 
   const isSubmitting = createProject.isPending;
   const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
@@ -284,12 +295,41 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20 }: Props
         </div>
       </div>
 
-      {/* Template (recipe) picker — below the box */}
+      {/* Template picker — split into two sections */}
       {recipes && recipes.length > 0 && (
-        <div className="mt-3 flex flex-col items-center gap-1.5">
-          <span className="text-[11px] uppercase tracking-wide text-faint">Template</span>
+        <div className="mt-4 flex flex-col items-center gap-2.5">
+          {/* Section tabs */}
+          <div className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2/50 p-1">
+            <button
+              type="button"
+              onClick={() => switchSection("ai-video")}
+              className={`px-3.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                section === "ai-video" ? "bg-accent text-accent-ink shadow-accent" : "text-muted hover:text-fg"
+              }`}
+            >
+              🎬 AI Video
+            </button>
+            <button
+              type="button"
+              onClick={() => switchSection("motion-graphics")}
+              className={`px-3.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                section === "motion-graphics" ? "bg-accent text-accent-ink shadow-accent" : "text-muted hover:text-fg"
+              }`}
+            >
+              ✨ Motion Graphics
+            </button>
+          </div>
+
+          {/* Section hint */}
+          <span className="text-[11px] text-faint">
+            {section === "ai-video"
+              ? "Cinematic AI-generated footage with graphic overlays."
+              : "Pure motion graphics — no footage. Free & fast to render."}
+          </span>
+
+          {/* Templates in this section */}
           <div className="flex items-center justify-center flex-wrap gap-1.5 max-w-full">
-            {recipes.map((r) => {
+            {sectionRecipes.map((r) => {
               const active = recipe === r.id;
               return (
                 <button

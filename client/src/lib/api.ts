@@ -167,18 +167,18 @@ export async function createProject(
 export async function getRecipes(): Promise<Recipe[]> {
   if (USE_MOCKS) {
     return [
-      { id: "auto", label: "Auto (let AI pick)", description: "We choose the best template from your prompt.", aspectRatio: "16:9", background: "mixed" },
-      { id: "cinematic-ad", label: "Cinematic Ad", description: "AI footage + titles + voiceover.", aspectRatio: "16:9", background: "footage" },
-      { id: "data-explainer", label: "Data Explainer", description: "Charts & KPIs on clean color. No footage.", aspectRatio: "16:9", background: "graphics" },
-      { id: "kinetic-typography", label: "Kinetic Typography", description: "Bold animated text. No footage.", aspectRatio: "16:9", background: "graphics" },
-      { id: "product-showcase", label: "Product Showcase", description: "Product footage + feature callouts.", aspectRatio: "16:9", background: "mixed" },
-      { id: "explainer", label: "Explainer", description: "Step-by-step how-it-works.", aspectRatio: "16:9", background: "mixed" },
-      { id: "testimonial", label: "Testimonial", description: "Customer quotes & social proof.", aspectRatio: "16:9", background: "mixed" },
-      { id: "listicle", label: "Top List", description: "Countdown / top-N list. No footage.", aspectRatio: "16:9", background: "graphics" },
-      { id: "promo-sale", label: "Promo / Sale", description: "Urgent discount promo.", aspectRatio: "16:9", background: "mixed" },
-      { id: "captions", label: "Subtitles", description: "Big subtitles synced to voiceover. No footage.", aspectRatio: "16:9", background: "graphics" },
-      { id: "social-short", label: "Social Short (Vertical)", description: "Fast 9:16 reel.", aspectRatio: "9:16", background: "mixed" },
-      { id: "none", label: "No template (AI codes it)", description: "The AI writes the entire video as custom code. Most flexible, slower.", aspectRatio: "16:9", background: "code" },
+      { id: "auto", label: "Auto (let AI pick)", description: "We choose the best template from your prompt.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
+      { id: "cinematic-ad", label: "Cinematic Ad", description: "AI footage + titles + voiceover.", aspectRatio: "16:9", background: "footage", group: "ai-video" },
+      { id: "data-explainer", label: "Data Explainer", description: "Charts & KPIs on clean color. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
+      { id: "kinetic-typography", label: "Kinetic Typography", description: "Bold animated text. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
+      { id: "product-showcase", label: "Product Showcase", description: "Product footage + feature callouts.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
+      { id: "explainer", label: "Explainer", description: "Step-by-step how-it-works.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
+      { id: "testimonial", label: "Testimonial", description: "Customer quotes & social proof.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
+      { id: "listicle", label: "Top List", description: "Countdown / top-N list. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
+      { id: "promo-sale", label: "Promo / Sale", description: "Urgent discount promo.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
+      { id: "captions", label: "Subtitles", description: "Big subtitles synced to voiceover. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
+      { id: "social-short", label: "Social Short (Vertical)", description: "Fast 9:16 reel.", aspectRatio: "9:16", background: "mixed", group: "ai-video" },
+      { id: "none", label: "No template (AI codes it)", description: "The AI writes the entire video as custom code. Most flexible, slower.", aspectRatio: "16:9", background: "code", group: "motion-graphics" },
     ];
   }
   return realFetch<Recipe[]>("/api/recipes");
