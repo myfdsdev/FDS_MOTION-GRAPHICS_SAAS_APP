@@ -22,6 +22,7 @@ import {
   ProgressBar,
   CaptionOverlay,
   KineticTitle,
+  LogoReveal,
   ParticleOverlay,
   ProviderChip,
   BarChart,
@@ -73,6 +74,7 @@ function resolveAsset(src: string): string {
 export type OverlayType =
   | "heroTitle"
   | "kineticTitle"
+  | "logoReveal"
   | "sectionTitle"
   | "textCard"
   | "statCard"
@@ -303,6 +305,16 @@ function normalizeOverlayProps(type: OverlayType, rawProps: unknown): Record<str
         bg: typeof props.bg === "string" ? props.bg : undefined,
         accent: typeof props.accent === "string" ? props.accent : undefined,
       };
+    case "logoReveal":
+      return {
+        ...props,
+        brand: typeof props.brand === "string" ? props.brand : undefined,
+        tagline: typeof props.tagline === "string" ? props.tagline : undefined,
+        cta: typeof props.cta === "string" ? props.cta : undefined,
+        gradient: Array.isArray(props.gradient) ? props.gradient : undefined,
+        bg: typeof props.bg === "string" ? props.bg : undefined,
+        accent: typeof props.accent === "string" ? props.accent : undefined,
+      };
     case "sectionTitle":
       return { ...props, title, subtitle: props.subtitle };
     case "textCard":
@@ -344,6 +356,7 @@ function normalizeOverlayProps(type: OverlayType, rawProps: unknown): Record<str
 const OVERLAY_COMPONENTS: Record<OverlayType, React.ComponentType<any>> = {
   heroTitle: HeroTitle,
   kineticTitle: KineticTitle,
+  logoReveal: LogoReveal,
   sectionTitle: SectionTitle,
   textCard: TextCard,
   statCard: StatCard,

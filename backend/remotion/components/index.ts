@@ -9,6 +9,7 @@ export { SectionTitle } from "./SectionTitle";
 export { StatReveal } from "./StatReveal";
 export { HeroTitle } from "./HeroTitle";
 export { KineticTitle } from "./KineticTitle";
+export { LogoReveal } from "./LogoReveal";
 export { ParticleOverlay } from "./ParticleOverlay";
 export { AnimeScene } from "./AnimeScene";
 export { TerminalScene } from "./TerminalScene";

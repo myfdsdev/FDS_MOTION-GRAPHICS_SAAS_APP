@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import {
   Clapperboard,
+  Film,
   Plus,
   FolderClock,
   LogOut,
@@ -35,8 +36,9 @@ export default function AppLayout() {
   const previewTo = latestProjectId ? `/projects/${latestProjectId}/edit` : "/dashboard";
 
   const navItems = [
-    { to: "/dashboard", label: "Create with AI", icon: Plus },
-    { to: previewTo, label: "Preview", icon: Clapperboard },
+    { to: "/dashboard", label: "AI Video", icon: Clapperboard },
+    { to: "/motion-graphics", label: "Motion Graphics", icon: Sparkles },
+    { to: previewTo, label: "Preview", icon: Film },
     { to: "/local-tts", label: "Local TTS", icon: AudioLines },
     ...NAV,
   ];

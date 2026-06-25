@@ -41,7 +41,8 @@ export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      { path: "/dashboard", element: <DashboardPage /> },
+      { path: "/dashboard", element: <DashboardPage section="ai-video" /> },
+      { path: "/motion-graphics", element: <DashboardPage section="motion-graphics" /> },
       { path: "/ai", element: <Navigate to="/dashboard" replace /> },
       { path: "/create", element: <Navigate to="/dashboard" replace /> },
       { path: "/projects", element: <ProjectListPage /> },

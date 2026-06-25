@@ -18,7 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = path.resolve(__dirname, "../../schemas/scene_plan.schema.json");
 
 const OVERLAY_TYPES = new Set([
-  "heroTitle", "kineticTitle", "sectionTitle", "textCard", "statCard", "statReveal",
+  "heroTitle", "kineticTitle", "logoReveal", "sectionTitle", "textCard", "statCard", "statReveal",
   "calloutBox", "comparisonCard", "progressBar", "providerChip",
   "barChart", "lineChart", "pieChart", "kpiGrid", "particles",
 ]);
