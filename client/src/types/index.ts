@@ -85,6 +85,35 @@ export interface User {
   createdAt: string;
 }
 
+/** ---- Bot Engine (chat) ---- */
+export interface BotMessage {
+  id: string;
+  role: "user" | "assistant";
+  type: "text" | "tool" | "asset";
+  content: string;
+  toolName?: string;
+  projectId?: string;
+  outputUrl?: string;
+  createdAt?: string;
+}
+export interface BotActiveGeneration {
+  projectId: string;
+  status: string | null;
+  progress: number;
+}
+export interface BotSession {
+  id: string;
+  title: string;
+  messages: BotMessage[];
+  activeGeneration: BotActiveGeneration | null;
+  updatedAt?: string;
+}
+export interface BotSessionSummary {
+  id: string;
+  title: string;
+  updatedAt?: string;
+}
+
 /** A selectable video template (recipe) the user can pick when creating. */
 export interface Recipe {
   id: string;

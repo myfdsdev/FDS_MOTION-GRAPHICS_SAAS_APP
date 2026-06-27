@@ -212,6 +212,28 @@ to 0. Keep scenes simple and let the spoken words pop. Beats: OPEN -> POINT ->
 POINT -> CLOSE.`,
   },
 
+  // ------------------------------------------------- subtitle video (hybrid)
+  "subtitle-video": {
+    id: "subtitle-video",
+    label: "Subtitle Video",
+    description: "AI footage with big synced subtitles + voiceover. Caption-led hybrid.",
+    aspectRatio: "16:9",
+    background: "footage",
+    sceneRange: [4, 6],
+    favorOverlays: ["heroTitle"],
+    keywords: ["subtitle video", "captioned footage", "voiceover footage", "b-roll", "documentary", "talking head", "explainer footage", "narrated"],
+    guidance: `
+VIDEO TYPE: Subtitle Video (AI footage + synced captions).
+Every scene background is AI-generated cinematic footage (background.kind
+"video", source "generate", rich subject-anchored asset.prompt). The
+auto-generated word-level captions synced to the narration are the MAIN
+on-screen element — they appear automatically, do NOT add them as overlays.
+Keep overlays minimal: at most ONE small heroTitle on the opening scene;
+otherwise let the footage + captions carry it. Write a STRONG, clear narration
+script (the video is voiceover-driven). Use background.scrim 0.45-0.55 so the
+captions stay readable over footage. Beats: HOOK -> POINT -> POINT -> POINT -> CTA.`,
+  },
+
   // ------------------------------------------------------------ social short
   "social-short": {
     id: "social-short",

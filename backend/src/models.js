@@ -223,6 +223,43 @@ const lottieAssetSchema = new Schema(
 );
 lottieAssetSchema.index({ category: 1, createdAt: -1 });
 
+// ---- Bot Engine: stateful chat sessions ---------------------------------
+// One chat thread = a BotChatSession with an array of messages. Three message
+// types: "text" (markdown chat), "tool" (a running background task card, e.g.
+// video generation), "asset" (a finished media result). The `activeGeneration`
+// is the "task snapshot": while a video is rendering it points at the Project;
+// on every read we reconcile it from that Project's live status so a page
+// reload resumes the loader (resilience).
+const botMessageSchema = new Schema(
+  {
+    role: { type: String, enum: ["user", "assistant"], required: true },
+    type: { type: String, enum: ["text", "tool", "asset"], default: "text" },
+    content: { type: String, default: "" },
+    toolName: { type: String, default: null },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null },
+    outputUrl: { type: String, default: null },
+  },
+  { timestamps: true }
+);
+
+const botChatSessionSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    title: { type: String, default: "New chat" },
+    messages: { type: [botMessageSchema], default: [] },
+    // Task snapshot — projectId set while a generation runs, cleared when done.
+    activeGeneration: {
+      projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null },
+      status: { type: String, default: null },
+      progress: { type: Number, default: 0 },
+      messageId: { type: Schema.Types.ObjectId, default: null },
+    },
+    deletedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+botChatSessionSchema.index({ userId: 1, updatedAt: -1 });
+
 // Guard against model re-compilation under `node --watch` reloads.
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
@@ -234,3 +271,5 @@ export const AppSetting =
   mongoose.models.AppSetting || mongoose.model("AppSetting", appSettingSchema);
 export const LottieAsset =
   mongoose.models.LottieAsset || mongoose.model("LottieAsset", lottieAssetSchema);
+export const BotChatSession =
+  mongoose.models.BotChatSession || mongoose.model("BotChatSession", botChatSessionSchema);

@@ -4,6 +4,7 @@ import LandingPage from "@/page/LandingPage";
 import LoginPage from "@/page/LoginPage";
 import RegisterPage from "@/page/RegisterPage";
 import DashboardPage from "@/page/DashboardPage";
+import AssistantPage from "@/page/AssistantPage";
 import ProjectListPage from "@/page/ProjectListPage";
 import EditorPage from "@/page/EditorPage";
 import DownloadPage from "@/page/DownloadPage";
@@ -43,6 +44,8 @@ export const router = createBrowserRouter([
     children: [
       { path: "/dashboard", element: <DashboardPage section="ai-video" /> },
       { path: "/motion-graphics", element: <DashboardPage section="motion-graphics" /> },
+      { path: "/assistant", element: <AssistantPage /> },
+      { path: "/assistant/:id", element: <AssistantPage /> },
       { path: "/ai", element: <Navigate to="/dashboard" replace /> },
       { path: "/create", element: <Navigate to="/dashboard" replace /> },
       { path: "/projects", element: <ProjectListPage /> },

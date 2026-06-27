@@ -124,6 +124,48 @@ export function useCreateProject() {
   });
 }
 
+// ---------- Bot Engine (chat) ----------
+export function useBotSessions() {
+  return useQuery({ queryKey: ["botSessions"], queryFn: api.listBotSessions });
+}
+
+export function useBotSession(id: string | undefined) {
+  return useQuery({
+    queryKey: ["botSession", id],
+    queryFn: () => api.getBotSession(id!),
+    enabled: !!id,
+    // Poll while a video is generating so the chat's progress card updates live.
+    refetchInterval: (q) => (q.state.data?.activeGeneration ? 2500 : false),
+  });
+}
+
+export function useCreateBotSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.createBotSession,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["botSessions"] }),
+  });
+}
+
+export function useSendBotMessage(id: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (message: string) => api.sendBotMessage(id!, message),
+    onSuccess: (session) => {
+      qc.setQueryData(["botSession", id], session);
+      qc.invalidateQueries({ queryKey: ["botSessions"] });
+    },
+  });
+}
+
+export function useDeleteBotSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteBotSession(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["botSessions"] }),
+  });
+}
+
 // Video templates for the create picker. Static-ish — cache for the session.
 export function useRecipes() {
   return useQuery({

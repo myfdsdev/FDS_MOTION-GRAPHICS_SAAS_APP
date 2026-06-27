@@ -9,6 +9,8 @@ import type {
   ProfileSettings,
   Project,
   Recipe,
+  BotSession,
+  BotSessionSummary,
   AspectRatio,
   UploadLottieAssetInput,
   User,
@@ -177,11 +179,33 @@ export async function getRecipes(): Promise<Recipe[]> {
       { id: "listicle", label: "Top List", description: "Countdown / top-N list. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
       { id: "promo-sale", label: "Promo / Sale", description: "Urgent discount promo.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
       { id: "captions", label: "Subtitles", description: "Big subtitles synced to voiceover. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
+      { id: "subtitle-video", label: "Subtitle Video", description: "AI footage with big synced subtitles + voiceover.", aspectRatio: "16:9", background: "footage", group: "ai-video" },
       { id: "social-short", label: "Social Short (Vertical)", description: "Fast 9:16 reel.", aspectRatio: "9:16", background: "mixed", group: "ai-video" },
       { id: "none", label: "No template (AI codes it)", description: "The AI writes the entire video as custom code. Most flexible, slower.", aspectRatio: "16:9", background: "code", group: "motion-graphics" },
     ];
   }
   return realFetch<Recipe[]>("/api/recipes");
+}
+
+// ---------- Bot Engine (chat) ----------
+// Real-backend only (no mock path) — the chat agent needs the server.
+export async function listBotSessions(): Promise<BotSessionSummary[]> {
+  return realFetch<BotSessionSummary[]>("/api/bot/sessions");
+}
+export async function createBotSession(): Promise<BotSession> {
+  return realFetch<BotSession>("/api/bot/sessions", { method: "POST" });
+}
+export async function getBotSession(id: string): Promise<BotSession> {
+  return realFetch<BotSession>(`/api/bot/sessions/${id}`);
+}
+export async function sendBotMessage(id: string, message: string): Promise<BotSession> {
+  return realFetch<BotSession>(`/api/bot/sessions/${id}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+}
+export async function deleteBotSession(id: string): Promise<void> {
+  await realFetch<void>(`/api/bot/sessions/${id}`, { method: "DELETE" });
 }
 
 export async function deleteProject(id: string): Promise<void> {

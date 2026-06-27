@@ -401,6 +401,11 @@ export const AssistantChatInput = z.object({
   message: z.string().trim().min(2).max(2000),
 });
 
+// Bot Engine: a message sent into a chat session.
+export const BotMessageInput = z.object({
+  message: z.string().trim().min(1).max(4000),
+});
+
 export const GenerateProjectInput = z.object({
   prompt: z.string().min(10).max(5000),
   durationSec: z.number().int().min(5).max(60).optional(),

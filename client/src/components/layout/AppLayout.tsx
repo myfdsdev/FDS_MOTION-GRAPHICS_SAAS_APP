@@ -3,13 +3,13 @@ import { Outlet, Link, useNavigate, useLocation, Navigate } from "react-router-d
 import {
   Clapperboard,
   Film,
+  MessageSquare,
   Plus,
   FolderClock,
   LogOut,
   Menu,
   Sparkles,
   Coins,
-  AudioLines,
   UserRound,
   ShieldCheck,
   X,
@@ -36,10 +36,10 @@ export default function AppLayout() {
   const previewTo = latestProjectId ? `/projects/${latestProjectId}/edit` : "/dashboard";
 
   const navItems = [
+    { to: "/assistant", label: "Assistant", icon: MessageSquare },
     { to: "/dashboard", label: "AI Video", icon: Clapperboard },
     { to: "/motion-graphics", label: "Motion Graphics", icon: Sparkles },
     { to: previewTo, label: "Preview", icon: Film },
-    { to: "/local-tts", label: "Local TTS", icon: AudioLines },
     ...NAV,
   ];
 
@@ -117,7 +117,7 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {[...navItems, ...(me.isAdmin ? [{ to: "/admin", label: "Admin", icon: ShieldCheck }] : [])].map((item) => {
+          {navItems.map((item) => {
             const path = location.pathname;
             const onEditor = path.endsWith("/edit");
             let active = false;
@@ -197,6 +197,14 @@ export default function AppLayout() {
               >
                 <Coins size={15} className="text-muted" /> Billing
               </Link>
+              {me.isAdmin && (
+                <Link
+                  to="/admin"
+                  className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-fg hover:bg-surface-2"
+                >
+                  <ShieldCheck size={15} className="text-muted" /> Admin
+                </Link>
+              )}
 
               <div className="flex items-center justify-between rounded-md px-2 py-2 text-sm text-fg">
                 <span className="text-muted">Theme</span>
