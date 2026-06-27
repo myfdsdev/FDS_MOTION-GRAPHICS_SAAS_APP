@@ -13,7 +13,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       title={isDark ? "Light mode" : "Dark mode"}
       className={cn(
         "inline-flex items-center justify-center w-9 h-9 rounded-full border border-border bg-surface text-muted hover:text-fg hover:bg-surface-2 transition-colors",
-        className
+        className,
       )}
     >
       {isDark ? <Sun size={16} /> : <Moon size={16} />}
