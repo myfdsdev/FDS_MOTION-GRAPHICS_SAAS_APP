@@ -24,7 +24,8 @@ interface LogoRevealProps {
   accent?: string;
 }
 
-const FONT = "'Space Grotesk', 'Clash Display', Inter, system-ui, sans-serif";
+import { DISPLAY_FONT } from "./fonts";
+const FONT = DISPLAY_FONT;
 const SPARKLE = "M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6L12 2z";
 
 export const LogoReveal: React.FC<LogoRevealProps> = ({

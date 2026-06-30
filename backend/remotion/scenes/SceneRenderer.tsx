@@ -11,6 +11,11 @@ import {
   type CalculateMetadataFunction,
 } from "remotion";
 
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
+import { fade } from "@remotion/transitions/fade";
+import { slide } from "@remotion/transitions/slide";
+import { wipe } from "@remotion/transitions/wipe";
+
 import {
   HeroTitle,
   SectionTitle,
@@ -52,6 +57,17 @@ import {
  * ------------------------------------------------------------------ */
 
 const FPS = 30;
+
+// Cross-scene transitions. Kept short so they read as polish, not delay. The
+// last scene is padded by the total overlap so the composition stays exactly
+// `sum(scene durations)` long (keeps audio/captions in sync, no black tail).
+const TRANSITION_FRAMES = 12;
+const TRANSITIONS = [
+  fade(),
+  slide({ direction: "from-right" }),
+  wipe({ direction: "from-left" }),
+  slide({ direction: "from-bottom" }),
+];
 
 /* ---------- asset resolution (mirrors AnimeScene/CinematicRenderer) -- */
 function resolveAsset(src: string): string {
@@ -527,28 +543,39 @@ const AudioLayer: React.FC<{ track: AudioTrack; defaultVolume: number }> = ({
 /* ---------- the composition ------------------------------------------ */
 
 export const SceneRenderer: React.FC<SceneRendererProps> = ({ plan }) => {
-  let cursor = 0; // running frame offset = the merge
+  const scenes = plan.scenes ?? [];
+  const n = scenes.length;
+  const overlap = Math.max(0, n - 1) * TRANSITION_FRAMES;
+
+  // Build a flat list of <Transition> + <Sequence> nodes for TransitionSeries.
+  const nodes: React.ReactNode[] = [];
+  scenes.forEach((scene, i) => {
+    if (i > 0) {
+      nodes.push(
+        <TransitionSeries.Transition
+          key={`t-${i}`}
+          presentation={TRANSITIONS[(i - 1) % TRANSITIONS.length]}
+          timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })}
+        />,
+      );
+    }
+    const base = toPositiveFrames(sceneDurationSeconds(scene) * FPS, FPS);
+    const dur = base + (i === n - 1 ? overlap : 0); // pad last to keep total length
+    nodes.push(
+      <TransitionSeries.Sequence key={scene.id} durationInFrames={dur}>
+        <SceneLayer scene={scene} />
+      </TransitionSeries.Sequence>,
+    );
+  });
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {/* Audio (spans whole video) */}
-      {plan.narration ? (
-        <AudioLayer track={plan.narration} defaultVolume={1} />
-      ) : null}
-      {plan.music ? (
-        <AudioLayer track={plan.music} defaultVolume={0.15} />
-      ) : null}
+      {plan.narration ? <AudioLayer track={plan.narration} defaultVolume={1} /> : null}
+      {plan.music ? <AudioLayer track={plan.music} defaultVolume={0.15} /> : null}
 
-      {/* Scenes laid end-to-end */}
-      {plan.scenes.map((scene) => {
-        const dur = toPositiveFrames(sceneDurationSeconds(scene) * FPS, FPS);
-        const from = cursor;
-        cursor += dur;
-        return (
-          <Sequence key={scene.id} from={from} durationInFrames={dur}>
-            <SceneLayer scene={scene} />
-          </Sequence>
-        );
-      })}
+      {/* Scenes with cross-transitions */}
+      <TransitionSeries>{nodes}</TransitionSeries>
 
       {/* Captions (global, on top of everything) */}
       {plan.captions?.words?.length ? (

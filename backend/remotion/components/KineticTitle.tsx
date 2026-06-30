@@ -31,7 +31,8 @@ interface KineticTitleProps {
   accent?: string;
 }
 
-const FONT = "'Space Grotesk', 'Clash Display', Inter, system-ui, sans-serif";
+import { DISPLAY_FONT } from "./fonts";
+const FONT = DISPLAY_FONT;
 
 /* ---- tiny hex color mixer (no deps) -------------------------------------- */
 function hexToRgb(hex: string): [number, number, number] {

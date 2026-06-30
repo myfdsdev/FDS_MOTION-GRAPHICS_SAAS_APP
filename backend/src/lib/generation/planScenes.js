@@ -36,14 +36,33 @@ function getValidator() {
   return _validate;
 }
 
-/** Pull the first balanced JSON object out of a model reply. */
+/**
+ * Light repair for the JSON quirks weak models emit: code fences and trailing
+ * commas. (We deliberately do NOT strip "//" — that would mangle URLs/"http://"
+ * inside asset prompts.)
+ */
+function repairJson(text) {
+  return text
+    .replace(/```(?:json)?/gi, "")
+    .replace(/,\s*([}\]])/g, "$1") // trailing commas before } or ]
+    .replace(/[“”]/g, '"') // smart double quotes
+    .replace(/[‘’]/g, "'"); // smart single quotes
+}
+
+/** Pull the first balanced JSON object out of a model reply (tolerant). */
 function extractJson(raw) {
   const s = String(raw || "").trim();
   const start = s.indexOf("{");
   const end = s.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) return null;
+  const slice = s.slice(start, end + 1);
   try {
-    return JSON.parse(s.slice(start, end + 1));
+    return JSON.parse(slice);
+  } catch {
+    /* fall through to repair */
+  }
+  try {
+    return JSON.parse(repairJson(slice));
   } catch {
     return null;
   }
@@ -172,16 +191,23 @@ export async function planScenes(userText, { premium = false, maxAttempts = 3, r
   const system = composeScenePlannerSystem(chosen);
 
   let lastErrors = [];
+  let lastRaw = "";
   let user = userText;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (lastErrors.length) {
-      user = `${userText}\n\nYour previous plan was rejected for these reasons:\n- ${lastErrors.join("\n- ")}\nReturn a corrected scenePlan JSON only.`;
+      user = `${userText}\n\nYour previous plan was rejected for these reasons:\n- ${lastErrors.join("\n- ")}\nReturn ONLY a corrected scenePlan JSON object — no prose, no markdown fences.`;
     }
-    const raw = await callLLM({ system, user, premium, maxTokens: 4000 });
+    // 8000 tokens so large plans (60s, data-heavy templates) don't truncate
+    // mid-JSON — truncation is the #1 cause of "output was not valid JSON".
+    const raw = await callLLM({ system, user, premium, maxTokens: 8000 });
+    lastRaw = String(raw || "");
     const plan = extractJson(raw);
     if (!plan) {
       lastErrors = ["output was not valid JSON"];
+      console.warn(
+        `[planScenes] attempt ${attempt + 1}/${maxAttempts}: unparseable output (${lastRaw.length} chars). Head: ${lastRaw.slice(0, 160)}`
+      );
       continue;
     }
     const normalizedPlan = normalizeScenePlan(plan);
@@ -193,5 +219,6 @@ export async function planScenes(userText, { premium = false, maxAttempts = 3, r
     lastErrors = errors;
   }
 
-  throw new Error(`Scene plan failed validation after ${maxAttempts} attempts:\n- ${lastErrors.join("\n- ")}`);
+  const tail = lastRaw ? `\nLast model output (${lastRaw.length} chars, head): ${lastRaw.slice(0, 300)}` : "";
+  throw new Error(`Scene plan failed validation after ${maxAttempts} attempts:\n- ${lastErrors.join("\n- ")}${tail}`);
 }
