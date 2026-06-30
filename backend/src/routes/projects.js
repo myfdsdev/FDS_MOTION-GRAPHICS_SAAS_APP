@@ -33,7 +33,7 @@ projectsRouter.post(
   validate(CreateProjectInput),
   async (req, res, next) => {
     try {
-      const { prompt, durationSec, aspectRatio, recipe, referenceImage } = req.body;
+      const { prompt, durationSec, aspectRatio, recipe, narration, music, sfx, referenceImage } = req.body;
       requireVideoAssistantTopic(prompt);
       const userId = req.user.id;
       const configError = await generationConfigError(userId);
@@ -45,6 +45,9 @@ projectsRouter.post(
         aspectRatio,
         durationSec,
         recipe: recipe || "auto",
+        narration: narration ?? true,
+        music: music ?? true,
+        sfx: sfx ?? false,
         status: "PLANNING",
         progress: 0,
       });

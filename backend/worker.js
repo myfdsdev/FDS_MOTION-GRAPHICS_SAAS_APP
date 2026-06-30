@@ -401,7 +401,7 @@ async function renderHybridProject(project) {
     // Narration: synthesize the planned voiceover script to a real audio file
     // (ElevenLabs or free SAPI). Replace the script-only narration with a
     // playable { src } — and never let a src-less track reach the renderer.
-    if (scenePlan.narration?.script && !videoPlan.narration?.src) {
+    if (project.narration !== false && scenePlan.narration?.script && !videoPlan.narration?.src) {
       lastPhase = "narration";
       const nar = await synthesizeNarration(scenePlan.narration.script).catch((e) => {
         console.warn(`[worker] ${id} narration failed: ${e?.message || e}`);
@@ -421,7 +421,10 @@ async function renderHybridProject(project) {
     // under the narration. Opt-out with GENERATE_MUSIC=0. The brief comes from
     // the planner (scenePlan.musicBrief) if present, else the project prompt.
     // Failure is non-fatal — the video still renders without music.
-    const musicEnabled = process.env.GENERATE_MUSIC !== "0" && process.env.GENERATE_MUSIC !== "false";
+    const musicEnabled =
+      project.music !== false &&
+      process.env.GENERATE_MUSIC !== "0" &&
+      process.env.GENERATE_MUSIC !== "false";
     if (musicEnabled && !videoPlan.music?.src) {
       lastPhase = "music";
       const brief =

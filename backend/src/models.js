@@ -82,6 +82,11 @@ const projectSchema = new Schema(
     /** User-selected video template/recipe (see lib/generation/recipes.js).
      *  "auto" (or null) lets the planner pick from the prompt. */
     recipe: { type: String, default: "auto" },
+    /** Audio toggles set in the composer. narration/music are honored by the
+     *  worker; sfx is stored for a future sound-effects pass. */
+    narration: { type: Boolean, default: true },
+    music: { type: Boolean, default: true },
+    sfx: { type: Boolean, default: false },
     outputUrl: { type: String, default: null },
     thumbnailUrl: { type: String, default: null },
     /** Narration MP3 produced by ElevenLabs TTS from `script`. Optional. */

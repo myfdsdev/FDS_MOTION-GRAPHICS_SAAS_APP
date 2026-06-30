@@ -149,7 +149,10 @@ export async function createProject(
   durationSec = 20,
   referenceImage?: string,
   aspectRatio?: AspectRatio,
-  recipe?: string
+  recipe?: string,
+  narration?: boolean,
+  music?: boolean,
+  sfx?: boolean
 ): Promise<Project> {
   if (USE_MOCKS) return mockApi.createProject(prompt, durationSec, aspectRatio);
   return realFetch<Project>("/api/projects", {
@@ -159,6 +162,9 @@ export async function createProject(
       durationSec,
       ...(aspectRatio ? { aspectRatio } : {}),
       ...(recipe ? { recipe } : {}),
+      ...(narration !== undefined ? { narration } : {}),
+      ...(music !== undefined ? { music } : {}),
+      ...(sfx !== undefined ? { sfx } : {}),
       ...(referenceImage ? { referenceImage } : {}),
     }),
   });

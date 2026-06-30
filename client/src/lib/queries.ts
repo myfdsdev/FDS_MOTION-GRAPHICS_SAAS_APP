@@ -115,8 +115,8 @@ export function useProject(id: string | undefined) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prompt, durationSec, referenceImage, aspectRatio, recipe }: { prompt: string; durationSec?: number; referenceImage?: string; aspectRatio?: AspectRatio; recipe?: string }) =>
-      api.createProject(prompt, durationSec, referenceImage, aspectRatio, recipe),
+    mutationFn: ({ prompt, durationSec, referenceImage, aspectRatio, recipe, narration, music, sfx }: { prompt: string; durationSec?: number; referenceImage?: string; aspectRatio?: AspectRatio; recipe?: string; narration?: boolean; music?: boolean; sfx?: boolean }) =>
+      api.createProject(prompt, durationSec, referenceImage, aspectRatio, recipe, narration, music, sfx),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["me"] });

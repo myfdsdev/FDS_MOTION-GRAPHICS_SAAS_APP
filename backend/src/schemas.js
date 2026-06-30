@@ -390,6 +390,10 @@ export const CreateProjectInput = z.object({
   // purpose — getRecipe() falls back to the default for unknown values, so
   // adding recipes never requires a schema change.
   recipe: z.string().max(40).optional().default("auto"),
+  // Audio toggles from the composer control bar.
+  narration: z.boolean().optional(),
+  music: z.boolean().optional(),
+  sfx: z.boolean().optional(),
   referenceImage: z.string().max(6_000_000).optional(),
 });
 

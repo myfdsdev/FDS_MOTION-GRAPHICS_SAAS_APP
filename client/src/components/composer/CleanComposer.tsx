@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
-import { Sparkles, Plus, Mic, AudioLines, ArrowUp, Wand2, X, ImageIcon } from "lucide-react";
+import {
+  Sparkles, Plus, Mic, MicOff, AudioLines, ArrowUp, Wand2, X, ImageIcon,
+  Clock, Monitor, Smartphone, Tablet, Square, Music2, VolumeX, Check,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCreateProject, useEnhancePrompt, useRecipes } from "@/lib/queries";
 import { isVideoAssistantTopic, VIDEO_ASSISTANT_SCOPE_MESSAGE } from "@/lib/domainGuard";
+import type { AspectRatio } from "@/types";
 import TextType from "@/components/reactbits/TextType";
 import { toast } from "sonner";
 
@@ -22,6 +28,20 @@ interface Props {
 const PROMPT_GUIDANCE =
   "Tell me what kind of video you want to make, paste a script, or attach a reference image.";
 
+const DURATIONS = [10, 20, 30, 40, 50, 60];
+const FORMATS: { label: string; ratio: AspectRatio; Icon: LucideIcon }[] = [
+  { label: "Desktop", ratio: "16:9", Icon: Monitor },
+  { label: "Mobile", ratio: "9:16", Icon: Smartphone },
+  { label: "Tablet", ratio: "4:3", Icon: Tablet },
+  { label: "Square", ratio: "1:1", Icon: Square },
+];
+const chipCls = (active: boolean) =>
+  `shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
+    active
+      ? "bg-accent text-accent-ink border-accent shadow-accent"
+      : "border-border text-muted hover:text-fg hover:bg-surface-2"
+  }`;
+
 const GREETING_RE = /^(hi|hello|hey|yo|helo|hlow|good morning|good afternoon|good evening|good night|gm)\b/i;
 const CHAT_ONLY_RE =
   /\b(prompt|idea|suggest|example|how|why|what|fix|error|bug|problem|debug|setup|install|not working|failed|crash)\b|\b(create|write)\s+(a\s+)?script\b/i;
@@ -35,7 +55,7 @@ function shouldGenerateFromEnter(input: string) {
   return text.length >= 10 && isVideoAssistantTopic(text) && !isGreeting(text) && !CHAT_ONLY_RE.test(text);
 }
 
-export function CleanComposer({ greeting, onPickFiles, durationSec = 20, section = "ai-video" }: Props) {
+export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurationSec = 20, section = "ai-video" }: Props) {
   const navigate = useNavigate();
   const createProject = useCreateProject();
   const enhance = useEnhancePrompt();
@@ -44,6 +64,10 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20, section
 
   const [prompt, setPrompt] = useState("");
   const [recipe, setRecipe] = useState("");
+  const [durationSec, setDurationSec] = useState(defaultDurationSec);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
+  const [narration, setNarration] = useState(true);
+  const [music, setMusic] = useState(true);
   const [refImage, setRefImage] = useState<string | null>(null);
   const [refName, setRefName] = useState("");
 
@@ -91,7 +115,10 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20, section
       const proj = await createProject.mutateAsync({
         prompt,
         durationSec,
+        aspectRatio,
         recipe,
+        narration,
+        music,
         referenceImage: refImage ?? undefined,
       });
       navigate(`/projects/${proj.id}/edit`);
@@ -224,8 +251,8 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20, section
 
         {/* Bottom toolbar */}
         <div className="flex items-center justify-between gap-2 pt-1">
-          {/* Left: attach reference image */}
-          <div className="flex items-center gap-1">
+          {/* Left: attach + compact settings icons */}
+          <div className="flex items-center gap-0.5">
             <input
               ref={fileInput}
               type="file"
@@ -241,6 +268,103 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20, section
               title="Upload design reference (layout & style only)"
             >
               <Plus size={18} />
+            </button>
+
+            {/* Length */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  title={`Length: ${durationSec}s`}
+                  className="h-8 px-2 rounded-full inline-flex items-center gap-1 text-xs text-muted hover:text-fg hover:bg-surface-2 transition-colors"
+                >
+                  <Clock size={15} /> {durationSec}s
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-28 p-1">
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDurationSec(d)}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-fg hover:bg-surface-2"
+                  >
+                    {d}s {durationSec === d && <Check size={13} className="text-accent" />}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+
+            {/* Format */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  title={`Format: ${aspectRatio}`}
+                  className="h-8 px-2 rounded-full inline-flex items-center gap-1 text-xs text-muted hover:text-fg hover:bg-surface-2 transition-colors"
+                >
+                  {(() => {
+                    const f = FORMATS.find((x) => x.ratio === aspectRatio) ?? FORMATS[0];
+                    const I = f.Icon;
+                    return (
+                      <>
+                        <I size={15} /> {f.ratio}
+                      </>
+                    );
+                  })()}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-44 p-1">
+                {FORMATS.map((f) => {
+                  const I = f.Icon;
+                  return (
+                    <button
+                      key={f.ratio}
+                      type="button"
+                      onClick={() => setAspectRatio(f.ratio)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-fg hover:bg-surface-2"
+                    >
+                      <I size={14} className="text-muted" /> {f.label}
+                      <span className="ml-auto opacity-60">{f.ratio}</span>
+                      {aspectRatio === f.ratio && <Check size={13} className="text-accent" />}
+                    </button>
+                  );
+                })}
+              </PopoverContent>
+            </Popover>
+
+            {/* Narration toggle */}
+            <button
+              type="button"
+              onClick={() => setNarration((v) => !v)}
+              title={narration ? "Narration: on" : "Narration: off"}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-2 ${
+                narration ? "text-accent" : "text-faint hover:text-fg"
+              }`}
+            >
+              {narration ? <Mic size={16} /> : <MicOff size={16} />}
+            </button>
+
+            {/* Music toggle */}
+            <button
+              type="button"
+              onClick={() => setMusic((v) => !v)}
+              title={music ? "Music: on" : "Music: off"}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-2 ${
+                music ? "text-accent" : "text-faint hover:text-fg"
+              }`}
+            >
+              {music ? <Music2 size={16} /> : <VolumeX size={16} />}
+            </button>
+
+            {/* SFX (coming soon) */}
+            <button
+              type="button"
+              disabled
+              title="Sound effects — coming soon"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-faint/40 cursor-not-allowed"
+            >
+              <Sparkles size={16} />
             </button>
           </div>
 
@@ -298,7 +422,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec = 20, section
 
       {/* Template picker for this page's section */}
       {sectionRecipes.length > 0 && (
-        <div className="mt-4 flex flex-col items-center gap-2">
+        <div className="mt-3 flex flex-col items-center gap-2">
           <span className="text-[11px] uppercase tracking-wide text-faint">Template</span>
           {/* Templates in this section */}
           <div className="flex items-center justify-center flex-wrap gap-1.5 max-w-full">
