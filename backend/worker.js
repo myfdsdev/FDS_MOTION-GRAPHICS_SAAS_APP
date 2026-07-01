@@ -12,10 +12,11 @@ import { fixComponent, generateComponent } from "./src/lib/codegen.js";
 import { isStorageConfigured, uploadFile } from "./src/lib/storage.js";
 import { planScenes } from "./src/lib/generation/planScenes.js";
 import { buildVideoPlan } from "./src/lib/generation/buildVideoPlan.js";
+import { buildImageScenePlan } from "./src/lib/generation/imagePlan.js";
 import { synthesizeNarration } from "./src/lib/generation/narration.js";
 import { synthesizeMusic } from "./src/lib/generation/music.js";
 import { generateCaptions } from "./src/lib/generation/captions.js";
-import { providersFor } from "./src/lib/generation/index.js";
+import { preferredHybridProvider } from "./src/lib/generation/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIDEOS_DIR = path.join(__dirname, "public", "videos");
@@ -314,19 +315,6 @@ const DIMENSIONS = {
   "4:3": [1440, 1080],
 };
 
-function preferredHybridProvider() {
-  const forced =
-    process.env.HYBRID_VIDEO_PROVIDER ||
-    process.env.GENERATION_VIDEO_PROVIDER ||
-    process.env.GENERATION_PROVIDER_TEXT_TO_VIDEO ||
-    "";
-  if (forced.trim()) return forced.trim().toLowerCase();
-
-  const videoProviders = providersFor("text_to_video");
-  if (videoProviders.includes("kie")) return "kie";
-  return undefined;
-}
-
 async function renderHybridProject(project) {
   const id = String(project._id);
   const aspect = project.aspectRatio || "16:9";
@@ -351,12 +339,17 @@ async function renderHybridProject(project) {
 
     if (!scenePlan) {
       lastPhase = "plan-scenes";
-      scenePlan = await planScenes(
-        `${project.prompt}\n\nTarget duration: ${project.durationSec}s. Target aspect ratio: ${aspect}.`,
-        // honor a user-picked recipe if the project carries one; otherwise let
-        // the planner auto-select the video TYPE from the prompt + aspect.
-        { recipe: project.recipe || "auto", aspectRatio: aspect }
-      );
+      if (project.images?.length) {
+        // Build the video FROM the user's uploaded images (vision writes the script).
+        scenePlan = await buildImageScenePlan(project);
+      } else {
+        scenePlan = await planScenes(
+          `${project.prompt}\n\nTarget duration: ${project.durationSec}s. Target aspect ratio: ${aspect}.`,
+          // honor a user-picked recipe if the project carries one; otherwise let
+          // the planner auto-select the video TYPE from the prompt + aspect.
+          { recipe: project.recipe || "auto", aspectRatio: aspect }
+        );
+      }
       await Project.updateOne(
         { _id: id },
         {

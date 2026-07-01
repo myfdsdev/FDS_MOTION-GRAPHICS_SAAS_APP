@@ -25,6 +25,9 @@ interface Props {
   section?: "ai-video" | "motion-graphics";
   /** Show the template picker cards. When false, just the prompt + generate. */
   showTemplates?: boolean;
+  /** Force a specific recipe (overrides the picker). e.g. "none" = AI writes
+   *  the whole video as custom TSX code. */
+  forcedRecipe?: string;
 }
 
 const PROMPT_GUIDANCE =
@@ -52,7 +55,7 @@ function shouldGenerateFromEnter(input: string) {
   return text.length >= 10 && !isGreeting(text);
 }
 
-export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurationSec = 20, section = "ai-video", showTemplates = true }: Props) {
+export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurationSec = 20, section = "ai-video", showTemplates = true, forcedRecipe }: Props) {
   const navigate = useNavigate();
   const createProject = useCreateProject();
   const enhance = useEnhancePrompt();
@@ -65,8 +68,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
   const [narration, setNarration] = useState(true);
   const [music, setMusic] = useState(true);
-  const [refImage, setRefImage] = useState<string | null>(null);
-  const [refName, setRefName] = useState("");
+  const [images, setImages] = useState<string[]>([]); // data URLs that become the video
 
   // This page is locked to one section; show only its templates and keep the
   // chosen recipe inside it.
@@ -80,45 +82,61 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
   }, [showTemplates, sectionRecipes, recipe]);
 
   const isSubmitting = createProject.isPending;
-  const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
+  const canSubmit = (prompt.trim().length >= 10 || images.length > 0) && !isSubmitting;
 
-  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files are supported");
-      return;
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error("Image must be under 4 MB");
-      return;
-    }
-    setRefName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => setRefImage(reader.result as string);
-    reader.readAsDataURL(file);
+  const readAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (onPickFiles) onPickFiles([file]);
+    const valid = picked.filter((f) => {
+      if (!f.type.startsWith("image/")) {
+        toast.error(`${f.name}: only image files are supported`);
+        return false;
+      }
+      if (f.size > 4 * 1024 * 1024) {
+        toast.error(`${f.name}: must be under 4 MB`);
+        return false;
+      }
+      return true;
+    });
+    if (!valid.length) return;
+    const room = Math.max(0, 5 - images.length);
+    if (room === 0) {
+      toast.error("Up to 5 images");
+      return;
+    }
+    const urls = await Promise.all(valid.slice(0, room).map(readAsDataUrl));
+    setImages((prev) => [...prev, ...urls]);
+    if (onPickFiles) onPickFiles(valid);
   };
 
   const handleCreate = async () => {
-    if (prompt.trim().length < 10) {
-      toast.error("Tell us what video to create — at least a sentence.");
+    // With images, a short/blank prompt is fine — the AI writes the script from
+    // the images. Otherwise require a sentence.
+    if (prompt.trim().length < 10 && images.length === 0) {
+      toast.error("Tell us what video to create — or drop a few images.");
       return;
     }
-    if (!isVideoAssistantTopic(prompt)) {
-      toast.message(VIDEO_ASSISTANT_SCOPE_MESSAGE);
-      return;
-    }
+    const finalPrompt =
+      prompt.trim().length >= 10
+        ? prompt
+        : "A short cinematic video made from these images.";
     try {
       const proj = await createProject.mutateAsync({
-        prompt,
+        prompt: finalPrompt,
         durationSec,
         aspectRatio,
-        recipe,
+        recipe: forcedRecipe ?? recipe,
         narration,
         music,
-        referenceImage: refImage ?? undefined,
+        images: images.length ? images : undefined,
       });
       navigate(`/projects/${proj.id}/edit`);
     } catch (e) {
@@ -231,24 +249,28 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
           />
         </div>
 
-        {/* Reference image preview */}
-        {refImage && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface-2/60 p-2 mb-2">
-            <img src={refImage} alt="ref" className="h-14 w-14 rounded-lg object-cover border border-border" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-xs text-fg font-medium">
-                <ImageIcon size={12} className="text-accent shrink-0" />
-                <span className="truncate">{refName}</span>
-              </div>
-              <div className="text-[11px] text-faint mt-0.5">Design reference — layout, colors & style only</div>
+        {/* Uploaded images — these BECOME the video */}
+        {images.length > 0 && (
+          <div className="mb-2 rounded-2xl border border-border bg-surface-2/60 p-2">
+            <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] text-faint">
+              <ImageIcon size={12} className="text-accent shrink-0" />
+              {images.length} image{images.length > 1 ? "s" : ""} — the AI will build the video from these
             </div>
-            <button
-              type="button"
-              onClick={() => { setRefImage(null); setRefName(""); }}
-              className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-faint hover:text-danger hover:bg-surface-2 transition-colors"
-            >
-              <X size={13} />
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {images.map((src, i) => (
+                <div key={i} className="relative group">
+                  <img src={src} alt={`upload ${i + 1}`} className="h-16 w-16 rounded-lg object-cover border border-border" />
+                  <button
+                    type="button"
+                    onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center bg-surface border border-border text-faint hover:text-danger"
+                    aria-label="Remove image"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -256,12 +278,12 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
         <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-border-soft">
           {/* Left: settings */}
           <div className="flex items-center gap-1">
-            <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={handleFilePick} />
+            <input ref={fileInput} type="file" accept="image/*" multiple className="hidden" onChange={handleFilePick} />
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
-              title="Attach a reference image (style only)"
+              title="Add images to build the video from (up to 5)"
             >
               <Plus size={18} />
             </button>

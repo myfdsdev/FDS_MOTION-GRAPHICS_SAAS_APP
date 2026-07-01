@@ -115,8 +115,8 @@ export function useProject(id: string | undefined) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ prompt, durationSec, referenceImage, aspectRatio, recipe, narration, music, sfx }: { prompt: string; durationSec?: number; referenceImage?: string; aspectRatio?: AspectRatio; recipe?: string; narration?: boolean; music?: boolean; sfx?: boolean }) =>
-      api.createProject(prompt, durationSec, referenceImage, aspectRatio, recipe, narration, music, sfx),
+    mutationFn: ({ prompt, durationSec, referenceImage, aspectRatio, recipe, narration, music, sfx, images }: { prompt: string; durationSec?: number; referenceImage?: string; aspectRatio?: AspectRatio; recipe?: string; narration?: boolean; music?: boolean; sfx?: boolean; images?: string[] }) =>
+      api.createProject(prompt, durationSec, referenceImage, aspectRatio, recipe, narration, music, sfx, images),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["me"] });
@@ -200,6 +200,18 @@ export function useGenerateProject(id: string | undefined) {
   return useMutation({
     mutationFn: ({ prompt, durationSec, referenceImage }: { prompt: string; durationSec?: number; referenceImage?: string }) =>
       api.generateProject(id!, prompt, durationSec, referenceImage),
+    onSuccess: (project) => {
+      qc.setQueryData(["project", id], project);
+      qc.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}
+
+export function useRegenerateScene(id: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ index, instruction }: { index: number; instruction?: string }) =>
+      api.regenerateScene(id!, index, instruction),
     onSuccess: (project) => {
       qc.setQueryData(["project", id], project);
       qc.invalidateQueries({ queryKey: ["me"] });

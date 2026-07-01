@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import { callLLM } from "../providers/index.js";
-import { composeScenePlannerSystem } from "../prompts/scenePlanner.js";
+import { composeScenePlannerSystem, composeSingleSceneSystem } from "../prompts/scenePlanner.js";
 import { pickRecipe, getRecipe } from "./recipes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -147,25 +147,48 @@ export function validateScenePlan(plan, userText = "") {
     if (!anchored) errors.push("no scene references the user's subject (content drift)");
   }
 
-  for (const s of scenes) {
-    // 4. Overlay types
-    for (const ov of s.overlays || []) {
-      if (!OVERLAY_TYPES.has(ov.type)) errors.push(`scene ${s.id}: unknown overlay type "${ov.type}"`);
-    }
-    // 5. Scrim on text — only required when text sits on FOOTAGE/IMAGE. Flat
-    //    color backgrounds (graphics recipes) are already legible, so we don't
-    //    force them to darken.
-    const overFootage = s.background?.kind === "video" || s.background?.kind === "image";
-    if (overFootage && (s.overlays || []).length && (s.background?.scrim ?? 0) < 0.3) {
-      errors.push(`scene ${s.id}: text overlay needs background.scrim >= 0.3`);
-    }
-    // 6. Duration sanity (only for generated footage)
-    const generates = s.background?.kind === "video" && s.background?.source === "generate";
-    if (generates && (s.durationSeconds || 0) > PROVIDER_MAX_SECONDS) {
-      errors.push(`scene ${s.id}: durationSeconds ${s.durationSeconds} exceeds provider max ${PROVIDER_MAX_SECONDS}`);
-    }
-  }
+  for (const s of scenes) validateSceneFields(s, errors);
 
+  return { ok: errors.length === 0, errors };
+}
+
+/**
+ * Per-scene checks shared by the full-plan gate (validateScenePlan) and the
+ * single-scene regenerate gate (validateSingleScene): overlay vocabulary,
+ * scrim-over-footage, and provider clip-length limits.
+ */
+function validateSceneFields(s, errors) {
+  // Overlay types
+  for (const ov of s.overlays || []) {
+    if (!OVERLAY_TYPES.has(ov.type)) errors.push(`scene ${s.id}: unknown overlay type "${ov.type}"`);
+  }
+  // Scrim on text — only required when text sits on FOOTAGE/IMAGE. Flat
+  // color backgrounds (graphics recipes) are already legible, so we don't
+  // force them to darken.
+  const overFootage = s.background?.kind === "video" || s.background?.kind === "image";
+  if (overFootage && (s.overlays || []).length && (s.background?.scrim ?? 0) < 0.3) {
+    errors.push(`scene ${s.id}: text overlay needs background.scrim >= 0.3`);
+  }
+  // Duration sanity (only for generated footage)
+  const generates = s.background?.kind === "video" && s.background?.source === "generate";
+  if (generates && (s.durationSeconds || 0) > PROVIDER_MAX_SECONDS) {
+    errors.push(`scene ${s.id}: durationSeconds ${s.durationSeconds} exceeds provider max ${PROVIDER_MAX_SECONDS}`);
+  }
+}
+
+/**
+ * Validation gate for a single regenerated scene (used by regenerateScene).
+ * Lighter than the full-plan gate — no scene-count or subject-anchor checks,
+ * since those only make sense across the whole plan.
+ * @returns {{ ok: boolean, errors: string[] }}
+ */
+function validateSingleScene(scene) {
+  const errors = [];
+  if (!validObject(scene)) return { ok: false, errors: ["scene is not an object"] };
+  if (!scene.id || typeof scene.id !== "string") errors.push("scene is missing a valid id");
+  if (!scene.description || typeof scene.description !== "string") errors.push("scene is missing a description");
+  if (!validObject(scene.background)) errors.push("scene is missing a background object");
+  validateSceneFields(scene, errors);
   return { ok: errors.length === 0, errors };
 }
 
@@ -221,4 +244,83 @@ export async function planScenes(userText, { premium = false, maxAttempts = 3, r
 
   const tail = lastRaw ? `\nLast model output (${lastRaw.length} chars, head): ${lastRaw.slice(0, 300)}` : "";
   throw new Error(`Scene plan failed validation after ${maxAttempts} attempts:\n- ${lastErrors.join("\n- ")}${tail}`);
+}
+
+/**
+ * Rewrite ONE scene of an already-generated plan — used by the editor's
+ * "regenerate this scene" action so a bad scene can be redone without
+ * touching the rest of the video (or re-running narration/music/captions).
+ *
+ * The scene's `id` and `durationSeconds` are pinned to the original: only its
+ * content (description, background, asset prompt, overlays) may change. This
+ * keeps total video length and audio sync untouched.
+ *
+ * @param {object} opts
+ * @param {string} opts.userPrompt        the project's original prompt (subject anchor)
+ * @param {object} opts.scenePlan         the full validated scenePlan the scene belongs to
+ * @param {number} opts.sceneIndex        0-based index into scenePlan.scenes
+ * @param {string} [opts.instruction]     optional user request for what to change
+ * @param {string|object|null} [opts.recipe]  recipe id/object steering the archetype
+ * @param {number} [opts.maxAttempts]
+ * @returns {Promise<object>} the replacement scene object
+ */
+export async function regenerateScene({
+  userPrompt,
+  scenePlan,
+  sceneIndex,
+  instruction = "",
+  recipe = "auto",
+  maxAttempts = 3,
+}) {
+  const original = scenePlan?.scenes?.[sceneIndex];
+  if (!original) throw new Error("Scene not found in this project's plan");
+
+  let chosen = null;
+  if (recipe === "auto") chosen = pickRecipe(userPrompt);
+  else if (recipe) chosen = getRecipe(recipe);
+  const system = composeSingleSceneSystem(chosen);
+
+  const otherDescriptions = scenePlan.scenes
+    .filter((_, i) => i !== sceneIndex)
+    .map((s) => s.description)
+    .filter(Boolean);
+
+  let user = [
+    `Video subject/brief: ${userPrompt}`,
+    otherDescriptions.length
+      ? `This video's other scenes (for continuity — do not repeat their wording): ${otherDescriptions.join(" | ")}`
+      : "",
+    `Scene to replace (id "${original.id}", duration ${original.durationSeconds}s):`,
+    JSON.stringify(original),
+    instruction.trim()
+      ? `The user asked for this specific change: "${instruction.trim()}"`
+      : "The user wants a fresh alternative take on this scene — keep its role in the story but vary the visual concept and copy.",
+    "Return ONLY the corrected scene JSON object.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  let lastErrors = [];
+  let lastRaw = "";
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (lastErrors.length) {
+      user += `\n\nYour previous scene was rejected for these reasons:\n- ${lastErrors.join("\n- ")}\nReturn ONLY a corrected scene JSON object.`;
+    }
+    const raw = await callLLM({ system, user, maxTokens: 2000 });
+    lastRaw = String(raw || "");
+    const scene = extractJson(raw);
+    if (!scene) {
+      lastErrors = ["output was not valid JSON"];
+      continue;
+    }
+    // Never let the model drift timing or identity — only content changes.
+    scene.id = original.id;
+    scene.durationSeconds = original.durationSeconds;
+    const { ok, errors } = validateSingleScene(scene);
+    if (ok) return scene;
+    lastErrors = errors;
+  }
+
+  const tail = lastRaw ? `\nLast model output (${lastRaw.length} chars, head): ${lastRaw.slice(0, 300)}` : "";
+  throw new Error(`Scene regeneration failed validation after ${maxAttempts} attempts:\n- ${lastErrors.join("\n- ")}${tail}`);
 }

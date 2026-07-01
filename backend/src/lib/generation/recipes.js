@@ -257,6 +257,88 @@ wrap/CTA). Use background.scrim 0.5-0.6 so the subtitles pop over the footage.
 Beats: HOOK -> POINT -> POINT -> POINT -> WRAP/CTA.`,
   },
 
+  // ---------------------------------------------------------- brand intro
+  "brand-intro": {
+    id: "brand-intro",
+    label: "Brand Intro",
+    description: "Short animated logo reveal + tagline. Great channel/video opener or outro.",
+    aspectRatio: "16:9",
+    background: "graphics",
+    sceneRange: [2, 3],
+    favorOverlays: ["logoReveal", "particles", "heroTitle"],
+    keywords: ["logo", "intro", "outro", "sting", "brand reveal", "channel intro", "opener", "watermark", "signature", "logo animation"],
+    guidance: `
+VIDEO TYPE: Brand Intro / Logo Sting (graphics, NO AI footage).
+A SHORT, punchy opener or outro built around ONE logoReveal overlay as the
+centerpiece — the brand name/wordmark animates in with sparkle/glow. Backgrounds
+are bold flat or gradient COLOR (background.kind "color"; never source
+"generate"). Add a particles overlay behind the logo for polish and, on the
+final scene, a single small heroTitle tagline. Keep it TIGHT — 2-3 scenes,
+2-3 seconds each. Set background.scrim to 0. Beats: LOGO REVEAL -> TAGLINE.`,
+  },
+
+  // ------------------------------------------------------- event countdown
+  "event-countdown": {
+    id: "event-countdown",
+    label: "Event Countdown",
+    description: "Hype an upcoming launch, webinar or event with a countdown and RSVP CTA.",
+    aspectRatio: "16:9",
+    background: "mixed",
+    sceneRange: [3, 5],
+    favorOverlays: ["statReveal", "progressBar", "calloutBox", "heroTitle", "sectionTitle"],
+    keywords: ["event", "countdown", "webinar", "launch date", "save the date", "rsvp", "premiere", "livestream", "going live", "coming soon", "days left", "register"],
+    guidance: `
+VIDEO TYPE: Event Countdown / Save-the-Date.
+Build anticipation for a specific upcoming date. Open with a heroTitle hook,
+use a big statReveal for the countdown number ("3 DAYS") and a progressBar to
+show how close the date is. A calloutBox states the event name/date/time and
+ends with a clear RSVP/register CTA. Mix short AI footage teasers with bold
+flat-color countdown cards. Scrim 0.4 on footage, 0 on color.
+Beats: HOOK -> WHAT'S COMING -> COUNTDOWN -> RSVP/CTA.`,
+  },
+
+  // ---------------------------------------------------------- real estate
+  "real-estate": {
+    id: "real-estate",
+    label: "Real Estate Tour",
+    description: "Property walkthrough with specs, price and feature callouts over footage.",
+    aspectRatio: "16:9",
+    background: "footage",
+    sceneRange: [4, 6],
+    favorOverlays: ["statCard", "calloutBox", "comparisonCard", "heroTitle", "providerChip"],
+    keywords: ["real estate", "property", "house", "home tour", "listing", "apartment", "condo", "for sale", "for rent", "sqft", "square feet", "realtor", "open house"],
+    guidance: `
+VIDEO TYPE: Real Estate / Property Tour.
+Every scene background is AI-generated footage of the property/interior
+(background.kind "video", source "generate", rich architectural asset.prompt).
+Open on a heroTitle with the address or headline. Feature scenes use a
+statCard for specs (beds, baths, sqft) and a calloutBox per standout feature
+(pool, view, renovated kitchen). Close with a statCard for price and a
+providerChip for the agent/agency, ending on a CTA. Use scrim 0.35-0.45 so
+overlays stay readable over footage. Beats: CURB APPEAL -> INTERIOR -> FEATURE
+-> SPECS/PRICE -> CTA.`,
+  },
+
+  // ---------------------------------------------------------- before/after
+  "before-after": {
+    id: "before-after",
+    label: "Before / After",
+    description: "Transformation reveal (fitness, renovation, glow-up) built on comparison cards.",
+    aspectRatio: "16:9",
+    background: "mixed",
+    sceneRange: [3, 5],
+    favorOverlays: ["comparisonCard", "statCard", "heroTitle", "calloutBox"],
+    keywords: ["before and after", "before/after", "transformation", "makeover", "glow up", "glow-up", "renovation", "remodel", "progress", "results", "weight loss", "fitness transformation"],
+    guidance: `
+VIDEO TYPE: Before/After Transformation.
+Center the story on the CHANGE. Open with a heroTitle hook, show the "before"
+state (footage or color card), then hit a big comparisonCard (before vs after)
+as the payoff. Reinforce with a statCard for the result ("-20lbs", "6 weeks").
+Use warm AI footage for context scenes and flat color for the comparison
+reveal. Scrim 0.4 on footage, 0 on color. Beats: HOOK -> BEFORE -> THE
+TRANSFORMATION -> RESULT STAT -> CTA.`,
+  },
+
   // ------------------------------------------------------------ social short
   "social-short": {
     id: "social-short",

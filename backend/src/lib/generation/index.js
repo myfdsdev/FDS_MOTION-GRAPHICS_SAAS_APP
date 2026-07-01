@@ -76,6 +76,24 @@ export function hasGenerationProvider(capability) {
   return PROVIDERS.some((p) => p.available());
 }
 
+/**
+ * Which provider the hybrid (recipe-driven) renderer should use for footage.
+ * Shared by the worker's full pipeline and the API's single-scene regenerate
+ * route so both pick the same provider.
+ */
+export function preferredHybridProvider() {
+  const forced =
+    process.env.HYBRID_VIDEO_PROVIDER ||
+    process.env.GENERATION_VIDEO_PROVIDER ||
+    process.env.GENERATION_PROVIDER_TEXT_TO_VIDEO ||
+    "";
+  if (forced.trim()) return forced.trim().toLowerCase();
+
+  const videoProviders = providersFor("text_to_video");
+  if (videoProviders.includes("kie")) return "kie";
+  return undefined;
+}
+
 function selectProvider(capability, requested) {
   if (requested) {
     const p = PROVIDERS.find((x) => x.name === requested);

@@ -6,9 +6,13 @@ import { toProjectDTO } from "../serialize.js";
 import { requireAuth } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import { validate } from "../middleware/validate.js";
-import { costForDuration, deductCredits } from "../lib/credits.js";
+import { costForDuration, costForSceneRegeneration, deductCredits, refundCredits } from "../lib/credits.js";
 import { requireVideoAssistantTopic } from "../lib/domainGuard.js";
 import { generationConfigError, runPipeline } from "../lib/pipeline.js";
+import { saveProjectImages } from "../lib/generation/imageStore.js";
+import { regenerateScene } from "../lib/generation/planScenes.js";
+import { buildVideoPlan } from "../lib/generation/buildVideoPlan.js";
+import { preferredHybridProvider } from "../lib/generation/index.js";
 
 export const projectsRouter = Router();
 
@@ -33,7 +37,7 @@ projectsRouter.post(
   validate(CreateProjectInput),
   async (req, res, next) => {
     try {
-      const { prompt, durationSec, aspectRatio, recipe, narration, music, sfx, referenceImage } = req.body;
+      const { prompt, durationSec, aspectRatio, recipe, narration, music, sfx, referenceImage, images } = req.body;
       requireVideoAssistantTopic(prompt);
       const userId = req.user.id;
       const configError = await generationConfigError(userId);
@@ -51,6 +55,15 @@ projectsRouter.post(
         status: "PLANNING",
         progress: 0,
       });
+
+      // Persist any uploaded images → the video is built FROM them.
+      if (Array.isArray(images) && images.length) {
+        const saved = saveProjectImages(String(project._id), images);
+        if (saved.length) {
+          project.images = saved;
+          await project.save();
+        }
+      }
 
       // Deduct atomically; on failure remove the project and return 402.
       const cost = costForDuration(durationSec);
@@ -213,3 +226,82 @@ projectsRouter.post("/:id/rerender", async (req, res, next) => {
     next(err);
   }
 });
+
+// Regenerate ONE scene of an already-rendered hybrid project — re-plans just
+// that scene's content and re-generates its footage, then re-renders the
+// full video (the worker skips planning/footage-gen for the untouched scenes
+// since scenePlan + videoPlan are already present in renderPlan).
+projectsRouter.post(
+  "/:id/scenes/:index/regenerate",
+  rateLimit({ max: 30, windowMs: 60 * 60 * 1000 }),
+  async (req, res, next) => {
+    try {
+      if (!isValidId(req.params.id)) return res.status(404).json({ error: "Project not found" });
+      const project = await Project.findOne({ _id: req.params.id, deletedAt: null });
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      if (String(project.userId) !== req.user.id)
+        return res.status(403).json({ error: "Forbidden" });
+      if (project.status === "QUEUED" || project.status === "RENDERING")
+        return res.status(409).json({ error: "Project is rendering — wait for it to finish" });
+
+      const scenePlan = project.renderPlan?.scenePlan;
+      const videoPlan = project.renderPlan?.videoPlan;
+      if (!scenePlan || !videoPlan)
+        return res.status(409).json({ error: "This project hasn't finished its first render yet" });
+
+      const index = Number(req.params.index);
+      if (!Number.isInteger(index) || index < 0 || index >= scenePlan.scenes.length)
+        return res.status(400).json({ error: "Invalid scene index" });
+
+      const instruction =
+        typeof req.body?.instruction === "string" ? req.body.instruction.slice(0, 500) : "";
+
+      const configError = await generationConfigError(req.user.id);
+      if (configError) return res.status(500).json({ error: configError });
+
+      const cost = costForSceneRegeneration();
+      await deductCredits(req.user.id, cost, String(project._id));
+
+      try {
+        const newScene = await regenerateScene({
+          userPrompt: project.prompt,
+          scenePlan,
+          sceneIndex: index,
+          instruction,
+          recipe: scenePlan.recipeId || project.recipe || "auto",
+        });
+
+        const provider = preferredHybridProvider();
+        const aspectRatio = project.aspectRatio || "16:9";
+        const rebuilt = await buildVideoPlan(
+          { scenes: [newScene] },
+          { provider, aspectRatio, jobId: String(project._id) }
+        );
+        const newVideoScene = rebuilt.scenes[0];
+
+        const nextScenePlan = { ...scenePlan, scenes: [...scenePlan.scenes] };
+        nextScenePlan.scenes[index] = newScene;
+        const nextVideoPlan = { ...videoPlan, scenes: [...videoPlan.scenes] };
+        nextVideoPlan.scenes[index] = newVideoScene;
+
+        project.renderPlan = { scenePlan: nextScenePlan, videoPlan: nextVideoPlan };
+        project.status = "QUEUED";
+        project.progress = 0;
+        project.errorMessage = null;
+        project.errorPhase = null;
+        project.errorCode = null;
+        project.errorStack = null;
+        project.errorAt = null;
+        project.outputUrl = null;
+        await project.save();
+
+        res.status(202).json(toProjectDTO(project));
+      } catch (err) {
+        await refundCredits(req.user.id, cost, String(project._id)).catch(() => {});
+        throw err;
+      }
+    } catch (err) {
+      next(err);
+    }
+  }
+);

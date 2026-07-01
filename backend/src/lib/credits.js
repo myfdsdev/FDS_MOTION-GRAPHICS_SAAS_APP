@@ -11,6 +11,12 @@ export function costForDuration(seconds) {
   return seconds >= 30 ? 20 : 10;
 }
 
+// Regenerating a single scene only re-runs footage for that one clip (no
+// re-planning, no re-narration) — a fraction of a full render's cost.
+export function costForSceneRegeneration() {
+  return 3;
+}
+
 // Atomic, conditional decrement — works on any MongoDB topology (no replica set
 // required). The {$gte: amount} guard ensures credits never go negative.
 export async function deductCredits(userId, amount, projectId) {

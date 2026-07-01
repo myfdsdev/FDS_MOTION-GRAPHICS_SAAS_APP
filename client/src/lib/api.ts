@@ -152,7 +152,8 @@ export async function createProject(
   recipe?: string,
   narration?: boolean,
   music?: boolean,
-  sfx?: boolean
+  sfx?: boolean,
+  images?: string[]
 ): Promise<Project> {
   if (USE_MOCKS) return mockApi.createProject(prompt, durationSec, aspectRatio);
   return realFetch<Project>("/api/projects", {
@@ -166,6 +167,7 @@ export async function createProject(
       ...(music !== undefined ? { music } : {}),
       ...(sfx !== undefined ? { sfx } : {}),
       ...(referenceImage ? { referenceImage } : {}),
+      ...(images && images.length ? { images } : {}),
     }),
   });
 }
@@ -188,6 +190,10 @@ export async function getRecipes(): Promise<Recipe[]> {
       { id: "subtitle-video", label: "Subtitle Video", description: "AI footage with big synced subtitles + voiceover.", aspectRatio: "16:9", background: "footage", group: "ai-video" },
       { id: "youtube-video", label: "YouTube Video", description: "Faceless YouTube style: b-roll + voiceover + big subtitles.", aspectRatio: "16:9", background: "footage", group: "ai-video" },
       { id: "social-short", label: "Social Short (Vertical)", description: "Fast 9:16 reel.", aspectRatio: "9:16", background: "mixed", group: "ai-video" },
+      { id: "brand-intro", label: "Brand Intro", description: "Animated logo reveal + tagline. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
+      { id: "event-countdown", label: "Event Countdown", description: "Countdown + RSVP CTA for a launch or webinar.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
+      { id: "real-estate", label: "Real Estate Tour", description: "Property footage with specs, price & feature callouts.", aspectRatio: "16:9", background: "footage", group: "ai-video" },
+      { id: "before-after", label: "Before / After", description: "Transformation reveal with comparison cards.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
       { id: "none", label: "No template (AI codes it)", description: "The AI writes the entire video as custom code. Most flexible, slower.", aspectRatio: "16:9", background: "code", group: "motion-graphics" },
     ];
   }
@@ -250,6 +256,18 @@ export async function generateProject(
       ...(durationSec ? { durationSec } : {}),
       ...(referenceImage ? { referenceImage } : {}),
     }),
+  });
+}
+
+export async function regenerateScene(
+  id: string,
+  index: number,
+  instruction?: string
+): Promise<Project> {
+  if (USE_MOCKS) return mockApi.regenerateScene(id);
+  return realFetch<Project>(`/api/projects/${id}/scenes/${index}/regenerate`, {
+    method: "POST",
+    body: JSON.stringify({ instruction: instruction || "" }),
   });
 }
 

@@ -125,6 +125,15 @@ export interface Recipe {
   group?: string;
 }
 
+export interface ProjectScene {
+  index: number;
+  id: string;
+  description: string;
+  durationSeconds: number | null;
+  /** Rendered clip src for this scene alone, if it has AI-generated footage. */
+  thumbnailUrl: string | null;
+}
+
 export interface Project {
   id: string;
   userId: string;
@@ -132,6 +141,9 @@ export interface Project {
   status: ProjectStatus;
   script?: string;
   sceneJson?: VideoPlan;
+  /** Present once the hybrid renderer has produced a plan — lets the editor
+   *  list scenes and regenerate one individually. */
+  scenes?: ProjectScene[];
   aspectRatio: AspectRatio;
   durationSec: number;
   recipe?: string;

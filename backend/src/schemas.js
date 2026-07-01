@@ -395,6 +395,8 @@ export const CreateProjectInput = z.object({
   music: z.boolean().optional(),
   sfx: z.boolean().optional(),
   referenceImage: z.string().max(6_000_000).optional(),
+  // Up to 8 uploaded images (data URLs) that BECOME the video's scenes.
+  images: z.array(z.string().max(6_000_000)).max(8).optional(),
 });
 
 export const EnhancePromptInput = z.object({

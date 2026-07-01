@@ -19,6 +19,18 @@ export function toProjectDTO(p) {
     status: p.status,
     script: p.script ?? undefined,
     sceneJson: p.sceneJson ?? undefined,
+    // Lightweight per-scene summary from the hybrid renderer's plan — lets the
+    // editor list scenes and regenerate one individually without exposing the
+    // full internal plan (asset prompts, provider ids, etc).
+    scenes: p.renderPlan?.scenePlan?.scenes?.length
+      ? p.renderPlan.scenePlan.scenes.map((s, i) => ({
+          index: i,
+          id: s.id,
+          description: s.description ?? "",
+          durationSeconds: s.durationSeconds ?? null,
+          thumbnailUrl: p.renderPlan?.videoPlan?.scenes?.[i]?.background?.src ?? null,
+        }))
+      : undefined,
     aspectRatio: p.aspectRatio,
     durationSec: p.durationSec,
     recipe: p.recipe ?? "auto",

@@ -87,6 +87,9 @@ const projectSchema = new Schema(
     narration: { type: Boolean, default: true },
     music: { type: Boolean, default: true },
     sfx: { type: Boolean, default: false },
+    /** User-uploaded images (staticFile-relative paths under public/uploads).
+     *  When present, the video is built FROM these images (vision plan). */
+    images: { type: [String], default: [] },
     outputUrl: { type: String, default: null },
     thumbnailUrl: { type: String, default: null },
     /** Narration MP3 produced by ElevenLabs TTS from `script`. Optional. */

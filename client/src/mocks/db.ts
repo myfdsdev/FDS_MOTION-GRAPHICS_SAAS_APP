@@ -299,6 +299,14 @@ export const mockApi = {
     saveDB(db);
   },
 
+  async regenerateScene(id: string): Promise<Project> {
+    await delay(300);
+    const proj = db.projects.find((p) => p.id === id);
+    if (!proj) throw new Error("Project not found");
+    // Mock mode has no per-scene renderPlan to update — just no-op.
+    return { ...proj };
+  },
+
   async rerender(id: string): Promise<Project> {
     await delay(400);
     const proj = db.projects.find((p) => p.id === id);

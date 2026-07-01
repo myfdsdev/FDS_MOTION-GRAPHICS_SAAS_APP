@@ -24,6 +24,7 @@ import {
   Play,
   Plus,
   Redo2,
+  RotateCcw,
   Scissors,
   Settings,
   Shapes,
@@ -36,7 +37,15 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMe, useProject, useUpdateProject, useGenerateProject, useRerender, useDeleteProject } from "@/lib/queries";
+import {
+  useMe,
+  useProject,
+  useUpdateProject,
+  useGenerateProject,
+  useRegenerateScene,
+  useRerender,
+  useDeleteProject,
+} from "@/lib/queries";
 import { Timeline } from "@/components/project/Timeline";
 import { RenderedPreview } from "@/components/canvas/RenderedPreview";
 import { LayersPanel } from "@/components/canvas/LayersPanel";
@@ -58,9 +67,9 @@ import {
 } from "@/lib/editor/editorStore";
 import { DEFAULT_PX_PER_SECOND, FPS, type SceneElement } from "@/lib/editor/editorTypes";
 import { cn } from "@/lib/utils";
-import type { VideoPlan } from "@/types";
+import type { ProjectScene, VideoPlan } from "@/types";
 
-type PanelId = "chat" | "edit" | "layers" | "media" | "fonts" | "colors" | "projects";
+type PanelId = "chat" | "edit" | "layers" | "media" | "fonts" | "colors" | "projects" | "scenes";
 
 const RAIL: { id: PanelId; label: string; icon: typeof MessageSquare }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
@@ -86,9 +95,23 @@ export default function EditorPage() {
   const { data: project, isLoading } = useProject(id);
   const updateProject = useUpdateProject(id);
   const generate = useGenerateProject(id);
+  const regenerateScene = useRegenerateScene(id);
   const rerender = useRerender();
   const deleteProject = useDeleteProject();
   const navigate = useNavigate();
+  const [pendingSceneIndex, setPendingSceneIndex] = useState<number | null>(null);
+
+  const handleRegenerateScene = async (index: number, instruction: string) => {
+    setPendingSceneIndex(index);
+    try {
+      await regenerateScene.mutateAsync({ index, instruction });
+      toast.success("Scene regenerating — re-rendering now.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't regenerate that scene");
+    } finally {
+      setPendingSceneIndex(null);
+    }
+  };
 
   const handleDelete = () => {
     if (!project) return;
@@ -107,7 +130,7 @@ export default function EditorPage() {
   };
 
   const [state, dispatch] = useReducer(editorReducer, EMPTY_STATE);
-  const [panel, setPanel] = useState<PanelId>("chat");
+  const [panel, setPanel] = useState<PanelId>("scenes");
   // Mobile-only: which of Chat / Preview is shown full-bleed. Above md both
   // are visible side-by-side and this flag is ignored.
   const [mobileView, setMobileView] = useState<"chat" | "preview">("preview");
@@ -600,6 +623,7 @@ export default function EditorPage() {
           {/* Panel tabs */}
           <div className="flex border-b border-border-soft">
             {([
+              { id: "scenes" as const, label: "Scenes", icon: Film },
               { id: "layers" as const, label: "Layers", icon: Layers },
               { id: "edit" as const, label: "Props", icon: SlidersHorizontal },
               { id: "media" as const, label: "Add", icon: Plus },
@@ -624,6 +648,14 @@ export default function EditorPage() {
             })}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
+            {panel === "scenes" && (
+              <ScenesPanel
+                scenes={project.scenes ?? []}
+                disabled={!editable}
+                pendingIndex={pendingSceneIndex}
+                onRegenerate={handleRegenerateScene}
+              />
+            )}
             {panel === "layers" && (
               <LayersPanel
                 clipId={sceneClipId}
@@ -896,39 +928,67 @@ function ChatPanel({
   );
 }
 
-function ScenePanel({
-  state,
-  currentTime,
-  onSeek,
+function ScenesPanel({
+  scenes,
+  disabled,
+  pendingIndex,
+  onRegenerate,
 }: {
-  state: ReturnType<typeof createInitialState>;
-  currentTime: number;
-  onSeek: (t: number) => void;
+  scenes: ProjectScene[];
+  disabled: boolean;
+  pendingIndex: number | null;
+  onRegenerate: (index: number, instruction: string) => void;
 }) {
-  const sceneTrack = state.tracks.find((t) => t.kind === "scene");
-  const clips = sceneTrack?.clips.slice().sort((a, b) => a.start - b.start) ?? [];
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border-soft px-4 py-3 text-sm font-semibold">Scenes</div>
-      <div className="flex-1 space-y-1.5 overflow-y-auto p-3">
-        {clips.map((c, i) => {
-          const active = currentTime >= c.start && currentTime < c.start + c.duration;
-          return (
-            <button
-              key={c.id}
-              onClick={() => onSeek(c.start + 0.01)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition",
-                active ? "border-accent bg-surface-2" : "border-border bg-surface-2/40 hover:border-accent/40"
+      <div className="flex-1 space-y-2.5 overflow-y-auto p-3">
+        {scenes.map((s) => (
+          <div key={s.id ?? s.index} className="rounded-lg border border-border bg-surface-2/40 p-2.5">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="font-bold text-accent-soft">Scene {s.index + 1}</span>
+              {s.durationSeconds != null && (
+                <span className="text-faint">{s.durationSeconds.toFixed(1)}s</span>
               )}
+            </div>
+            {s.thumbnailUrl && (
+              <video
+                src={s.thumbnailUrl}
+                muted
+                loop
+                autoPlay
+                playsInline
+                className="mb-1.5 h-20 w-full rounded-md object-cover bg-bg"
+              />
+            )}
+            <p className="mb-1.5 line-clamp-2 text-xs text-muted">{s.description || "—"}</p>
+            <input
+              value={drafts[s.index] ?? ""}
+              onChange={(e) => setDrafts((d) => ({ ...d, [s.index]: e.target.value }))}
+              placeholder="Optional: what should change?"
+              disabled={disabled || pendingIndex !== null}
+              className="mb-1.5 w-full rounded-md border border-border bg-surface-3 px-2 py-1 text-xs text-fg outline-none placeholder:text-faint disabled:opacity-50"
+            />
+            <button
+              onClick={() => onRegenerate(s.index, drafts[s.index] ?? "")}
+              disabled={disabled || pendingIndex !== null}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-2 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="font-bold text-accent-soft">{i + 1}</span>
-              <span className="flex-1 truncate text-fg">{c.label ?? c.scene?.text ?? "Scene"}</span>
-              <span className="text-faint">{c.duration.toFixed(1)}s</span>
+              {pendingIndex === s.index ? (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent-ink/40 border-t-accent-ink" />
+              ) : (
+                <RotateCcw size={12} />
+              )}
+              {pendingIndex === s.index ? "Regenerating…" : "Regenerate this scene"}
             </button>
-          );
-        })}
-        {!clips.length && <p className="px-1 text-xs text-faint">No scenes yet — generate in Chat.</p>}
+          </div>
+        ))}
+        {!scenes.length && (
+          <p className="px-1 text-xs text-faint">
+            Scenes appear here after the video's first render.
+          </p>
+        )}
       </div>
     </div>
   );
