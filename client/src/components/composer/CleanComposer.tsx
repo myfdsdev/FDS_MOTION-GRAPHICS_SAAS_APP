@@ -52,7 +52,7 @@ function shouldGenerateFromEnter(input: string) {
   return text.length >= 10 && !isGreeting(text);
 }
 
-export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurationSec = 20, section = "ai-video" }: Props) {
+export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurationSec = 20, section = "ai-video", showTemplates = true }: Props) {
   const navigate = useNavigate();
   const createProject = useCreateProject();
   const enhance = useEnhancePrompt();
@@ -72,10 +72,12 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
   // chosen recipe inside it.
   const sectionRecipes = (recipes ?? []).filter((r) => (r.group ?? "ai-video") === section);
   useEffect(() => {
-    if (sectionRecipes.length && !sectionRecipes.some((r) => r.id === recipe)) {
+    // Only auto-select a template when the picker is shown. When hidden, leave
+    // recipe blank so the backend auto-picks from the prompt.
+    if (showTemplates && sectionRecipes.length && !sectionRecipes.some((r) => r.id === recipe)) {
       setRecipe(sectionRecipes[0].id);
     }
-  }, [sectionRecipes, recipe]);
+  }, [showTemplates, sectionRecipes, recipe]);
 
   const isSubmitting = createProject.isPending;
   const canSubmit = prompt.trim().length >= 10 && !isSubmitting;
@@ -346,7 +348,7 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
       </div>
 
       {/* Template cards */}
-      {sectionRecipes.length > 0 && (
+      {showTemplates && sectionRecipes.length > 0 && (
         <div className="mt-7">
           <div className="mb-3 text-center text-[11px] uppercase tracking-[0.15em] text-faint">
             {section === "ai-video" ? "AI Video templates" : "Motion Graphics templates"}

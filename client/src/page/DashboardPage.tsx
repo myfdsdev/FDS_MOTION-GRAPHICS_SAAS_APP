@@ -17,7 +17,7 @@ export default function DashboardPage({
   // Chat-only page: just the centered composer. Past work lives on /projects.
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20">
-      <CleanComposer greeting={greeting} section={section} />
+      <CleanComposer greeting={greeting} section={section} showTemplates={section === "ai-video"} />
     </div>
   );
 }
