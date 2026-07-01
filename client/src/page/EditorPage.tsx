@@ -466,19 +466,6 @@ export default function EditorPage() {
         {/* Right: download + render + theme. `shrink-0` so it can never be
             clipped, no matter how long the title is. */}
         <div className="flex shrink-0 items-center gap-1">
-          {/* Mobile-only toggle between Chat and Preview. Hidden from md up
-              because both panels are visible side-by-side there. */}
-          <Tooltip content={mobileView === "chat" ? "Show preview" : "Show chat"} side="bottom">
-            <button
-              onClick={() => setMobileView((v) => (v === "chat" ? "preview" : "chat"))}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs font-medium text-fg hover:border-accent/40 md:hidden"
-            >
-              {mobileView === "chat" ? <Monitor size={13} /> : <MessageSquare size={13} />}
-              <span className="hidden sm:inline">
-                {mobileView === "chat" ? "Preview" : "Chat"}
-              </span>
-            </button>
-          </Tooltip>
           <RenderErrorDetails project={project} onRetry={handleRender} />
           <Tooltip content="Delete project" side="bottom">
             <button
@@ -544,33 +531,13 @@ export default function EditorPage() {
       {/* ---- Body — on mobile, only one of {Chat, Preview} is shown at a
            time (toggle in the header). From md up, both are side-by-side. ---- */}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        {/* Chat: full-screen on mobile (when selected); fixed side panel on md+. */}
-        <aside
-          className={cn(
-            // Desktop: fixed-width side panel that never grows. We use
-            // `md:!flex-none` so the `flex-1` we add for mobile can't leak
-            // into desktop and push the preview off-screen.
-            "flex-col border-r border-border-soft bg-bg/40 md:flex md:!flex-none md:h-auto md:w-64 md:shrink-0 lg:w-72 xl:w-80",
-            mobileView === "chat" ? "flex flex-1" : "hidden md:flex"
-          )}
-        >
-          <ChatPanel
-            credits={me?.credits ?? 0}
-            aspectRatio={project.aspectRatio}
-            defaultDuration={project.durationSec}
-            generating={generating}
-            onGenerate={runGenerate}
-          />
-        </aside>
-
         {/* Preview — Canvas with LivePreview is the primary editing surface.
             The actual Remotion <Player> renders the scene in real time
             and draggable element overlays sit on top. After render the MP4
             opens in a popup — it never replaces this canvas. */}
         <main
           className={cn(
-            "relative min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#0a0a0f] p-1 sm:p-2 md:flex md:p-3",
-            mobileView === "preview" ? "flex" : "hidden md:flex"
+            "relative flex min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#0a0a0f] p-1 sm:p-2 md:p-3"
           )}
         >
           <div
