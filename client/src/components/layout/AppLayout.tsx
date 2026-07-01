@@ -3,7 +3,6 @@ import { Outlet, Link, useNavigate, useLocation, Navigate } from "react-router-d
 import {
   Clapperboard,
   Film,
-  MessageSquare,
   Plus,
   FolderClock,
   LogOut,
@@ -20,10 +19,6 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-const NAV = [
-  { to: "/projects", label: "Projects", icon: FolderClock },
-];
-
 export default function AppLayout() {
   const { data: me, isLoading } = useMe();
   const { data: projects } = useProjects();
@@ -36,11 +31,9 @@ export default function AppLayout() {
   const previewTo = latestProjectId ? `/projects/${latestProjectId}/edit` : "/dashboard";
 
   const navItems = [
-    { to: "/assistant", label: "Assistant", icon: MessageSquare },
     { to: "/dashboard", label: "AI Video", icon: Clapperboard },
     { to: "/motion-graphics", label: "Motion Graphics", icon: Sparkles },
     { to: previewTo, label: "Preview", icon: Film },
-    ...NAV,
   ];
 
   // Mobile drawer — open via the hamburger; auto-close when the route changes.
@@ -197,6 +190,12 @@ export default function AppLayout() {
               >
                 <Coins size={15} className="text-muted" /> Billing
               </Link>
+              <Link
+                to="/projects"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-fg hover:bg-surface-2"
+              >
+                <FolderClock size={15} className="text-muted" /> Projects
+              </Link>
               {me.isAdmin && (
                 <Link
                   to="/admin"
@@ -205,7 +204,6 @@ export default function AppLayout() {
                   <ShieldCheck size={15} className="text-muted" /> Admin
                 </Link>
               )}
-
               <div className="flex items-center justify-between rounded-md px-2 py-2 text-sm text-fg">
                 <span className="text-muted">Theme</span>
                 <ThemeToggle className="h-7 w-7" />

@@ -101,10 +101,7 @@ export function isVideoAssistantTopic(input) {
   return /\b(video|motion|animation|render|remotion|promo|ad|explainer|script|storyboard)\b/.test(text);
 }
 
-export function requireVideoAssistantTopic(input) {
-  if (isVideoAssistantTopic(input)) return;
-  const err = new Error(VIDEO_ASSISTANT_SCOPE_MESSAGE);
-  err.status = 400;
-  err.code = "OUT_OF_SCOPE_PROMPT";
-  throw err;
+// Topic guard removed — never blocks. Any prompt is accepted.
+export function requireVideoAssistantTopic(_input) {
+  return;
 }

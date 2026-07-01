@@ -88,15 +88,9 @@ const OFF_TOPIC_TERMS = [
   "translate",
 ];
 
+// Topic guard removed — any non-empty prompt is allowed. (Kept the function so
+// existing call sites keep working; ALLOWED_TERMS/OFF_TOPIC_TERMS retained for
+// reference in case a lighter guard is ever wanted again.)
 export function isVideoAssistantTopic(input: string) {
-  const text = String(input || "").toLowerCase().replace(/\s+/g, " ").trim();
-  if (!text) return false;
-
-  const allowed = ALLOWED_TERMS.some((term) => text.includes(term));
-  if (!allowed) return false;
-
-  const offTopic = OFF_TOPIC_TERMS.some((term) => text.includes(term));
-  if (!offTopic) return true;
-
-  return /\b(video|motion|animation|render|remotion|promo|ad|explainer|script|storyboard)\b/.test(text);
+  return String(input || "").trim().length > 0;
 }

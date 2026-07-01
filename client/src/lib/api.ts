@@ -186,6 +186,7 @@ export async function getRecipes(): Promise<Recipe[]> {
       { id: "promo-sale", label: "Promo / Sale", description: "Urgent discount promo.", aspectRatio: "16:9", background: "mixed", group: "ai-video" },
       { id: "captions", label: "Subtitles", description: "Big subtitles synced to voiceover. No footage.", aspectRatio: "16:9", background: "graphics", group: "motion-graphics" },
       { id: "subtitle-video", label: "Subtitle Video", description: "AI footage with big synced subtitles + voiceover.", aspectRatio: "16:9", background: "footage", group: "ai-video" },
+      { id: "youtube-video", label: "YouTube Video", description: "Faceless YouTube style: b-roll + voiceover + big subtitles.", aspectRatio: "16:9", background: "footage", group: "ai-video" },
       { id: "social-short", label: "Social Short (Vertical)", description: "Fast 9:16 reel.", aspectRatio: "9:16", background: "mixed", group: "ai-video" },
       { id: "none", label: "No template (AI codes it)", description: "The AI writes the entire video as custom code. Most flexible, slower.", aspectRatio: "16:9", background: "code", group: "motion-graphics" },
     ];

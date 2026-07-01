@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TextareaAutosize from "react-textarea-autosize";
 import {
-  Sparkles, Plus, Mic, MicOff, AudioLines, ArrowUp, Wand2, X, ImageIcon,
+  Sparkles, Plus, Mic, MicOff, AudioLines, Wand2, X, ImageIcon,
   Clock, Monitor, Smartphone, Tablet, Square, Music2, VolumeX, Check,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -23,6 +23,8 @@ interface Props {
   /** Which template section this page is for: "ai-video" (footage) or
    *  "motion-graphics" (no footage). Locks the picker to that group. */
   section?: "ai-video" | "motion-graphics";
+  /** Show the template picker cards. When false, just the prompt + generate. */
+  showTemplates?: boolean;
 }
 
 const PROMPT_GUIDANCE =
@@ -35,13 +37,6 @@ const FORMATS: { label: string; ratio: AspectRatio; Icon: LucideIcon }[] = [
   { label: "Tablet", ratio: "4:3", Icon: Tablet },
   { label: "Square", ratio: "1:1", Icon: Square },
 ];
-const chipCls = (active: boolean) =>
-  `shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
-    active
-      ? "bg-accent text-accent-ink border-accent shadow-accent"
-      : "border-border text-muted hover:text-fg hover:bg-surface-2"
-  }`;
-
 const GREETING_RE = /^(hi|hello|hey|yo|helo|hlow|good morning|good afternoon|good evening|good night|gm)\b/i;
 const CHAT_ONLY_RE =
   /\b(prompt|idea|suggest|example|how|why|what|fix|error|bug|problem|debug|setup|install|not working|failed|crash)\b|\b(create|write)\s+(a\s+)?script\b/i;
@@ -51,8 +46,10 @@ function isGreeting(input: string) {
 }
 
 function shouldGenerateFromEnter(input: string) {
+  // Topic guard removed — Enter generates for any real prompt (still ignore
+  // bare greetings so "hi" doesn't kick off a render).
   const text = input.trim();
-  return text.length >= 10 && isVideoAssistantTopic(text) && !isGreeting(text) && !CHAT_ONLY_RE.test(text);
+  return text.length >= 10 && !isGreeting(text);
 }
 
 export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurationSec = 20, section = "ai-video" }: Props) {
@@ -185,30 +182,34 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
     }
   };
 
+  const fmt = FORMATS.find((x) => x.ratio === aspectRatio) ?? FORMATS[0];
+  const FmtIcon = fmt.Icon;
+
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full max-w-3xl mx-auto">
       {greeting && (
-        <div className="flex items-center justify-center gap-3 mb-7">
+        <div className="flex items-center justify-center gap-3 mb-8">
           <Sparkles size={26} className="text-accent shrink-0" />
-          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-fg/90">
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-fg">
             {greeting}
           </h1>
         </div>
       )}
 
-      <div className="bg-surface border border-border rounded-2xl px-4 pt-3 pb-2.5 shadow-card focus-within:border-neutral-600 transition-colors">
+      {/* Prompt card */}
+      <div className="bg-surface border border-border rounded-3xl p-3 sm:p-4 shadow-card transition-all focus-within:border-accent/40 focus-within:ring-2 focus-within:ring-accent/15">
         <div className="relative">
           {prompt === "" && (
             <TextType
               as="div"
               aria-hidden
-              className="pointer-events-none absolute left-1.5 top-2 text-[15px] leading-normal text-faint"
+              className="pointer-events-none absolute left-2.5 top-2.5 text-[16px] leading-normal text-faint"
               text={[
-                "Describe the video you want to create",
+                "Describe the video you want to create…",
                 "Make a 30-second product demo",
                 "Animate a chart of our revenue growth",
                 "Create a YouTube intro for my channel",
-                "Build an explainer video on how solar panels work",
+                "Build an explainer on how solar panels work",
               ]}
               typingSpeed={55}
               deletingSpeed={28}
@@ -221,23 +222,23 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            minRows={2}
+            minRows={3}
             maxRows={12}
             autoFocus
-            className="relative w-full bg-transparent border-0 outline-none text-fg placeholder:text-faint px-1.5 py-2 text-[15px] resize-none scrollbar-thin"
+            className="relative w-full bg-transparent border-0 outline-none text-fg placeholder:text-faint px-2.5 py-2.5 text-[16px] leading-relaxed resize-none scrollbar-thin"
           />
         </div>
 
         {/* Reference image preview */}
         {refImage && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-2/60 p-2 mb-1.5">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-surface-2/60 p-2 mb-2">
             <img src={refImage} alt="ref" className="h-14 w-14 rounded-lg object-cover border border-border" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-fg font-medium">
                 <ImageIcon size={12} className="text-accent shrink-0" />
                 <span className="truncate">{refName}</span>
               </div>
-              <div className="text-[11px] text-faint mt-0.5">Design reference — layout, colors & style only (not content)</div>
+              <div className="text-[11px] text-faint mt-0.5">Design reference — layout, colors & style only</div>
             </div>
             <button
               type="button"
@@ -249,23 +250,16 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
           </div>
         )}
 
-        {/* Bottom toolbar */}
-        <div className="flex items-center justify-between gap-2 pt-1">
-          {/* Left: attach + compact settings icons */}
-          <div className="flex items-center gap-0.5">
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFilePick}
-            />
+        {/* Toolbar */}
+        <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-border-soft">
+          {/* Left: settings */}
+          <div className="flex items-center gap-1">
+            <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={handleFilePick} />
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
-              aria-label="Add reference image"
-              title="Upload design reference (layout & style only)"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
+              title="Attach a reference image (style only)"
             >
               <Plus size={18} />
             </button>
@@ -273,22 +267,13 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
             {/* Length */}
             <Popover>
               <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  title={`Length: ${durationSec}s`}
-                  className="h-8 px-2 rounded-full inline-flex items-center gap-1 text-xs text-muted hover:text-fg hover:bg-surface-2 transition-colors"
-                >
-                  <Clock size={15} /> {durationSec}s
+                <button type="button" title="Video length" className="h-8 px-2.5 rounded-lg inline-flex items-center gap-1.5 text-xs font-medium text-muted hover:text-fg hover:bg-surface-2 transition-colors">
+                  <Clock size={14} /> {durationSec}s
                 </button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-28 p-1">
                 {DURATIONS.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDurationSec(d)}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-fg hover:bg-surface-2"
-                  >
+                  <button key={d} type="button" onClick={() => setDurationSec(d)} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-fg hover:bg-surface-2">
                     {d}s {durationSec === d && <Check size={13} className="text-accent" />}
                   </button>
                 ))}
@@ -298,32 +283,15 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
             {/* Format */}
             <Popover>
               <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  title={`Format: ${aspectRatio}`}
-                  className="h-8 px-2 rounded-full inline-flex items-center gap-1 text-xs text-muted hover:text-fg hover:bg-surface-2 transition-colors"
-                >
-                  {(() => {
-                    const f = FORMATS.find((x) => x.ratio === aspectRatio) ?? FORMATS[0];
-                    const I = f.Icon;
-                    return (
-                      <>
-                        <I size={15} /> {f.ratio}
-                      </>
-                    );
-                  })()}
+                <button type="button" title="Aspect ratio" className="h-8 px-2.5 rounded-lg inline-flex items-center gap-1.5 text-xs font-medium text-muted hover:text-fg hover:bg-surface-2 transition-colors">
+                  <FmtIcon size={14} /> {fmt.ratio}
                 </button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-44 p-1">
                 {FORMATS.map((f) => {
                   const I = f.Icon;
                   return (
-                    <button
-                      key={f.ratio}
-                      type="button"
-                      onClick={() => setAspectRatio(f.ratio)}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-fg hover:bg-surface-2"
-                    >
+                    <button key={f.ratio} type="button" onClick={() => setAspectRatio(f.ratio)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-fg hover:bg-surface-2">
                       <I size={14} className="text-muted" /> {f.label}
                       <span className="ml-auto opacity-60">{f.ratio}</span>
                       {aspectRatio === f.ratio && <Check size={13} className="text-accent" />}
@@ -333,99 +301,57 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
               </PopoverContent>
             </Popover>
 
-            {/* Narration toggle */}
-            <button
-              type="button"
-              onClick={() => setNarration((v) => !v)}
-              title={narration ? "Narration: on" : "Narration: off"}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-2 ${
-                narration ? "text-accent" : "text-faint hover:text-fg"
-              }`}
-            >
+            <div className="mx-1 h-5 w-px bg-border-soft" />
+
+            <button type="button" onClick={() => setNarration((v) => !v)} title={narration ? "Narration on" : "Narration off"}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-surface-2 ${narration ? "text-accent" : "text-faint hover:text-fg"}`}>
               {narration ? <Mic size={16} /> : <MicOff size={16} />}
             </button>
-
-            {/* Music toggle */}
-            <button
-              type="button"
-              onClick={() => setMusic((v) => !v)}
-              title={music ? "Music: on" : "Music: off"}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-surface-2 ${
-                music ? "text-accent" : "text-faint hover:text-fg"
-              }`}
-            >
+            <button type="button" onClick={() => setMusic((v) => !v)} title={music ? "Music on" : "Music off"}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-surface-2 ${music ? "text-accent" : "text-faint hover:text-fg"}`}>
               {music ? <Music2 size={16} /> : <VolumeX size={16} />}
             </button>
-
-            {/* SFX (coming soon) */}
-            <button
-              type="button"
-              disabled
-              title="Sound effects — coming soon"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-faint/40 cursor-not-allowed"
-            >
-              <Sparkles size={16} />
+            <button type="button" disabled title="Sound effects — coming soon"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-faint/40 cursor-not-allowed">
+              <AudioLines size={16} />
             </button>
           </div>
 
-          {/* Right: enhance, model, mic, send */}
-          <div className="flex items-center gap-1.5">
+          {/* Right: enhance + generate */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleEnhance}
               disabled={enhance.isPending}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors disabled:opacity-50"
-              aria-label="Enhance prompt"
-              title="Enhance prompt"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors disabled:opacity-50"
+              title="Enhance prompt with AI"
             >
               <Wand2 size={15} className={enhance.isPending ? "animate-pulse" : ""} />
             </button>
-
             <button
               type="button"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-fg hover:bg-surface-2 transition-colors"
-              aria-label="Voice input"
-              title="Voice input"
+              onClick={handleCreate}
+              disabled={!canSubmit}
+              className="inline-flex items-center gap-1.5 h-9 pl-3.5 pr-4 rounded-full bg-accent text-accent-ink text-sm font-semibold hover:bg-accent-hover transition-colors shadow-accent active:translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Mic size={16} />
+              {isSubmitting ? (
+                <span className="w-4 h-4 rounded-full border-2 border-accent-ink/40 border-t-accent-ink animate-spin" />
+              ) : (
+                <Sparkles size={15} />
+              )}
+              {isSubmitting ? "Creating…" : "Generate"}
             </button>
-
-            {canSubmit ? (
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={!canSubmit}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-accent hover:bg-accent-hover text-accent-ink transition-colors shadow-accent active:translate-y-px"
-                aria-label="Create video"
-                title="Create video"
-              >
-                {isSubmitting ? (
-                  <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                ) : (
-                  <ArrowUp size={16} />
-                )}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-muted"
-                aria-label="Audio"
-                title="Audio"
-                disabled
-              >
-                <AudioLines size={16} />
-              </button>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Template picker for this page's section */}
+      {/* Template cards */}
       {sectionRecipes.length > 0 && (
-        <div className="mt-3 flex flex-col items-center gap-2">
-          <span className="text-[11px] uppercase tracking-wide text-faint">Template</span>
-          {/* Templates in this section */}
-          <div className="flex items-center justify-center flex-wrap gap-1.5 max-w-full">
+        <div className="mt-7">
+          <div className="mb-3 text-center text-[11px] uppercase tracking-[0.15em] text-faint">
+            {section === "ai-video" ? "AI Video templates" : "Motion Graphics templates"}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {sectionRecipes.map((r) => {
               const active = recipe === r.id;
               return (
@@ -433,14 +359,17 @@ export function CleanComposer({ greeting, onPickFiles, durationSec: defaultDurat
                   key={r.id}
                   type="button"
                   onClick={() => setRecipe(r.id)}
-                  title={r.description}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs border transition-colors ${
+                  className={`group text-left rounded-2xl border p-3.5 transition-all ${
                     active
-                      ? "bg-accent text-accent-ink border-accent shadow-accent"
-                      : "border-border text-muted hover:text-fg hover:bg-surface-2"
+                      ? "border-accent bg-accent/10 ring-1 ring-accent/30"
+                      : "border-border bg-surface-2/40 hover:bg-surface-2 hover:border-neutral-600"
                   }`}
                 >
-                  {r.label}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-sm font-medium ${active ? "text-fg" : "text-fg/90"}`}>{r.label}</span>
+                    {active && <Check size={15} className="text-accent shrink-0" />}
+                  </div>
+                  <p className="mt-1 text-[11px] leading-snug text-muted line-clamp-2">{r.description}</p>
                 </button>
               );
             })}

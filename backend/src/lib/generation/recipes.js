@@ -234,6 +234,29 @@ script (the video is voiceover-driven). Use background.scrim 0.45-0.55 so the
 captions stay readable over footage. Beats: HOOK -> POINT -> POINT -> POINT -> CTA.`,
   },
 
+  // -------------------------------------------------- youtube (subtitle-led)
+  "youtube-video": {
+    id: "youtube-video",
+    label: "YouTube Video",
+    description: "Faceless YouTube style: b-roll footage + voiceover + big synced subtitles.",
+    aspectRatio: "16:9",
+    background: "footage",
+    sceneRange: [4, 6],
+    favorOverlays: ["heroTitle"],
+    keywords: ["youtube", "faceless", "b-roll", "broll", "video essay", "how to", "how-to", "top 10", "top ten", "documentary", "narrated", "voiceover", "explainer"],
+    guidance: `
+VIDEO TYPE: YouTube Video (faceless, subtitle-led).
+Every scene background is AI-generated cinematic B-ROLL footage (background.kind
+"video", source "generate", rich subject-anchored asset.prompt). The video is
+driven by a punchy, conversational VOICEOVER plus BIG auto-generated subtitles
+synced to it word-by-word — the subtitles appear automatically, do NOT add them
+as overlays. Keep overlays essentially empty: at most ONE small heroTitle on the
+opening scene; let the b-roll + subtitles carry everything. Write an engaging,
+retention-focused YouTube narration script (strong hook first, clear points, a
+wrap/CTA). Use background.scrim 0.5-0.6 so the subtitles pop over the footage.
+Beats: HOOK -> POINT -> POINT -> POINT -> WRAP/CTA.`,
+  },
+
   // ------------------------------------------------------------ social short
   "social-short": {
     id: "social-short",
