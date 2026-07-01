@@ -279,6 +279,30 @@ export function useAdminOverview(enabled = true) {
   });
 }
 
+export function useAdminUsers(enabled = true) {
+  return useQuery({ queryKey: ["admin-users"], queryFn: api.adminListUsers, enabled });
+}
+
+export function useAdminUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; credits?: number; role?: "admin" | "user" }) =>
+      api.adminUpdateUser(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
+}
+
+export function useAdminDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.adminDeleteUser(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+  });
+}
+
 export function useUpdateAdminSettings() {
   const qc = useQueryClient();
   return useMutation({
