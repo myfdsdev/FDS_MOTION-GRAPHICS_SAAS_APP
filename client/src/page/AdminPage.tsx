@@ -27,6 +27,7 @@ import {
 } from "@/lib/queries";
 import { getLottieAnimation } from "@/lib/api";
 import ProvidersManager from "./ProvidersManager";
+import UsersManager from "./UsersManager";
 import { formatRelativeTime } from "@/lib/utils";
 import type { LottieAssetSummary, VideoCategory } from "@/types";
 
@@ -351,6 +352,11 @@ export default function AdminPage() {
         </div>
       </section>
 
+      <div className="order-5 col-span-12">
+        <UsersManager />
+      </div>
+
+      {false && (
       <section className="order-5 col-span-12 rounded-[14px] border border-white/[0.07] bg-surface p-[18px] xl:col-span-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
@@ -502,6 +508,7 @@ export default function AdminPage() {
           </div>
         </div>
       </section>
+      )}
 
       <div className="order-6 col-span-12 grid gap-[18px] sm:grid-cols-2 xl:col-span-6">
         <section className="rounded-[14px] border border-white/[0.07] bg-surface p-[18px]">
