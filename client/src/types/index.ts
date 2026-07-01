@@ -224,6 +224,16 @@ export interface AdminSettings {
   allowUserApiKeys: boolean;
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string | null;
+  credits: number;
+  isAdmin: boolean;
+  createdAt: string;
+  projectCount: number;
+}
+
 export interface AdminOverview {
   stats: {
     users: number;
