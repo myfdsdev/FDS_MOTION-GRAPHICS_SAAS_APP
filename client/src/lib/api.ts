@@ -9,6 +9,7 @@ import type {
   ProfileSettings,
   Project,
   Recipe,
+  AdminUser,
   BotSession,
   BotSessionSummary,
   AspectRatio,
@@ -375,6 +376,20 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     };
   }
   return realFetch<AdminOverview>("/api/admin/overview");
+}
+
+export async function adminListUsers(): Promise<AdminUser[]> {
+  if (USE_MOCKS) return [];
+  return realFetch<AdminUser[]>("/api/admin/users");
+}
+export async function adminUpdateUser(
+  id: string,
+  input: { credits?: number; role?: "admin" | "user" }
+): Promise<AdminUser> {
+  return realFetch<AdminUser>(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+export async function adminDeleteUser(id: string): Promise<void> {
+  await realFetch<void>(`/api/admin/users/${id}`, { method: "DELETE" });
 }
 
 export async function updateAdminSettings(input: Partial<AdminSettings>): Promise<AdminSettings> {

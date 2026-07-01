@@ -121,6 +121,56 @@ adminRouter.get("/overview", async (_req, res, next) => {
   }
 });
 
+// ---- User management --------------------------------------------------
+// Full user list with per-user project counts.
+adminRouter.get("/users", async (_req, res, next) => {
+  try {
+    const [users, counts] = await Promise.all([
+      User.find().sort({ createdAt: -1 }).lean(),
+      Project.aggregate([
+        { $match: { deletedAt: null } },
+        { $group: { _id: "$userId", n: { $sum: 1 } } },
+      ]),
+    ]);
+    const byUser = Object.fromEntries(counts.map((c) => [String(c._id), c.n]));
+    res.json(users.map((u) => ({ ...toUserDTO(u), projectCount: byUser[String(u._id)] || 0 })));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Adjust a user's credits (plan) or admin role.
+adminRouter.patch("/users/:id", async (req, res, next) => {
+  try {
+    const update = {};
+    if (req.body.credits !== undefined && Number.isFinite(Number(req.body.credits))) {
+      update.credits = Math.max(0, Math.round(Number(req.body.credits)));
+    }
+    if (req.body.role === "admin" || req.body.role === "user") update.role = req.body.role;
+    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(toUserDTO(user));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete a user (and soft-delete their projects). Can't delete yourself.
+adminRouter.delete("/users/:id", async (req, res, next) => {
+  try {
+    if (String(req.user.id) === String(req.params.id)) {
+      return res.status(400).json({ error: "You can't delete your own account here." });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    await Project.updateMany({ userId: user._id }, { deletedAt: new Date() });
+    await User.deleteOne({ _id: user._id });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 adminRouter.patch("/settings", validate(UpdateAdminSettingsInput), async (req, res, next) => {
   try {
     const settings = await updateAppSettings(req.body);
