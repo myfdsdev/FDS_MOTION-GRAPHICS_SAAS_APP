@@ -234,6 +234,12 @@ export interface AdminUser {
   projectCount: number;
 }
 
+/** A project row in the admin Projects browser — a normal Project plus the
+ *  owning user's identity so an admin can see whose video it is. */
+export interface AdminProject extends Project {
+  owner: { email: string; name: string | null } | null;
+}
+
 export interface AdminOverview {
   stats: {
     users: number;

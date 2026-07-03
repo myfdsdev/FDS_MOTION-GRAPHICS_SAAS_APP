@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { ApiUsage, CreditTx, Project, User } from "../models.js";
 import { apiUsageMonthlyTokenLimit } from "../lib/apiUsage.js";
 import { getAppSettings, updateAppSettings } from "../lib/settings.js";
@@ -115,6 +116,63 @@ adminRouter.get("/overview", async (_req, res, next) => {
       settings,
       recentUsers: recentUsers.map(toUserDTO),
       recentProjects: recentProjects.map(toProjectDTO),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Project management -----------------------------------------------
+// Every project across ALL users, newest first. Optional ?search= (matches
+// prompt OR owner email/name) and ?status= filter. Each row carries its owner
+// so an admin can browse and open any user's video. Capped for safety.
+adminRouter.get("/projects", async (req, res, next) => {
+  try {
+    const search = String(req.query.search || "").trim();
+    const status = String(req.query.status || "").trim();
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
+
+    const query = { deletedAt: null };
+    if (status) query.status = status;
+
+    if (search) {
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const matchedUsers = await User.find({ $or: [{ email: rx }, { name: rx }] })
+        .select("_id")
+        .lean();
+      query.$or = [{ prompt: rx }, { userId: { $in: matchedUsers.map((u) => u._id) } }];
+    }
+
+    const projects = await Project.find(query).sort({ createdAt: -1 }).limit(limit).lean();
+    const userIds = [...new Set(projects.map((p) => String(p.userId)))];
+    const owners = await User.find({ _id: { $in: userIds } }).select("email name").lean();
+    const ownerById = Object.fromEntries(owners.map((u) => [String(u._id), u]));
+
+    res.json(
+      projects.map((p) => {
+        const owner = ownerById[String(p.userId)];
+        return {
+          ...toProjectDTO(p),
+          owner: owner ? { email: owner.email, name: owner.name ?? null } : null,
+        };
+      })
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
+// One project (any owner) — full detail for the admin viewer.
+adminRouter.get("/projects/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id))
+      return res.status(404).json({ error: "Project not found" });
+    const project = await Project.findOne({ _id: req.params.id, deletedAt: null }).lean();
+    if (!project) return res.status(404).json({ error: "Project not found" });
+    const owner = await User.findById(project.userId).select("email name").lean();
+    res.json({
+      ...toProjectDTO(project),
+      owner: owner ? { email: owner.email, name: owner.name ?? null } : null,
     });
   } catch (err) {
     next(err);

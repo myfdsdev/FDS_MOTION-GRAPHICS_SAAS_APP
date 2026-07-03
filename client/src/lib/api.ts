@@ -1,5 +1,6 @@
 import type {
   AdminOverview,
+  AdminProject,
   AdminSettings,
   AssistantChatResult,
   CreditPack,
@@ -376,6 +377,18 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     };
   }
   return realFetch<AdminOverview>("/api/admin/overview");
+}
+
+export async function adminListProjects(params: {
+  search?: string;
+  status?: string;
+} = {}): Promise<AdminProject[]> {
+  if (USE_MOCKS) return [];
+  const qs = new URLSearchParams();
+  if (params.search?.trim()) qs.set("search", params.search.trim());
+  if (params.status?.trim()) qs.set("status", params.status.trim());
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return realFetch<AdminProject[]>(`/api/admin/projects${suffix}`);
 }
 
 export async function adminListUsers(): Promise<AdminUser[]> {

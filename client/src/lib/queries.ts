@@ -283,6 +283,19 @@ export function useAdminUsers(enabled = true) {
   return useQuery({ queryKey: ["admin-users"], queryFn: api.adminListUsers, enabled });
 }
 
+export function useAdminProjects(
+  params: { search?: string; status?: string } = {},
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ["admin-projects", params.search ?? "", params.status ?? ""],
+    queryFn: () => api.adminListProjects(params),
+    enabled,
+    // Keep in-flight renders fresh while the admin is watching the list.
+    refetchInterval: 5000,
+  });
+}
+
 export function useAdminUpdateUser() {
   const qc = useQueryClient();
   return useMutation({
