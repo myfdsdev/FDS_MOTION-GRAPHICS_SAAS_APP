@@ -8,6 +8,15 @@
   "properties": {
     "version": { "type": "string" },
     "aspectRatio": { "type": "string", "enum": ["16:9", "9:16", "1:1", "4:3"] },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "bg": { "type": "string", "pattern": "^#[0-9a-fA-F]{3,8}$" },
+        "fg": { "type": "string", "pattern": "^#[0-9a-fA-F]{3,8}$" },
+        "accent": { "type": "string", "pattern": "^#[0-9a-fA-F]{3,8}$" },
+        "accent2": { "type": "string", "pattern": "^#[0-9a-fA-F]{3,8}$" }
+      }
+    },
     "scenes": {
       "type": "array",
       "minItems": 3,

@@ -35,6 +35,16 @@ import {
   PieChart,
   KPIGrid,
 } from "../components";
+import {
+  DEFAULT_THEME,
+  mixHex,
+  normalizeTheme,
+  resolveSceneTheme,
+  withAlpha,
+  type SceneTheme,
+  type Theme,
+} from "../components/theme";
+import { DISPLAY_FONT } from "../components/fonts";
 
 /* ------------------------------------------------------------------ *
  * SceneRenderer
@@ -160,6 +170,8 @@ export interface WordCaption {
 
 export interface VideoPlan {
   scenes: Scene[];
+  /** per-video design palette ({ bg, fg, accent, accent2 }, all hex) */
+  theme?: Partial<Theme>;
   /** spoken narration (full track) */
   narration?: AudioTrack;
   /** music bed (separate, ducked) */
@@ -305,21 +317,30 @@ function metricsOf(value: unknown) {
   });
 }
 
-function normalizeOverlayProps(type: OverlayType, rawProps: unknown): Record<string, unknown> {
+function normalizeOverlayProps(
+  type: OverlayType,
+  rawProps: unknown,
+  theme: SceneTheme,
+  soloOverlay: boolean,
+): Record<string, unknown> {
   const props = recordOf(rawProps);
   const title = textOf(props.title, textOf(props.text, "Key moment"));
 
   switch (type) {
     case "heroTitle":
-      return { ...props, title, subtitle: props.subtitle };
+      return { ...props, theme, title, subtitle: props.subtitle };
     case "kineticTitle":
       return {
         ...props,
         title,
         subtitle: props.subtitle,
-        gradient: Array.isArray(props.gradient) ? props.gradient : undefined,
-        bg: typeof props.bg === "string" ? props.bg : undefined,
-        accent: typeof props.accent === "string" ? props.accent : undefined,
+        // Full-bleed premium scene: default its self-painted backdrop and
+        // gradient to the video theme so it matches the rest of the video.
+        gradient: Array.isArray(props.gradient)
+          ? props.gradient
+          : [theme.accent, theme.accent2],
+        bg: typeof props.bg === "string" ? props.bg : mixHex(theme.bg, "#000000", 0.55),
+        accent: typeof props.accent === "string" ? props.accent : theme.accent,
       };
     case "logoReveal":
       return {
@@ -327,22 +348,40 @@ function normalizeOverlayProps(type: OverlayType, rawProps: unknown): Record<str
         brand: typeof props.brand === "string" ? props.brand : undefined,
         tagline: typeof props.tagline === "string" ? props.tagline : undefined,
         cta: typeof props.cta === "string" ? props.cta : undefined,
-        gradient: Array.isArray(props.gradient) ? props.gradient : undefined,
-        bg: typeof props.bg === "string" ? props.bg : undefined,
-        accent: typeof props.accent === "string" ? props.accent : undefined,
+        gradient: Array.isArray(props.gradient)
+          ? props.gradient
+          : [theme.accent, theme.accent2],
+        bg: typeof props.bg === "string" ? props.bg : mixHex(theme.bg, "#000000", 0.55),
+        accent: typeof props.accent === "string" ? props.accent : theme.accent,
       };
     case "sectionTitle":
-      return { ...props, title, subtitle: props.subtitle };
+      // Center stage only when it's the scene's ONLY overlay; otherwise anchor
+      // top-left as a label so it never collides with a centered centerpiece
+      // (statReveal, chart, textCard...).
+      return {
+        ...props,
+        theme,
+        title,
+        subtitle: props.subtitle,
+        position: props.position ?? (soloOverlay ? "center" : "top-left"),
+      };
     case "textCard":
-      return { ...props, text: textOf(props.text, title) };
+      return { ...props, theme, text: textOf(props.text, title) };
     case "statCard":
-      return { ...props, stat: textOf(props.stat, textOf(props.value, "Fast")), subtitle: props.subtitle };
+      return { ...props, theme, stat: textOf(props.stat, textOf(props.value, "Fast")), subtitle: props.subtitle };
     case "statReveal":
-      return { ...props, stat: textOf(props.stat, textOf(props.value, "Fast")), label: props.label };
+      return { ...props, theme, stat: textOf(props.stat, textOf(props.value, "Fast")), label: props.label };
     case "calloutBox":
-      return { ...props, text: textOf(props.text, title) };
+      return { ...props, theme, text: textOf(props.text, title) };
     case "comparisonCard":
       return {
+        // themed defaults: "before" in a neutral tone, "after" in the accent
+        backgroundColor: "transparent",
+        cardBackgroundColor: theme.panel,
+        textColor: theme.fg,
+        fontFamily: DISPLAY_FONT,
+        leftColor: mixHex(theme.fg, theme.bg, 0.45),
+        rightColor: theme.accent,
         ...props,
         leftLabel: textOf(props.leftLabel, "Before"),
         rightLabel: textOf(props.rightLabel, "After"),
@@ -350,18 +389,53 @@ function normalizeOverlayProps(type: OverlayType, rawProps: unknown): Record<str
         rightValue: textOf(props.rightValue, "Fast"),
       };
     case "progressBar":
-      return { ...props, progress: Math.max(0, Math.min(100, numberOf(props.progress, 72))) };
+      return {
+        backgroundColor: "transparent",
+        color: theme.accent,
+        trackColor: withAlpha(theme.fg, 0.15),
+        textColor: theme.fg,
+        fontFamily: DISPLAY_FONT,
+        ...props,
+        progress: Math.max(0, Math.min(100, numberOf(props.progress, 72))),
+      };
     case "providerChip":
-      return { ...props, providers: stringArrayOf(props.providers, ["Kie", "Remotion", "AI video"]) };
+      return {
+        accentColor: theme.accent,
+        ...props,
+        providers: stringArrayOf(props.providers, ["Kie", "Remotion", "AI video"]),
+      };
     case "barChart":
     case "pieChart":
-      return { ...props, data: chartDataOf(props.data), title: props.title };
     case "lineChart":
-      return { ...props, series: lineSeriesOf(props.series), title: props.title };
-    case "kpiGrid":
-      return { ...props, metrics: metricsOf(props.metrics), title: props.title };
+    case "kpiGrid": {
+      // Theme the charts: transparent over the scene (they used to paint a
+      // full white card), text in the scene fg, series colors from the accent
+      // ramp. Explicit planner props still win.
+      const chartTheme = {
+        backgroundColor: "transparent",
+        cardBackgroundColor: theme.panel,
+        textColor: theme.fg,
+        gridColor: withAlpha(theme.fg, 0.16),
+        fontFamily: DISPLAY_FONT,
+        colors: [
+          theme.accent,
+          theme.accent2,
+          mixHex(theme.accent, theme.accent2, 0.5),
+          mixHex(theme.accent, theme.onLight ? "#000000" : "#FFFFFF", 0.35),
+          mixHex(theme.accent2, theme.onLight ? "#000000" : "#FFFFFF", 0.35),
+          mixHex(theme.accent, theme.onLight ? "#FFFFFF" : "#000000", 0.3),
+        ],
+      };
+      if (type === "lineChart") {
+        return { ...chartTheme, ...props, series: lineSeriesOf(props.series), title: props.title };
+      }
+      if (type === "kpiGrid") {
+        return { ...chartTheme, ...props, metrics: metricsOf(props.metrics), title: props.title };
+      }
+      return { ...chartTheme, ...props, data: chartDataOf(props.data), title: props.title };
+    }
     case "particles":
-      return { ...props, type: textOf(props.type, "sparkles") };
+      return { color: theme.accent, ...props, type: textOf(props.type, "sparkles") };
     default:
       return props;
   }
@@ -388,10 +462,12 @@ const OVERLAY_COMPONENTS: Record<OverlayType, React.ComponentType<any>> = {
   particles: ParticleOverlay,
 };
 
-const OverlayLayer: React.FC<{ overlay: Overlay; sceneFrames: number }> = ({
-  overlay,
-  sceneFrames,
-}) => {
+const OverlayLayer: React.FC<{
+  overlay: Overlay;
+  sceneFrames: number;
+  theme: SceneTheme;
+  soloOverlay: boolean;
+}> = ({ overlay, sceneFrames, theme, soloOverlay }) => {
   const Comp = OVERLAY_COMPONENTS[overlay.type];
   if (!Comp) return null;
   const from = toNonNegativeFrames(overlay.fromFrames, 0);
@@ -399,7 +475,7 @@ const OverlayLayer: React.FC<{ overlay: Overlay; sceneFrames: number }> = ({
     overlay.durationInFrames !== undefined
       ? toPositiveFrames(overlay.durationInFrames, 1)
       : Math.max(1, sceneFrames - from);
-  const props = normalizeOverlayProps(overlay.type, overlay.props);
+  const props = normalizeOverlayProps(overlay.type, overlay.props, theme, soloOverlay);
   return (
     <Sequence from={from} durationInFrames={duration} layout="none">
       <AbsoluteFill style={{ pointerEvents: "none" }}>
@@ -411,7 +487,20 @@ const OverlayLayer: React.FC<{ overlay: Overlay; sceneFrames: number }> = ({
 
 /* ---------- one scene: background + grade + overlays ----------------- */
 
-const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
+// Full-bleed overlays paint the entire frame themselves; stacking a second one
+// (or anything under it) is invisible or double-titled. Keep only the first.
+const FULL_BLEED = new Set<OverlayType>(["kineticTitle", "logoReveal"]);
+
+function overlaysFor(scene: Scene): Overlay[] {
+  const overlays = scene.overlays ?? [];
+  const fullBleed = overlays.find((o) => FULL_BLEED.has(o.type));
+  return fullBleed ? [fullBleed] : overlays;
+}
+
+const SceneLayer: React.FC<{ scene: Scene; videoTheme: Theme }> = ({
+  scene,
+  videoTheme,
+}) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const safeDurationInFrames = toPositiveFrames(
@@ -441,6 +530,16 @@ const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
   const trimBefore = trimFrames(bg.trimBeforeSeconds, fps);
   const trimAfter = trimFrames(bg.trimAfterSeconds, fps);
 
+  // Resolve the video theme against THIS scene's actual backdrop, so overlay
+  // text is always readable (footage reads dark via scrim; flat colors are
+  // measured for luminance).
+  const hasFootage = (bg.kind === "video" || bg.kind === "image") && !!bg.src;
+  const fillColor = bg.color ?? videoTheme.bg;
+  const sceneTheme = resolveSceneTheme(
+    videoTheme,
+    hasFootage ? { kind: "footage" } : { kind: "color", color: fillColor },
+  );
+
   // slow push-in keeps even a static clip feeling alive
   const scale = interpolate(frame, [0, safeDurationInFrames], [1.02, 1], {
     extrapolateLeft: "clamp",
@@ -448,7 +547,7 @@ const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg.color ?? "#000", opacity }}>
+    <AbsoluteFill style={{ backgroundColor: fillColor, opacity }}>
       {/* Layer 1: background footage */}
       {bg.kind === "video" && bg.src ? (
         <OffthreadVideo
@@ -490,13 +589,21 @@ const SceneLayer: React.FC<{ scene: Scene }> = ({ scene }) => {
       ) : null}
 
       {/* Layer 3: motion-graphics overlays */}
-      {(scene.overlays ?? []).map((overlay, i) => (
-        <OverlayLayer
-          key={`${overlay.type}-${i}`}
-          overlay={overlay}
-          sceneFrames={safeDurationInFrames}
-        />
-      ))}
+      {(() => {
+        const overlays = overlaysFor(scene);
+        // "particles" is ambient decoration, not content — a sectionTitle
+        // paired only with particles still deserves center stage.
+        const contentCount = overlays.filter((o) => o.type !== "particles").length;
+        return overlays.map((overlay, i) => (
+          <OverlayLayer
+            key={`${overlay.type}-${i}`}
+            overlay={overlay}
+            sceneFrames={safeDurationInFrames}
+            theme={sceneTheme}
+            soloOverlay={contentCount <= 1}
+          />
+        ));
+      })()}
     </AbsoluteFill>
   );
 };
@@ -544,6 +651,7 @@ const AudioLayer: React.FC<{ track: AudioTrack; defaultVolume: number }> = ({
 
 export const SceneRenderer: React.FC<SceneRendererProps> = ({ plan }) => {
   const scenes = plan.scenes ?? [];
+  const videoTheme: Theme = plan.theme ? normalizeTheme(plan.theme) : DEFAULT_THEME;
   const n = scenes.length;
   const overlap = Math.max(0, n - 1) * TRANSITION_FRAMES;
 
@@ -563,7 +671,7 @@ export const SceneRenderer: React.FC<SceneRendererProps> = ({ plan }) => {
     const dur = base + (i === n - 1 ? overlap : 0); // pad last to keep total length
     nodes.push(
       <TransitionSeries.Sequence key={scene.id} durationInFrames={dur}>
-        <SceneLayer scene={scene} />
+        <SceneLayer scene={scene} videoTheme={videoTheme} />
       </TransitionSeries.Sequence>,
     );
   });
@@ -577,11 +685,14 @@ export const SceneRenderer: React.FC<SceneRendererProps> = ({ plan }) => {
       {/* Scenes with cross-transitions */}
       <TransitionSeries>{nodes}</TransitionSeries>
 
-      {/* Captions (global, on top of everything) */}
+      {/* Captions (global, on top of everything) — the pill is always dark,
+          so highlight in the raw theme accent (nudged bright if needed). */}
       {plan.captions?.words?.length ? (
         <CaptionOverlay
           words={plan.captions.words}
           wordsPerPage={plan.captions.wordsPerPage ?? 5}
+          highlightColor={resolveSceneTheme(videoTheme, { kind: "footage" }).accent}
+          fontFamily={DISPLAY_FONT}
         />
       ) : null}
     </AbsoluteFill>

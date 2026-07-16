@@ -97,6 +97,20 @@ function validNarration(value) {
  * Fix harmless model drift before schema validation. Optional media fields
  * should be omitted when unused, but LLMs often emit null/[]/"none" there.
  */
+const THEME_HEX = /^#[0-9a-fA-F]{3,8}$/;
+
+/** Keep only valid hex fields of a planner-emitted theme; drop it if empty. */
+function normalizeTheme(theme) {
+  if (!validObject(theme)) return undefined;
+  const clean = {};
+  for (const key of ["bg", "fg", "accent", "accent2"]) {
+    if (typeof theme[key] === "string" && THEME_HEX.test(theme[key].trim())) {
+      clean[key] = theme[key].trim();
+    }
+  }
+  return Object.keys(clean).length ? clean : undefined;
+}
+
 export function normalizeScenePlan(plan) {
   if (!validObject(plan)) return plan;
 
@@ -104,6 +118,10 @@ export function normalizeScenePlan(plan) {
 
   if (!validNarration(normalized.narration)) delete normalized.narration;
   if (!validAudioTrack(normalized.music)) delete normalized.music;
+
+  const theme = normalizeTheme(normalized.theme);
+  if (theme) normalized.theme = theme;
+  else delete normalized.theme;
 
   if (Array.isArray(normalized.captions)) {
     normalized.captions = { words: normalized.captions };

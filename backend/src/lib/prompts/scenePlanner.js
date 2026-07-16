@@ -24,12 +24,22 @@ OUTPUT SHAPE
 {
   "version": "1.0",
   "aspectRatio": one of "16:9" | "9:16" | "1:1" | "4:3",
+  "theme": { "bg": hex, "fg": hex, "accent": hex, "accent2": hex },
   "scenes": [ 3 to 6 scene objects ],
   "narration": { "script": "spoken voiceover for the whole video" },
   "musicBrief": optional one-line description of the ideal background music,
   "music": optional audio track,
   "captions": optional { words[], wordsPerPage }
 }
+
+THEME (one palette for the whole video — REQUIRED)
+- Pick a tasteful palette matched to the subject/brand mood: "bg" (base
+  background), "fg" (text), "accent" + "accent2" (the brand gradient). All 6-digit
+  hex. Prefer a dark, rich bg with vivid accents; use a light bg only when the
+  brand clearly calls for it. The renderer guarantees text contrast automatically.
+- For scenes with background.kind "color", set background.color to theme.bg or a
+  close variant of it (a tint/shade of the same hue) — do NOT jump to unrelated
+  loud colors scene to scene; the accent colors provide the pop.
 
 MUSIC BRIEF (optional)
 - You MAY include "musicBrief": a single short string describing the background
@@ -78,7 +88,21 @@ EACH OVERLAY (motion graphics that ride ON TOP of the footage)
     //   backdrop, glow, grain). Use it as the ONLY overlay on a hero/title scene
     //   for a high-end look. props: { title, subtitle?, gradient?:[from,to hex],
     //   bg?:hex, accent?:hex }. Pair with background.kind "color".
-  "props": object matching that component (e.g. heroTitle => {title, subtitle}),
+  "props": object matching that component — EXACT prop shapes:
+    heroTitle     => { "title", "subtitle"?, "kicker"? }
+    sectionTitle  => { "title", "subtitle"?, "kicker"? }   (kicker e.g. "STEP 2")
+    textCard      => { "text", "label"? }
+    statReveal    => { "stat": "42%", "label": "revenue growth" }  (stat = short string, numbers count up)
+    statCard      => { "stat", "subtitle"? }
+    calloutBox    => { "text", "title"?, "type": "info"|"warning"|"tip"|"quote" }
+    comparisonCard=> { "leftLabel", "leftValue", "rightLabel", "rightValue" }
+    progressBar   => { "progress": 0-100 }
+    barChart      => { "title"?, "data": [ { "label", "value" }, ... ] }
+    pieChart      => { "title"?, "data": [ { "label", "value" }, ... ] }
+    lineChart     => { "title"?, "series": [ { "label", "data": [ { "x", "y" }, ... ] } ] }
+    kpiGrid       => { "title"?, "metrics": [ { "label", "value", "prefix"?, "suffix"? }, ... ] }
+    providerChip  => { "providers": [strings] }
+    particles     => { "type": "sparkles" },
   "fromFrames": optional int — when it appears inside the scene,
   "durationInFrames": optional int — how long it stays
 }

@@ -5,202 +5,181 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { DISPLAY_FONT } from "./fonts";
+import { DEFAULT_SCENE_THEME, type SceneTheme, withAlpha } from "./theme";
 
 type CalloutType = "info" | "warning" | "tip" | "quote";
 
 interface CalloutBoxProps {
   text: string;
   type?: CalloutType;
-  icon?: string;
   title?: string;
-  borderColor?: string;
-  backgroundColor?: string;
-  textColor?: string;
-  fontFamily?: string;
-  fontSize?: number;
-  titleFontSize?: number;
-  containerBackgroundColor?: string;
+  accentColor?: string;
+  theme?: SceneTheme;
 }
 
-const TYPE_DEFAULTS: Record<
-  CalloutType,
-  { icon: string; border: string; bg: string }
-> = {
-  info: { icon: "\u2139\uFE0F", border: "#2563EB", bg: "#EFF6FF" },
-  warning: { icon: "\u26A0\uFE0F", border: "#F59E0B", bg: "#FFFBEB" },
-  tip: { icon: "\uD83D\uDCA1", border: "#10B981", bg: "#ECFDF5" },
-  quote: { icon: "\u201C", border: "#9CA3AF", bg: "#F9FAFB" },
+/** Crisp vector icons (no OS emoji). Stroke color comes from the accent. */
+const Icon: React.FC<{ type: CalloutType; size: number; color: string }> = ({
+  type,
+  size,
+  color,
+}) => {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: color,
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (type) {
+    case "warning":
+      return (
+        <svg {...common}>
+          <path d="M10.3 3.9 1.8 18.1a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <circle cx="12" cy="17" r="0.5" fill={color} />
+        </svg>
+      );
+    case "tip":
+      return (
+        <svg {...common}>
+          <path d="M9 18h6M10 21h4" />
+          <path d="M12 3a6 6 0 0 0-4 10.5c.8.7 1.3 1.5 1.5 2.5h5c.2-1 .7-1.8 1.5-2.5A6 6 0 0 0 12 3Z" />
+        </svg>
+      );
+    case "quote":
+      return (
+        <svg {...common} fill={color} stroke="none">
+          <path d="M10 7H6a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2v2a4 4 0 0 0 4-4V9a2 2 0 0 0 0-2Z" />
+          <path d="M20 7h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v2a2 2 0 0 1-2 2v2a4 4 0 0 0 4-4V9a2 2 0 0 0 0-2Z" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <line x1="12" y1="11" x2="12" y2="16" />
+          <circle cx="12" cy="8" r="0.5" fill={color} />
+        </svg>
+      );
+  }
 };
 
+/**
+ * Premium callout: a glass panel with an accent icon chip and a drawing edge
+ * bar. A true overlay — transparent around the card, so the scene shows
+ * through. Theme-aware and responsive.
+ */
 export const CalloutBox: React.FC<CalloutBoxProps> = ({
   text,
   type = "info",
-  icon,
   title,
-  borderColor,
-  backgroundColor,
-  textColor = "#1F2937",
-  fontFamily = "Inter, system-ui, sans-serif",
-  fontSize = 32,
-  titleFontSize = 38,
-  containerBackgroundColor = "#FFFFFF",
+  accentColor,
+  theme = DEFAULT_SCENE_THEME,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width, height, durationInFrames } = useVideoConfig();
+  const u = Math.min(width, height) / 1080;
 
-  const defaults = TYPE_DEFAULTS[type];
-  const resolvedBorder = borderColor || defaults.border;
-  const resolvedBg = backgroundColor || defaults.bg;
-  const resolvedIcon = icon || defaults.icon;
-
-  // Slide-in from left with slight bounce
-  const slideX = spring({
-    frame,
-    fps,
-    config: { damping: 13, stiffness: 90 },
-    from: -80,
-    to: 0,
-  });
-
-  const opacity = spring({
-    frame,
-    fps,
-    config: { damping: 18 },
-  });
-
-  // Scale bounce (subtle overshoot)
-  const scale = spring({
-    frame,
-    fps,
-    config: { damping: 11, stiffness: 100 },
-    from: 0.96,
-    to: 1,
-  });
-
-  // Icon entrance — slightly delayed
-  const iconScale = spring({
-    frame: frame - 5,
-    fps,
-    config: { damping: 10, stiffness: 120 },
-    from: 0.5,
-    to: 1,
-  });
-  const iconOpacity = spring({
-    frame: frame - 5,
-    fps,
-    config: { damping: 20 },
-  });
-
-  // Text fade in — staggered after box
-  const textOpacity = spring({
-    frame: frame - 8,
-    fps,
-    config: { damping: 20 },
-  });
-
-  // Border accent draw (height grows top to bottom)
-  const borderDraw = spring({
-    frame: frame - 3,
-    fps,
-    config: { damping: 14, stiffness: 80 },
-  });
-
-  // Quote type uses italic styling
+  const accent = accentColor || theme.accent;
   const isQuote = type === "quote";
 
+  const cardIn = spring({ frame, fps, config: { damping: 14, stiffness: 90 } });
+  const iconIn = spring({ frame: frame - 4, fps, config: { damping: 10, stiffness: 130 } });
+  const textIn = spring({ frame: frame - 7, fps, config: { damping: 20 } });
+  const barDraw = spring({ frame: frame - 3, fps, config: { damping: 14, stiffness: 80 } });
+  const exit = interpolate(frame, [durationInFrames - 10, durationInFrames], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
-    <AbsoluteFill
-      style={{
-        background: containerBackgroundColor,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
+    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", opacity: exit }}>
       <div
         style={{
-          opacity,
-          transform: `translateX(${slideX}px) scale(${scale})`,
           width: "72%",
-          maxWidth: 1380,
-          position: "relative",
+          maxWidth: 1380 * u,
+          opacity: cardIn,
+          transform: `translateX(${interpolate(cardIn, [0, 1], [-60 * u, 0])}px) scale(${interpolate(
+            cardIn,
+            [0, 1],
+            [0.97, 1],
+          )})`,
         }}
       >
-        {/* Main box */}
         <div
           style={{
             display: "flex",
-            flexDirection: "row",
             alignItems: "flex-start",
-            backgroundColor: resolvedBg,
-            borderRadius: 12,
-            padding: "40px 48px",
-            overflow: "hidden",
+            gap: 30 * u,
             position: "relative",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+            background: theme.panel,
+            border: `1px solid ${theme.panelBorder}`,
+            borderRadius: 22 * u,
+            padding: `${42 * u}px ${52 * u}px`,
+            overflow: "hidden",
+            boxShadow: `0 ${16 * u}px ${50 * u}px rgba(0,0,0,${theme.onLight ? 0.10 : 0.4})`,
           }}
         >
-          {/* Left border accent */}
+          {/* Accent edge, draws top-to-bottom */}
           <div
             style={{
               position: "absolute",
               left: 0,
               top: 0,
-              width: 6,
-              height: `${borderDraw * 100}%`,
-              backgroundColor: resolvedBorder,
-              borderRadius: "12px 0 0 12px",
+              width: 7 * u,
+              height: `${barDraw * 100}%`,
+              backgroundImage: `linear-gradient(180deg, ${accent}, ${theme.accent2})`,
+              boxShadow: `0 0 ${16 * u}px ${withAlpha(accent, 0.5)}`,
             }}
           />
 
-          {/* Icon */}
+          {/* Icon chip */}
           <div
             style={{
-              fontSize: isQuote ? 72 : 48,
-              lineHeight: 1,
-              marginRight: 28,
               flexShrink: 0,
-              opacity: iconOpacity,
-              transform: `scale(${iconScale})`,
-              color: isQuote ? resolvedBorder : undefined,
-              fontFamily: isQuote ? "Georgia, serif" : undefined,
-              fontWeight: isQuote ? 700 : undefined,
-              marginTop: isQuote ? -12 : 0,
+              width: 84 * u,
+              height: 84 * u,
+              borderRadius: 20 * u,
+              background: withAlpha(accent, 0.14),
+              border: `1px solid ${withAlpha(accent, 0.35)}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: iconIn,
+              transform: `scale(${iconIn})`,
             }}
           >
-            {resolvedIcon}
+            <Icon type={type} size={44 * u} color={accent} />
           </div>
 
           {/* Content */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              flex: 1,
-              opacity: textOpacity,
-            }}
-          >
-            {title && (
+          <div style={{ flex: 1, opacity: textIn, transform: `translateY(${interpolate(textIn, [0, 1], [10, 0])}px)` }}>
+            {title ? (
               <div
                 style={{
-                  fontFamily,
+                  fontFamily: DISPLAY_FONT,
                   fontWeight: 700,
-                  fontSize: titleFontSize,
-                  color: resolvedBorder,
-                  lineHeight: 1.3,
+                  fontSize: 34 * u,
+                  color: accent,
+                  marginBottom: 12 * u,
+                  lineHeight: 1.25,
                 }}
               >
                 {title}
               </div>
-            )}
+            ) : null}
             <div
               style={{
-                fontFamily: isQuote ? "Georgia, serif" : fontFamily,
-                fontWeight: isQuote ? 400 : 400,
+                fontFamily: DISPLAY_FONT,
+                fontWeight: 500,
                 fontStyle: isQuote ? "italic" : "normal",
-                fontSize,
-                color: textColor,
-                lineHeight: 1.6,
+                fontSize: 33 * u,
+                color: theme.fg,
+                lineHeight: 1.5,
               }}
             >
               {text}

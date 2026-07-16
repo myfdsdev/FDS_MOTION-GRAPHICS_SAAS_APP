@@ -129,7 +129,8 @@ export async function buildVideoPlan(scenePlan, ctx = {}) {
     background: {
       kind: srcById[scene.id] ? scene.background?.kind ?? "video" : "color",
       src: srcById[scene.id] ?? scene.background?.src,
-      color: scene.background?.color ?? "#000",
+      // No hard "#000" fallback — the renderer falls back to theme.bg.
+      color: scene.background?.color,
       filter: scene.background?.filter,
       scrim: scene.background?.scrim ?? (scene.overlays?.length ? 0.4 : 0),
       trimBeforeSeconds: positiveOrUndefined(scene.background?.trimBeforeSeconds),
@@ -141,6 +142,7 @@ export async function buildVideoPlan(scenePlan, ctx = {}) {
   // ---- 3. ASSEMBLE the videoPlan --------------------------------------
   return {
     scenes,
+    theme: scenePlan.theme,
     narration: scenePlan.narration,
     music: scenePlan.music,
     captions: scenePlan.captions,

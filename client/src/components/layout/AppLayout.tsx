@@ -137,19 +137,6 @@ export default function AppLayout() {
             );
           })}
         </nav>
-
-        <div className="p-3 border-t border-border-soft">
-          <Link
-            to="/billing"
-            className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface-2 border border-border hover:border-accent/40 transition-colors"
-          >
-            <span className="flex items-center gap-2 text-sm">
-              <Coins size={15} className="text-accent" />
-              <span className="text-muted">Credits</span>
-            </span>
-            <span className="font-semibold">{me.credits}</span>
-          </Link>
-        </div>
       </aside>
 
       {/* Main */}
@@ -175,6 +162,17 @@ export default function AppLayout() {
                   <div className="truncate text-xs text-muted">{me.email}</div>
                 </div>
               </div>
+
+              <Link
+                to="/billing"
+                className="mx-2 mb-1 flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 transition-colors hover:border-accent/40"
+              >
+                <span className="flex items-center gap-2 text-sm">
+                  <Coins size={15} className="text-accent" />
+                  <span className="text-muted">Credits</span>
+                </span>
+                <span className="text-sm font-semibold">{me.credits}</span>
+              </Link>
 
               <div className="my-1 h-px bg-border-soft" />
 
